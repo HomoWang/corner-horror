@@ -1,0 +1,61 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Corner Horror — Controller</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: #000;
+    color: #9a9a9a;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #status { font-size: 0.85rem; color: #666; min-height: 1.2em; text-align: center; padding: 0 1rem; }
+  button { font-family: inherit; }
+  #start {
+    padding: 1rem 3rem;
+    font-size: 1.2rem;
+    border-radius: 0.5rem;
+    border: 2px solid #703030;
+    background: #1a0808;
+    color: #c99;
+  }
+  #controls { display: none; flex-direction: column; align-items: center; gap: 1.5rem; }
+  #controls.active { display: flex; }
+  body.started #start { display: none; }
+  #action {
+    width: 9rem;
+    height: 9rem;
+    border-radius: 50%;
+    border: 2px solid #444;
+    background: #111;
+    color: #999;
+    font-size: 1.1rem;
+  }
+  #action:active { background: #2a1111; border-color: #703030; }
+  #recenter {
+    padding: 0.6rem 1.5rem;
+    font-size: 0.9rem;
+    border-radius: 0.4rem;
+    border: 1px solid #333;
+    background: #0a0a0a;
+    color: #777;
+  }
+  .hint { font-size: 0.7rem; color: #444; text-align: center; padding: 0 2rem; }
+</style>
+<p id="status">連線中…</p>
+<button id="start" type="button">開始</button>
+<div id="controls">
+  <button id="action" type="button">開始／動作</button>
+  <button id="recenter" type="button">歸中</button>
+  <p class="hint">主畫面顯示「開始體驗」或「再玩一次」時按上方按鈕；把手機頂端指向畫面中央，按「歸中」對齊</p>
+</div>
+<script type="module" src="/src/controller/main.ts"></script>

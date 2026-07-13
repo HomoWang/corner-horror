@@ -1,0 +1,10 @@
+corner-horror modules 7-8 validation
+date: 2026-07-13
+
+vitest: PASS (5 files, 28 tests)
+typecheck: PASS
+vite build: PASS
+generated asset: public/assets/room-sequence.png
+https smoke: PASS (host=200, controller=200, room asset=200)
+websocket e2e: PASS (status=true, orient=true, cue=true)
+manual projector/mobile visual validation: pending

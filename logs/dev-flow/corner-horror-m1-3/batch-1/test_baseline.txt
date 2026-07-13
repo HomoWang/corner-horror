@@ -1,0 +1,10 @@
+# Baseline (Phase 1) 2026-07-13 21:34:11
+# 專案未初始化，無測試套件——以下為 {TEST_CMD}=npm test + npx tsc --noEmit 於空專案的輸出
+npm error code ENOENT
+npm error syscall open
+npm error path C:\Users\homow\Desktop\horrorG\package.json
+npm error errno -4058
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open 'C:\Users\homow\Desktop\horrorG\package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: C:\Users\homow\AppData\Local\npm-cache\_logs\2026-07-13T13_34_11_804Z-debug-0.log

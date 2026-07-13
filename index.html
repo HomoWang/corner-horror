@@ -1,0 +1,144 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Corner Horror — Host</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  body { font-family: system-ui, sans-serif; }
+  #stage { display: block; width: 100vw; height: 100vh; }
+  #overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    background: rgba(0, 0, 0, 0.85);
+    color: #9a9a9a;
+    transition: opacity 0.6s;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  #overlay h1 { font-size: 1rem; font-weight: normal; letter-spacing: 0.3em; color: #555; }
+  #qr { background: #fff; padding: 8px; border-radius: 4px; }
+  #join-url { font-family: monospace; font-size: 0.85rem; color: #777; margin: 0; }
+  #overlay .hint { font-size: 0.75rem; color: #555; margin: 0; }
+  #experience-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: radial-gradient(circle, rgba(18, 4, 4, 0.42), rgba(0, 0, 0, 0.94));
+    color: #8e7d79;
+  }
+  #experience-overlay[hidden] { display: none; }
+  #experience-title {
+    margin: 0;
+    color: #7f6661;
+    font: 300 1.2rem/1.4 Georgia, serif;
+    letter-spacing: 0.38em;
+  }
+  #experience-copy { margin: 0; color: #5e5552; font-size: 0.75rem; }
+  #experience-start {
+    min-width: 10rem;
+    padding: 0.8rem 1.4rem;
+    border: 1px solid #633b37;
+    border-radius: 0.25rem;
+    background: rgba(25, 5, 5, 0.88);
+    color: #b28c84;
+    letter-spacing: 0.18em;
+  }
+  #status-line {
+    position: fixed;
+    left: 0.75rem;
+    bottom: 0.5rem;
+    font-size: 0.7rem;
+    color: #444;
+  }
+  #calibrate {
+    position: fixed;
+    right: 0.75rem;
+    top: 0.75rem;
+    z-index: 25;
+    border: 1px solid #444;
+    border-radius: 0.35rem;
+    background: rgba(0, 0, 0, 0.75);
+    color: #888;
+    padding: 0.45rem 0.7rem;
+  }
+  #sound-toggle {
+    position: fixed;
+    left: 0.75rem;
+    top: 0.75rem;
+    z-index: 25;
+    border: 1px solid #5b3a3a;
+    border-radius: 0.35rem;
+    background: rgba(24, 5, 5, 0.85);
+    color: #b88;
+    padding: 0.45rem 0.7rem;
+  }
+  #calibration-layer { position: fixed; inset: 0; z-index: 30; display: none; }
+  #calibration-layer.active { display: block; }
+  .calibration-line {
+    position: absolute;
+    height: 2px;
+    transform-origin: 0 50%;
+    background: #d84848;
+    box-shadow: 0 0 8px #f00;
+    pointer-events: none;
+  }
+  .calibration-handle {
+    position: absolute;
+    width: 2.5rem;
+    height: 2.5rem;
+    transform: translate(-50%, -50%);
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: #8d1818;
+    color: #fff;
+    font: 0.65rem system-ui, sans-serif;
+    touch-action: none;
+  }
+  #calibration-panel {
+    position: absolute;
+    left: 50%;
+    top: 0.75rem;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 0.4rem;
+    background: rgba(0, 0, 0, 0.9);
+    color: #aaa;
+    font-size: 0.75rem;
+  }
+  #calibration-panel button { border: 1px solid #555; background: #181818; color: #bbb; padding: 0.35rem 0.6rem; }
+</style>
+<canvas id="stage"></canvas>
+<button id="sound-toggle" type="button">點此啟動主機恐怖音效</button>
+<button id="calibrate" type="button" aria-pressed="false">投影校正</button>
+<div id="calibration-layer">
+  <div id="calibration-panel">
+    <span>拖曳四角對齊投影牆面</span>
+    <button id="calibration-reset" type="button">重設</button>
+    <button id="calibration-done" type="button">完成</button>
+  </div>
+</div>
+<div id="overlay">
+  <h1>CORNER HORROR</h1>
+  <canvas id="qr"></canvas>
+  <p id="join-url"></p>
+  <p class="hint">手機掃碼後，需先在瀏覽器接受自簽憑證警告；未連線時可用滑鼠控制光錐</p>
+</div>
+<div id="experience-overlay" hidden>
+  <h2 id="experience-title">THE CORNER</h2>
+  <p id="experience-copy">戴上耳機並把手機指向畫面中央</p>
+  <button id="experience-start" type="button">開始體驗</button>
+</div>
+<p id="status-line"></p>
+<script type="module" src="/src/host/main.ts"></script>

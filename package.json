@@ -1,0 +1,30 @@
+{
+  "name": "corner-horror",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:server": "vite build --config vite.server.config.ts",
+    "start": "node dist-server/index.mjs",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "three": "^0.178.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/three": "^0.178.1",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "vitest": "^3.2.0",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,22 @@
+# Final Result 2026-07-13 21:58:08
+## npm test
+
+> corner-horror@0.1.0 test
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/homow/desktop/horrorG[39m
+
+ [32m✓[39m tests/protocol.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/orientation.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+[2m   Start at [22m 21:58:09
+[2m   Duration [22m 633ms[2m (transform 81ms, setup 0ms, collect 133ms, tests 9ms, environment 0ms, prepare 232ms)[22m
+
+## tsc --noEmit
+tsc: PASS
+## vite build
+[2mdist/[22m[36massets/three.module-DYVGTVXN.js  [39m[1m[2m472.19 kB[22m[1m[22m[2m │ gzip: 118.77 kB[22m
+[32m✓ built in 1.39s[39m

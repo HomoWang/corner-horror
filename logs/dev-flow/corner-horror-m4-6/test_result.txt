@@ -1,0 +1,10 @@
+corner-horror modules 4-6 final validation
+date: 2026-07-13
+
+vitest: PASS (5 files, 28 tests)
+typecheck: PASS
+vite build: PASS
+https smoke: PASS (host=200, controller=200, /api/net OK)
+websocket e2e: PASS (status=true, orient=true, cue=true)
+
+manual projector/audio/mobile validation: pending user hardware check
