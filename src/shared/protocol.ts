@@ -82,6 +82,8 @@ const STORY_SCREEN_IDS = new Set<StoryScreenId>([
   'find-window',
   'window-opened',
   'find-portrait',
+  'portrait-inspect-front',
+  'portrait-inspect-back',
   'portrait-changed',
   'find-drawer',
   'keypad-0317',

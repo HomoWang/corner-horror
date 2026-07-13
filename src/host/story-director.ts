@@ -5,6 +5,7 @@ import type { StoryActionId, StoryScreenId } from '../shared/story';
 import type { Direction3 } from '../shared/event-engine';
 
 export type StoryEnding = 'open' | 'sealed';
+export type PhotoInspectionState = 'hidden' | 'front' | 'back';
 
 export interface StoryVisualState {
   window: 'hidden' | 'ready' | 'broken' | 'sealed';
@@ -22,6 +23,8 @@ type StoryState =
   | 'find-window'
   | 'window-opened'
   | 'find-portrait'
+  | 'portrait-inspect-front'
+  | 'portrait-inspect-back'
   | 'portrait-changed'
   | 'find-drawer'
   | 'keypad'
@@ -47,6 +50,7 @@ export interface StoryDirectorCallbacks {
   setPrompt(text: string | null): void;
   setCodeDigits(value: string): void;
   setChoiceFocus(choice: 'seal' | 'open' | null): void;
+  setPhotoInspection(state: PhotoInspectionState): void;
   showNotice(text: string): void;
   onEnding(ending: StoryEnding): void;
   onRestart(): void;
@@ -76,6 +80,8 @@ export class StoryDirector {
   private hintPlayed = false;
   private code = '';
   private jumpscareHidden = false;
+  private tensionCuePlayed = false;
+  private nextIncomingRingAt = Number.POSITIVE_INFINITY;
   private endingRingTimer: ReturnType<typeof setTimeout> | null = null;
   private visual = defaultVisualState();
 
@@ -103,11 +109,14 @@ export class StoryDirector {
     this.hintPlayed = false;
     this.code = '';
     this.jumpscareHidden = false;
+    this.tensionCuePlayed = false;
+    this.nextIncomingRingAt = Number.POSITIVE_INFINITY;
     this.visual = defaultVisualState();
     this.callbacks.setVisual(this.visual);
     this.callbacks.setPrompt(null);
     this.callbacks.setCodeDigits('');
     this.callbacks.setChoiceFocus(null);
+    this.callbacks.setPhotoInspection('hidden');
     this.callbacks.setFrame(0);
     this.callbacks.setJumpscareVisible(false);
     this.audio.setTension(0);
@@ -122,10 +131,50 @@ export class StoryDirector {
     const actionRisingEdge = actionPressed && !this.actionWasPressed;
     this.actionWasPressed = actionPressed;
 
-    if (this.state === 'prologue' && this.stateSeconds >= 4.2) {
+    if (this.state === 'prologue' && this.stateSeconds >= 7.2) {
       this.enter('incoming', 'incoming-407');
       this.callbacks.sendCue('ring');
+      this.nextIncomingRingAt = 5.6;
       return;
+    }
+
+    if (this.state === 'incoming' && this.stateSeconds >= this.nextIncomingRingAt) {
+      this.callbacks.sendCue('ring');
+      this.nextIncomingRingAt += 5.6;
+    }
+
+    if (
+      this.state === 'portrait-inspect-front' &&
+      this.stateSeconds >= 1.1 &&
+      !this.tensionCuePlayed
+    ) {
+      this.tensionCuePlayed = true;
+      this.callbacks.sendCue('whisper');
+      this.callbacks.showNotice('照片玻璃內側，慢慢浮出第四個人的呼吸痕跡。');
+    }
+
+    if (
+      this.state === 'portrait-inspect-back' &&
+      this.stateSeconds >= 1.4 &&
+      !this.tensionCuePlayed
+    ) {
+      this.tensionCuePlayed = true;
+      this.audio.playSting(0.22);
+      this.callbacks.sendCue('impact');
+      this.callbacks.showNotice('刮擦聲不是從你手上的照片傳來。它在你身後。');
+    }
+
+    if (this.state === 'find-portrait' && this.stateSeconds >= 4.8 && !this.tensionCuePlayed) {
+      this.tensionCuePlayed = true;
+      this.callbacks.sendCue('whisper');
+      this.callbacks.showNotice('牆上的照片輕輕歪了一次。房間裡沒有風。');
+    }
+
+    if (this.state === 'find-drawer' && this.stateSeconds >= 5.2 && !this.tensionCuePlayed) {
+      this.tensionCuePlayed = true;
+      this.audio.playFootsteps();
+      this.callbacks.sendCue('whisper');
+      this.callbacks.showNotice('抽屜裡響了一聲。接著，聲音從你身後又響了一次。');
     }
 
     if (this.state === 'open-scare') {
@@ -201,6 +250,14 @@ export class StoryDirector {
     if (this.state === 'window-opened' && id === 'continue') {
       this.setVisual({ portrait: 'ready' });
       this.enter('find-portrait', 'find-portrait');
+      return;
+    }
+    if (this.state === 'portrait-inspect-front' && id === 'continue') {
+      this.flipPortrait();
+      return;
+    }
+    if (this.state === 'portrait-inspect-back' && id === 'continue') {
+      this.closePortraitInspection();
       return;
     }
     if (this.state === 'portrait-changed' && id === 'continue') {
@@ -298,14 +355,11 @@ export class StoryDirector {
       case 'find-portrait':
         return {
           target: PORTRAIT_TARGET,
-          prompt: '按「擺正照片」',
+          prompt: '按中央鍵：拿起照片',
           hint: '家庭照掛在牆面中央，門的左邊。',
           activate: () => {
-            this.setVisual({ portrait: 'changed' });
-            this.callbacks.setFrame(1);
-            this.audio.playSting(0.48);
-            this.callbacks.sendCue('whisper');
-            this.enter('portrait-changed', 'portrait-changed');
+            this.callbacks.setPhotoInspection('front');
+            this.enter('portrait-inspect-front', 'portrait-inspect-front');
           },
         };
       case 'find-drawer':
@@ -380,6 +434,8 @@ export class StoryDirector {
     this.state = state;
     this.stateSeconds = 0;
     this.hintPlayed = false;
+    this.tensionCuePlayed = false;
+    if (state !== 'incoming') this.nextIncomingRingAt = Number.POSITIVE_INFINITY;
     this.callbacks.setPrompt(null);
     if (state !== 'door-choice') this.callbacks.setChoiceFocus(null);
     if (screen) this.callbacks.sendScreen(screen);
@@ -391,10 +447,33 @@ export class StoryDirector {
         this.handleStoryAction('answer');
         return true;
       case 'call-window':
+        if (this.stateSeconds < 2.8) return true;
+        this.handleStoryAction('continue');
+        return true;
       case 'window-opened':
+        if (this.stateSeconds < 3.2) return true;
+        this.handleStoryAction('continue');
+        return true;
+      case 'portrait-inspect-front':
+        if (this.stateSeconds < 1.8) return true;
+        this.flipPortrait();
+        return true;
+      case 'portrait-inspect-back':
+        if (this.stateSeconds < 3.0) return true;
+        this.closePortraitInspection();
+        return true;
       case 'portrait-changed':
+        if (this.stateSeconds < 2.4) return true;
+        this.handleStoryAction('continue');
+        return true;
       case 'tape-one':
+        if (this.stateSeconds < 4.5) return true;
+        this.handleStoryAction('continue');
+        return true;
       case 'tape-two':
+        if (this.stateSeconds < 4.5) return true;
+        this.handleStoryAction('continue');
+        return true;
       case 'ending-open':
       case 'ending-sealed':
         this.handleStoryAction('continue');
@@ -405,6 +484,22 @@ export class StoryDirector {
       default:
         return false;
     }
+  }
+
+  private flipPortrait(): void {
+    this.callbacks.setPhotoInspection('back');
+    this.audio.playStatic();
+    this.callbacks.sendCue('whisper');
+    this.enter('portrait-inspect-back', 'portrait-inspect-back');
+  }
+
+  private closePortraitInspection(): void {
+    this.callbacks.setPhotoInspection('hidden');
+    this.setVisual({ portrait: 'changed' });
+    this.callbacks.setFrame(1);
+    this.audio.playSting(0.62);
+    this.callbacks.sendCue('impact');
+    this.enter('portrait-changed', 'portrait-changed');
   }
 
   private advanceCode(): void {

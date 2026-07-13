@@ -6,6 +6,8 @@ export type StoryScreenId =
   | 'find-window'
   | 'window-opened'
   | 'find-portrait'
+  | 'portrait-inspect-front'
+  | 'portrait-inspect-back'
   | 'portrait-changed'
   | 'find-drawer'
   | 'keypad-0317'
@@ -91,11 +93,25 @@ export const STORY_SCREENS: Record<StoryScreenId, StoryScreen> = {
     objective: '尋找牆中央的家庭照',
     actionLabel: '擺正照片',
   },
+  'portrait-inspect-front': {
+    kind: 'objective',
+    eyebrow: '家庭照・正面',
+    title: '把照片拿近一點',
+    body: '玻璃內側正在起霧。父親、母親、女兒……右後方似乎還站著一個人。',
+    objective: '先看幾秒，再按手機中央鍵查看背面',
+  },
+  'portrait-inspect-back': {
+    kind: 'message',
+    eyebrow: '家庭照・背面',
+    title: '03：17',
+    body: '死亡時間寫在照片背面。下面還有一行較新的字：照片裡沒有女兒。',
+    objective: '先別放下照片。聽你身後的聲音。',
+  },
   'portrait-changed': {
     kind: 'message',
-    eyebrow: '照片背面',
-    title: '03：17',
-    body: '照片裡原本有三個人。現在第四個人站在他們後面。照片背面寫著：抽屜密碼是死亡時間。按中央鍵查看抽屜。',
+    eyebrow: '照片掛回牆上',
+    title: '照片裡的人換了',
+    body: '剛才的林家合照已經變成一張陌生女人的臉。死亡時間就是抽屜密碼。按中央鍵查看抽屜。',
     primaryLabel: '查看抽屜',
   },
   'find-drawer': {

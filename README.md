@@ -40,4 +40,6 @@ npm run build:server
 
 Deployment details are documented in [DEPLOYMENT.md](DEPLOYMENT.md). Audio sources and licensing
 are recorded in [public/assets/audio/SOURCES.md](public/assets/audio/SOURCES.md); original visual
-asset generation notes are recorded in [public/assets/SOURCES.md](public/assets/SOURCES.md).
+asset generation notes are recorded in [public/assets/SOURCES.md](public/assets/SOURCES.md). The
+horror pacing references and the elements adapted for this project are recorded in
+[HORROR_DESIGN_RESEARCH.md](HORROR_DESIGN_RESEARCH.md).

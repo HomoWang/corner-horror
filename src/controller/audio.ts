@@ -21,6 +21,7 @@ export class ControllerAudioEngine {
   private sampleLoadPromise: Promise<void> | null = null;
   private ambienceRequested = false;
   private pendingCues: ControllerCueId[] = [];
+  private lastRingAt = Number.NEGATIVE_INFINITY;
 
   async unlock(): Promise<boolean> {
     try {
@@ -70,6 +71,8 @@ export class ControllerAudioEngine {
 
   private playRing(): void {
     const context = this.context!;
+    if (context.currentTime - this.lastRingAt < 1) return;
+    this.lastRingAt = context.currentTime;
     const start = context.currentTime;
     const output = this.master ?? context.destination;
     const sample = this.samples.get('ring');

@@ -26,6 +26,7 @@ function createHarness() {
   const visuals: StoryVisualState[] = [];
   const endings: string[] = [];
   const faceStates: boolean[] = [];
+  const photoStates: string[] = [];
   const audio = {
     startScore: vi.fn(),
     stopScore: vi.fn(),
@@ -47,6 +48,7 @@ function createHarness() {
     setPrompt: vi.fn(),
     setCodeDigits: vi.fn(),
     setChoiceFocus: vi.fn(),
+    setPhotoInspection: (state) => photoStates.push(state),
     showNotice: vi.fn(),
     onEnding: (ending) => endings.push(ending),
     onRestart: vi.fn(),
@@ -63,7 +65,7 @@ function createHarness() {
     director.update(0.016, direction, true);
     director.update(0.016, direction, false);
   };
-  return { director, screens, cues, visuals, endings, faceStates, audio, activate, press };
+  return { director, screens, cues, visuals, endings, faceStates, photoStates, audio, activate, press };
 }
 
 afterEach(() => vi.useRealTimers());
@@ -72,12 +74,15 @@ describe('StoryDirector 407 chapter', () => {
   it('plays the investigation, accepts 0317, and completes the sealed ending', () => {
     vi.useFakeTimers();
     const harness = createHarness();
-    const { director, screens, visuals, endings, activate } = harness;
+    const { director, screens, cues, visuals, endings, photoStates, activate } = harness;
 
     director.start();
     expect(screens.at(-1)).toBe('prologue');
-    director.update(4.2, null, false);
+    director.update(7.2, null, false);
     expect(screens.at(-1)).toBe('incoming-407');
+    expect(cues.filter((cue) => cue === 'ring')).toHaveLength(1);
+    director.update(5.6, null, false);
+    expect(cues.filter((cue) => cue === 'ring')).toHaveLength(2);
 
     director.handleStoryAction('answer');
     director.handleStoryAction('continue');
@@ -87,7 +92,14 @@ describe('StoryDirector 407 chapter', () => {
 
     director.handleStoryAction('continue');
     activate(TARGETS.portrait);
+    expect(screens.at(-1)).toBe('portrait-inspect-front');
+    expect(photoStates.at(-1)).toBe('front');
+    director.handleStoryAction('continue');
+    expect(screens.at(-1)).toBe('portrait-inspect-back');
+    expect(photoStates.at(-1)).toBe('back');
+    director.handleStoryAction('continue');
     expect(screens.at(-1)).toBe('portrait-changed');
+    expect(photoStates.at(-1)).toBe('hidden');
 
     director.handleStoryAction('continue');
     activate(TARGETS.drawer);
@@ -118,12 +130,19 @@ describe('StoryDirector 407 chapter', () => {
     const { director, screens, endings, activate, press } = harness;
 
     director.start();
-    director.update(4.2, null, false);
+    director.update(7.2, null, false);
     press(); // 接聽
+    director.update(2.8, null, false);
     press(); // 掛斷並查看
     activate(TARGETS.window);
+    director.update(3.2, null, false);
     press(); // 繼續點交
     activate(TARGETS.portrait);
+    director.update(1.8, null, false);
+    press(); // 翻到照片背面
+    director.update(3, null, false);
+    press(); // 把照片放回牆上
+    director.update(2.4, null, false);
     press(); // 查看抽屜
     activate(TARGETS.drawer);
     press();
@@ -133,7 +152,9 @@ describe('StoryDirector 407 chapter', () => {
     expect(director.enteredCode).toBe('0317');
     director.update(0.65, null, false);
     expect(screens.at(-1)).toBe('tape-warning-one');
+    director.update(4.5, null, false);
     press();
+    director.update(4.5, null, false);
     press();
     activate(TARGETS.door);
     press(TARGETS.sealChoice);
@@ -151,7 +172,7 @@ describe('StoryDirector 407 chapter', () => {
     const { director, screens, faceStates, endings, activate, audio } = harness;
 
     director.start();
-    director.update(4.2, null, false);
+    director.update(7.2, null, false);
     director.handleStoryAction('answer');
     director.handleStoryAction('continue');
     activate(TARGETS.window);
@@ -159,6 +180,8 @@ describe('StoryDirector 407 chapter', () => {
     expect(audio.playJumpscare).toHaveBeenCalledTimes(1);
     director.handleStoryAction('continue');
     activate(TARGETS.portrait);
+    director.handleStoryAction('continue');
+    director.handleStoryAction('continue');
     director.handleStoryAction('continue');
     activate(TARGETS.drawer);
     for (const digit of ['1', '1', '1', '1']) director.handleStoryAction('digit', digit);

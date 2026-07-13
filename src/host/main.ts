@@ -9,7 +9,11 @@ import { buildWebSocketUrl, createRoomCode, normalizeRoomCode } from '../shared/
 import { Flashlight } from './flashlight';
 import { createCalibrationUi } from './calibration-ui';
 import { HostAudioEngine } from './audio';
-import { StoryDirector, type StoryVisualState } from './story-director';
+import {
+  StoryDirector,
+  type PhotoInspectionState,
+  type StoryVisualState,
+} from './story-director';
 import { createScene, VIEWPOINT } from './scene';
 import { STORY_SCREENS, type StoryScreenId } from '../shared/story';
 
@@ -31,6 +35,8 @@ const storyBody = document.querySelector<HTMLElement>('#story-body')!;
 const storyObjective = document.querySelector<HTMLElement>('#story-objective')!;
 const hostCode = document.querySelector<HTMLDivElement>('#host-code')!;
 const hostChoices = document.querySelector<HTMLDivElement>('#host-choices')!;
+const photoInspection = document.querySelector<HTMLDivElement>('#photo-inspection')!;
+const photoInspectionHint = document.querySelector<HTMLParagraphElement>('#photo-inspection-hint')!;
 const interactionPrompt = document.querySelector<HTMLDivElement>('#interaction-prompt')!;
 const storyNotice = document.querySelector<HTMLDivElement>('#story-notice')!;
 const roomCode =
@@ -75,6 +81,13 @@ function setChoiceFocus(choice: 'seal' | 'open' | null): void {
   hostChoices.dataset.focus = choice ?? '';
 }
 
+function setPhotoInspection(state: PhotoInspectionState): void {
+  photoInspection.hidden = state === 'hidden';
+  photoInspection.dataset.side = state === 'hidden' ? 'front' : state;
+  photoInspectionHint.textContent =
+    state === 'back' ? '先聽幾秒，再按中央鍵把照片放回去' : '按手機中央鍵查看照片背面';
+}
+
 function setStoryVisual(state: StoryVisualState): void {
   storyVisuals.dataset.window = state.window;
   storyVisuals.dataset.portrait = state.portrait;
@@ -113,6 +126,7 @@ const director = new StoryDirector(
     setPrompt: setInteractionPrompt,
     setCodeDigits,
     setChoiceFocus,
+    setPhotoInspection,
     showNotice: showStoryNotice,
     onEnding: (ending) => {
       setStatus(ending === 'sealed' ? '封印成功；按手機中央鍵再玩一次' : '封印解除；按手機中央鍵再玩一次');

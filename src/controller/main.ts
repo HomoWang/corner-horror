@@ -54,7 +54,11 @@ function connect(): void {
       ws?.close();
     }
     if (msg?.type === 'cue') audio.play(msg.id);
-    if (msg?.type === 'story') document.body.dataset.story = msg.screen;
+    if (msg?.type === 'story') {
+      document.body.dataset.story = msg.screen;
+      // 來電畫面本身也觸發鈴聲；即使獨立 cue 在網路切換時遺失，電話仍一定會響。
+      if (msg.screen === 'incoming-407') audio.play('ring');
+    }
   });
 
   ws.addEventListener('close', () => {

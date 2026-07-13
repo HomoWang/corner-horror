@@ -1,0 +1,28 @@
+# 恐怖設計研究與採用項目
+
+本輪只採用可轉換成「大螢幕＋手機單鍵」的設計，不直接複製關卡、角色或美術。
+
+## 參考來源
+
+- **Visage**：官方商店說明把核心定義為慢節奏、逐步累積張力、持續變化的住宅，以及用
+  超現實影像與細微環境線索揭露故事。
+  <https://store.steampowered.com/app/594330/Visage/>
+- **Resident Evil 7**：Capcom 在 PlayStation Blog 說明從快節奏改為較慢、充滿壓迫的
+  第一人稱體驗，核心是玩家不知道下一步會發生什麼。
+  <https://blog.playstation.com/2022/06/13/ps5-versions-of-resident-evil-7-resident-evil-2-and-resident-evil-3-launch-today/>
+- **Dead Space Remake**：Motive 的 Intensity Director 文章強調動態音效、光影與事件密度
+  需維持張力但不能一直壓迫玩家；暗區應讓人不安，而不是讓關鍵物件完全不可讀。
+  <https://www.ea.com/able/news/inside-dead-space-4-the-intensity-director>
+- **Silent Hill 2 Remake**：Konami／Bloober Team 強調聲音方向、有限視野、心理敘事與
+  「show, don't tell」，讓聲音先提供不確定線索，再讓玩家看到結果。
+  <https://blog.playstation.com/2022/10/19/silent-hill-2-remake-revealed-first-gameplay-details-and-design-changes-announced/>
+
+## 已轉換成 407 號房的元素
+
+1. **張弛交替**：開場、通話、驚嚇後與錄音帶加入最低停留時間，阻止連點跳完劇情。
+2. **聲音先行**：電話重複響鈴；照片與抽屜先傳出細微聲音，再出現視覺變化。
+3. **環境微變**：照片拿起時短暫多出第四人，放回牆上才整張變成陌生女人。
+4. **分段檢視**：照片正面、背面、放回後異變分成三個節點，線索不再一次全部顯示。
+5. **可讀的黑暗**：保留暗角和危險感，但提高底圖與光錐可見度；抽屜使用微弱反光引導。
+6. **不確定而非連續貼臉**：主要貼臉前後加入假動靜、停頓與錯位聲音，讓玩家開始預期
+   下一次危險，而不是適應固定頻率的尖叫。

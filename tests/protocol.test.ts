@@ -79,6 +79,10 @@ describe('parseMessage', () => {
       type: 'story',
       screen: 'incoming-407',
     });
+    expect(parseMessage(JSON.stringify({ type: 'story', screen: 'portrait-inspect-back' }))).toEqual({
+      type: 'story',
+      screen: 'portrait-inspect-back',
+    });
     expect(parseMessage(JSON.stringify({ type: 'story-action', id: 'answer' }))).toEqual({
       type: 'story-action',
       id: 'answer',

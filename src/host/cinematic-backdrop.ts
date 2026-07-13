@@ -36,21 +36,22 @@ const FRAGMENT_SHADER = `
     vec3 fromColor = texture2D(frames, frameUv(currentFrame, vUv)).rgb;
     vec3 toColor = texture2D(frames, frameUv(targetFrame, vUv)).rgb;
     vec3 sourceColor = mix(fromColor, toColor, smoothstep(0.0, 1.0, transitionMix));
-    sourceColor = pow(sourceColor, vec3(2.2));
+    // 保留暗房層次，但不能把原圖中櫃子與地面壓成全黑。
+    sourceColor = pow(sourceColor, vec3(1.52));
 
     vec2 beamDelta = vUv - flashlightUv;
     beamDelta.x *= aspect;
     float beamDistance = length(beamDelta);
-    float beam = smoothstep(0.34, 0.055, beamDistance);
+    float beam = smoothstep(0.39, 0.05, beamDistance);
     float hotSpot = smoothstep(0.13, 0.0, beamDistance) * 0.18;
     float breathing = 0.96 + sin(time * 2.7) * 0.025 + sin(time * 8.1) * 0.012;
-    float lightAmount = 0.065 + flashlightStrength * (beam * 0.96 + hotSpot) * breathing;
+    float lightAmount = 0.13 + flashlightStrength * (beam * 1.08 + hotSpot) * breathing;
 
     vec2 centered = vUv * 2.0 - 1.0;
     float vignette = 1.0 - smoothstep(0.45, 1.35, dot(centered, centered));
     float grain = (random(gl_FragCoord.xy + time * 61.0) - 0.5) * 0.018;
     // 暗角只能壓低環境光，不能把照到邊界的手電筒一起吃掉。
-    float edgeVisibility = mix(0.42 + vignette * 0.58, 1.0, beam);
+    float edgeVisibility = mix(0.5 + vignette * 0.5, 1.0, beam);
     vec3 color = sourceColor * lightAmount * edgeVisibility + grain;
     gl_FragColor = vec4(max(color, 0.0), 1.0);
   }
@@ -140,7 +141,7 @@ export class CinematicBackdrop {
     // 手機只需小幅轉動就能掃到左右邊界；留 1.5% 避免光心完全跑出畫面。
     this.material.uniforms.flashlightUv!.value.set(
       THREE.MathUtils.clamp(projected.x * 0.72 + 0.5, 0.015, 0.985),
-      THREE.MathUtils.clamp(projected.y * 0.62 + 0.5, 0.015, 0.985),
+      THREE.MathUtils.clamp(projected.y * 0.72 + 0.5, 0.015, 0.985),
     );
     this.material.uniforms.flashlightStrength!.value = 1;
   }
