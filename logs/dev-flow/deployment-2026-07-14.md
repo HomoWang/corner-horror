@@ -24,4 +24,5 @@
 - Local Render server WebSocket smoke: PASS — status, orient, cue
 - Public Render health check: PASS
 - Public Render WebSocket smoke with Pages origin: PASS — status, orient, cue
-- GitHub Pages workflow: pending
+- GitHub Pages workflow: PASS — test, build, configure, upload, deploy
+- Public Pages checks: PASS — host, controller, jump-scare image, scream audio returned HTTP 200
