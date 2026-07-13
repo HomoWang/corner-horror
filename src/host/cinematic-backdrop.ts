@@ -44,12 +44,14 @@ const FRAGMENT_SHADER = `
     float beam = smoothstep(0.34, 0.055, beamDistance);
     float hotSpot = smoothstep(0.13, 0.0, beamDistance) * 0.18;
     float breathing = 0.96 + sin(time * 2.7) * 0.025 + sin(time * 8.1) * 0.012;
-    float lightAmount = 0.025 + flashlightStrength * (beam * 0.92 + hotSpot) * breathing;
+    float lightAmount = 0.065 + flashlightStrength * (beam * 0.96 + hotSpot) * breathing;
 
     vec2 centered = vUv * 2.0 - 1.0;
     float vignette = 1.0 - smoothstep(0.45, 1.35, dot(centered, centered));
     float grain = (random(gl_FragCoord.xy + time * 61.0) - 0.5) * 0.018;
-    vec3 color = sourceColor * lightAmount * vignette + grain;
+    // 暗角只能壓低環境光，不能把照到邊界的手電筒一起吃掉。
+    float edgeVisibility = mix(0.42 + vignette * 0.58, 1.0, beam);
+    vec3 color = sourceColor * lightAmount * edgeVisibility + grain;
     gl_FragColor = vec4(max(color, 0.0), 1.0);
   }
 `;
@@ -135,7 +137,11 @@ export class CinematicBackdrop {
       return;
     }
     const projected = this.camera.position.clone().addScaledVector(direction, 5).project(this.camera);
-    this.material.uniforms.flashlightUv!.value.set(projected.x * 0.5 + 0.5, projected.y * 0.5 + 0.5);
+    // 手機只需小幅轉動就能掃到左右邊界；留 1.5% 避免光心完全跑出畫面。
+    this.material.uniforms.flashlightUv!.value.set(
+      THREE.MathUtils.clamp(projected.x * 0.72 + 0.5, 0.015, 0.985),
+      THREE.MathUtils.clamp(projected.y * 0.62 + 0.5, 0.015, 0.985),
+    );
     this.material.uniforms.flashlightStrength!.value = 1;
   }
 
@@ -146,4 +152,3 @@ export class CinematicBackdrop {
     this.material.uniforms.aspect!.value = width / height;
   }
 }
-

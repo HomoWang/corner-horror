@@ -29,6 +29,8 @@ const storyEyebrow = document.querySelector<HTMLElement>('#story-eyebrow')!;
 const storyTitle = document.querySelector<HTMLElement>('#story-title')!;
 const storyBody = document.querySelector<HTMLElement>('#story-body')!;
 const storyObjective = document.querySelector<HTMLElement>('#story-objective')!;
+const hostCode = document.querySelector<HTMLDivElement>('#host-code')!;
+const hostChoices = document.querySelector<HTMLDivElement>('#host-choices')!;
 const interactionPrompt = document.querySelector<HTMLDivElement>('#interaction-prompt')!;
 const storyNotice = document.querySelector<HTMLDivElement>('#story-notice')!;
 const roomCode =
@@ -45,6 +47,7 @@ const audio = new HostAudioEngine();
 let hostWs: WebSocket | null = null;
 let controllerReady = false;
 let actionPressed = false;
+let actionPulse = false;
 let experienceStarting = false;
 function sendToController(payload: unknown): void {
   if (hostWs?.readyState === WebSocket.OPEN) hostWs.send(JSON.stringify(payload));
@@ -57,7 +60,19 @@ function setStoryScreen(screenId: StoryScreenId): void {
   storyBody.textContent = screen.body;
   storyObjective.textContent = screen.objective ?? '';
   storyObjective.hidden = !screen.objective;
+  storyHud.dataset.kind = screen.kind;
+  hostCode.hidden = screen.kind !== 'keypad';
+  hostChoices.hidden = screen.kind !== 'choice';
   storyHud.classList.toggle('active', screenId !== 'standby');
+}
+
+function setCodeDigits(value: string): void {
+  const digits = value.split('');
+  hostCode.textContent = Array.from({ length: 4 }, (_, index) => digits[index] ?? '_').join(' ');
+}
+
+function setChoiceFocus(choice: 'seal' | 'open' | null): void {
+  hostChoices.dataset.focus = choice ?? '';
 }
 
 function setStoryVisual(state: StoryVisualState): void {
@@ -96,9 +111,11 @@ const director = new StoryDirector(
     },
     setVisual: setStoryVisual,
     setPrompt: setInteractionPrompt,
+    setCodeDigits,
+    setChoiceFocus,
     showNotice: showStoryNotice,
     onEnding: (ending) => {
-      setStatus(ending === 'sealed' ? '封印成功；可在手機選擇再玩一次' : '封印解除；可在手機選擇再玩一次');
+      setStatus(ending === 'sealed' ? '封印成功；按手機中央鍵再玩一次' : '封印解除；按手機中央鍵再玩一次');
     },
     onRestart: () => {
       hideExperienceOverlay();
@@ -130,8 +147,8 @@ function hideExperienceOverlay(): void {
 
 function showExperienceStart(): void {
   experienceTitle.textContent = '407 號房：最後點交';
-  experienceCopy.textContent = '戴上手機耳機，把手機指向畫面中央；按手機的「開始／動作」進房';
-  experienceButton.textContent = '從主機開始';
+  experienceCopy.textContent = '先在大螢幕點這一次來開啟聲音；之後不用再低頭，只需移動手機並按中央鍵';
+  experienceButton.textContent = '開啟聲音並開始';
   experienceOverlay.hidden = false;
 }
 
@@ -139,8 +156,7 @@ function startExperience(): void {
   if (!controllerReady || experienceStarting || experienceOverlay.hidden) return;
   experienceStarting = true;
 
-  // 必須在主機 click 的同步呼叫鏈內嘗試解鎖 Web Audio；但手機傳來的
-  // WebSocket 事件不算主機端使用者手勢，因此不能讓音效狀態擋住影像流程。
+  // 呼叫必須留在主機 click 的同步鏈內，才能通過瀏覽器的 Web Audio 限制。
   const soundStart = audio.start();
   hideExperienceOverlay();
   director.start();
@@ -152,7 +168,7 @@ function startExperience(): void {
       soundButton.hidden = true;
       return;
     }
-    setStatus('體驗已開始；房間聲音請於主機按「啟動房間聲音」');
+    setStatus('體驗已開始；若未聽到聲音，請再按左上角啟動音效');
   });
 }
 
@@ -178,6 +194,7 @@ function setControllerConnected(connected: boolean): void {
   if (!connected) {
     controllerReady = false;
     actionPressed = false;
+    actionPulse = false;
     flashlight.setConnected(false);
     director.reset();
     hideExperienceOverlay();
@@ -188,6 +205,7 @@ function setControllerConnected(connected: boolean): void {
   // 每次 status=true 都代表一次新的 controller 註冊；last-wins 取代時不一定先收到 false。
   controllerReady = false;
   actionPressed = false;
+  actionPulse = false;
   flashlight.setConnected(false);
   director.reset();
   hideExperienceOverlay();
@@ -236,10 +254,10 @@ function connect(): void {
         break;
       case 'btn':
         actionPressed = msg.pressed;
+        if (msg.pressed) actionPulse = true;
         if (msg.pressed && !experienceOverlay.hidden) {
-          startExperience();
-        } else if (experienceOverlay.hidden) {
-          setStatus(`action ${msg.pressed ? 'down' : 'up'}`);
+          showExperienceStart();
+          setStatus('請在大螢幕點一次「開啟聲音並開始」');
         }
         break;
       case 'story-action':
@@ -280,7 +298,8 @@ function frame(): void {
   const direction = hasDirection
     ? ([flashlightDirection.x, flashlightDirection.y, flashlightDirection.z] as [number, number, number])
     : null;
-  director.update(delta, direction, actionPressed);
+  director.update(delta, direction, actionPressed || actionPulse);
+  actionPulse = false;
   handles.cinematic.update(delta, hasDirection ? flashlightDirection : null);
   handles.jumpscare.update(delta);
   handles.render();

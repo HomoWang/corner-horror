@@ -1,6 +1,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>407 號房 — 手機</title>
+<title>407 號房 — 控制器</title>
 <style>
   :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
   * { box-sizing: border-box; }
@@ -9,180 +9,77 @@
     min-height: 100dvh;
     overflow: hidden;
     background:
-      radial-gradient(circle at 50% 18%, rgba(64, 18, 16, .18), transparent 36%),
-      #030303;
-    color: #aaa09c;
+      radial-gradient(circle at 50% 50%, rgba(91, 22, 18, .13), transparent 36%),
+      #020202;
+    color: #766d69;
     touch-action: none;
     -webkit-user-select: none;
     user-select: none;
   }
   button { font: inherit; -webkit-tap-highlight-color: transparent; }
-  #phone {
-    width: min(100%, 31rem);
+  #controller {
     min-height: 100dvh;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    padding: max(.8rem, env(safe-area-inset-top)) 1rem max(.85rem, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    place-items: center;
+    padding: max(1rem, env(safe-area-inset-top)) 1.2rem max(1rem, env(safe-area-inset-bottom));
   }
-  #phone-bar {
-    display: flex;
-    justify-content: space-between;
-    color: #5f5754;
-    font: 600 .67rem/1.2 ui-monospace, monospace;
-    letter-spacing: .12em;
-  }
-  #status {
-    min-height: 1.25rem;
-    margin: .65rem 0 .8rem;
-    color: #675f5c;
-    font-size: .72rem;
+  #top {
+    width: min(100%, 28rem);
     text-align: center;
   }
-  #start {
-    margin: auto;
-    padding: 1rem 3rem;
-    border: 1px solid #74443d;
-    border-radius: 999px;
-    background: rgba(39, 8, 7, .9);
-    color: #d2aaa2;
-    font-size: 1.05rem;
+  #status { margin: 0; min-height: 1.2rem; color: #5c5552; font-size: .72rem; }
+  #screen-cue { margin: .45rem 0 0; color: #302c2a; font-size: .66rem; letter-spacing: .16em; }
+  #start,
+  #action {
+    width: min(52vw, 13rem);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 2px solid #5c3934;
+    background:
+      radial-gradient(circle at 50% 42%, rgba(75,27,23,.72), rgba(24,8,7,.95) 55%, #090504 72%);
+    color: #d0aaa2;
+    font-size: 1rem;
     letter-spacing: .18em;
-    box-shadow: 0 0 45px rgba(89, 20, 16, .25);
+    box-shadow:
+      inset 0 0 2.5rem rgba(0,0,0,.75),
+      0 0 0 .45rem rgba(36,13,11,.65),
+      0 0 4rem rgba(101,27,21,.22);
+  }
+  #start:active,
+  #action:active,
+  #action.pressed {
+    transform: scale(.93);
+    border-color: #a15b50;
+    background: radial-gradient(circle, #7a2922, #260a08 62%, #080303);
+    box-shadow: inset 0 0 2rem #160202, 0 0 4.5rem rgba(158,48,37,.38);
   }
   body.started #start { display: none; }
-  #controls { display: none; flex: 1; min-height: 0; flex-direction: column; gap: .75rem; }
-  #controls.active { display: flex; }
-  #story-card {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 1.35rem;
-    overflow: hidden;
-    border: 1px solid #241e1c;
-    border-radius: 1rem;
-    background:
-      linear-gradient(180deg, rgba(22,18,17,.93), rgba(6,5,5,.97)),
-      repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.012) 4px);
-    box-shadow: inset 0 0 45px #000, 0 1.2rem 4rem rgba(0,0,0,.45);
-  }
-  #story-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: .16;
-    background: repeating-linear-gradient(0deg, transparent 0 2px, #000 3px);
-  }
-  #story-card.incoming { border-color: #54302b; animation: call-pulse 1.6s infinite; }
-  #story-card.call::before {
-    content: '';
-    position: absolute;
-    left: 50%; top: 17%;
-    width: 5.5rem; height: 5.5rem;
-    transform: translateX(-50%);
-    border-radius: 50%;
-    background: radial-gradient(circle at 50% 42%, #4b3f3b, #171312 56%, #080707 57%);
-    box-shadow: 0 0 0 .45rem #120f0e, 0 0 2rem rgba(112,52,45,.2);
-    opacity: .55;
-  }
-  #story-eyebrow { position: relative; z-index: 1; color: #815f58; font-size: .65rem; letter-spacing: .2em; text-transform: uppercase; }
-  #story-title { position: relative; z-index: 1; margin: .55rem 0 .75rem; color: #d0c2bc; font: 400 clamp(1.25rem, 6vw, 1.85rem)/1.25 Georgia, serif; letter-spacing: .04em; }
-  #story-body { position: relative; z-index: 1; margin: 0; color: #928985; font-size: .88rem; line-height: 1.75; white-space: pre-line; }
-  #story-objective { position: relative; z-index: 1; margin: 1rem 0 0; padding-top: .85rem; border-top: 1px solid #2b2422; color: #a7837b; font-size: .74rem; line-height: 1.55; }
-  #story-primary {
-    position: relative;
-    z-index: 2;
-    margin-top: 1.2rem;
-    padding: .82rem 1rem;
-    border: 1px solid #69413b;
-    border-radius: .55rem;
-    background: #210b09;
-    color: #d5aaa2;
-    letter-spacing: .1em;
-  }
-  #story-primary[hidden], #keypad[hidden], #story-choices[hidden] { display: none; }
-  #keypad { position: relative; z-index: 2; margin-top: 1rem; }
-  #code-display {
-    height: 3rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: .7rem;
-    border: 1px solid #2f2926;
-    background: #050505;
-    color: #b4948c;
-    font: 1.35rem/1 ui-monospace, monospace;
-    letter-spacing: .45em;
-  }
-  #keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .42rem; }
-  #keypad button {
-    min-height: 2.65rem;
-    border: 1px solid #302825;
-    border-radius: .4rem;
-    background: #0c0a09;
-    color: #9f918b;
-  }
-  #keypad button:active { background: #26110e; color: #d7ada5; }
-  #story-choices { position: relative; z-index: 2; display: grid; gap: .6rem; margin-top: 1.2rem; }
-  #story-choices button {
-    padding: .9rem;
-    border: 1px solid #50332f;
-    border-radius: .5rem;
-    background: #120a09;
-    color: #b99c95;
-  }
-  #choose-open { border-color: #6d2925 !important; color: #d8958a !important; }
-  #action {
-    min-height: 4.3rem;
-    border: 1px solid #4a3a36;
-    border-radius: .7rem;
-    background: linear-gradient(#171312, #0b0909);
-    color: #b7a29c;
-    font-size: .95rem;
-    letter-spacing: .08em;
-  }
-  #action:active { background: #2b110e; border-color: #864b42; transform: scale(.985); }
+  #controls { display: none; place-items: center; width: 100%; height: 100%; }
+  #controls.active { display: grid; }
   #recenter {
-    align-self: center;
-    padding: .35rem 1rem;
+    padding: .5rem 1rem;
     border: 0;
     background: transparent;
-    color: #514a47;
-    font-size: .7rem;
+    color: #4e4744;
+    font-size: .72rem;
   }
-  @keyframes call-pulse { 50% { box-shadow: inset 0 0 45px #000, 0 0 2.2rem rgba(111,31,25,.3); } }
+  body[data-story='incoming-407'] #action {
+    animation: incoming-pulse 1.05s infinite;
+  }
+  @keyframes incoming-pulse {
+    50% { border-color: #9f554b; box-shadow: inset 0 0 2.5rem #090000, 0 0 5rem rgba(145,38,29,.42); }
+  }
 </style>
-<main id="phone">
-  <header id="phone-bar"><span>03:17</span><span>407・已加密</span></header>
-  <p id="status">連線中…</p>
+<main id="controller">
+  <header id="top">
+    <p id="status">連線中…</p>
+    <p id="screen-cue">不用看手機・看著大螢幕</p>
+  </header>
   <button id="start" type="button">開始</button>
   <div id="controls">
-    <section id="story-card" aria-live="polite">
-      <div id="story-eyebrow">407 號房</div>
-      <h1 id="story-title">等待點交</h1>
-      <p id="story-body">戴上耳機，手機就是你的手電筒與唯一聯絡方式。</p>
-      <p id="story-objective"></p>
-      <div id="keypad" hidden>
-        <div id="code-display">••••</div>
-        <div id="keypad-grid">
-          <button type="button" data-digit="1">1</button><button type="button" data-digit="2">2</button><button type="button" data-digit="3">3</button>
-          <button type="button" data-digit="4">4</button><button type="button" data-digit="5">5</button><button type="button" data-digit="6">6</button>
-          <button type="button" data-digit="7">7</button><button type="button" data-digit="8">8</button><button type="button" data-digit="9">9</button>
-          <button id="code-clear" type="button">清除</button><button type="button" data-digit="0">0</button><button id="code-submit" type="button">確認</button>
-        </div>
-      </div>
-      <div id="story-choices" hidden>
-        <button id="choose-seal" type="button">相信錄音，重新封印</button>
-        <button id="choose-open" type="button">相信小雨，打開房門</button>
-      </div>
-      <button id="story-primary" type="button" hidden></button>
-    </section>
-    <button id="action" type="button">開始／動作</button>
-    <button id="recenter" type="button">重新對準畫面中央</button>
+    <button id="action" type="button" aria-label="互動">互動</button>
   </div>
+  <button id="recenter" type="button">重新對準畫面中央</button>
 </main>
 <script type="module" src="/src/controller/main.ts"></script>

@@ -25,6 +25,7 @@ type StoryState =
   | 'portrait-changed'
   | 'find-drawer'
   | 'keypad'
+  | 'keypad-complete'
   | 'tape-one'
   | 'tape-two'
   | 'find-door'
@@ -44,6 +45,8 @@ export interface StoryDirectorCallbacks {
   setJumpscareVisible(visible: boolean): void;
   setVisual(state: StoryVisualState): void;
   setPrompt(text: string | null): void;
+  setCodeDigits(value: string): void;
+  setChoiceFocus(choice: 'seal' | 'open' | null): void;
   showNotice(text: string): void;
   onEnding(ending: StoryEnding): void;
   onRestart(): void;
@@ -53,6 +56,8 @@ const WINDOW_TARGET = new THREE.Vector3(-2.2, 1.55, -3.3);
 const PORTRAIT_TARGET = new THREE.Vector3(0.55, 1.65, -3.4);
 const DRAWER_TARGET = new THREE.Vector3(-2.15, 0.72, -3.25);
 const DOOR_TARGET = new THREE.Vector3(2.05, 1.45, -3.35);
+const CHOICE_SEAL_TARGET = new THREE.Vector3(-1.35, 1.2, -3.35);
+const CHOICE_OPEN_TARGET = new THREE.Vector3(1.35, 1.2, -3.35);
 
 function defaultVisualState(): StoryVisualState {
   return {
@@ -101,6 +106,8 @@ export class StoryDirector {
     this.visual = defaultVisualState();
     this.callbacks.setVisual(this.visual);
     this.callbacks.setPrompt(null);
+    this.callbacks.setCodeDigits('');
+    this.callbacks.setChoiceFocus(null);
     this.callbacks.setFrame(0);
     this.callbacks.setJumpscareVisible(false);
     this.audio.setTension(0);
@@ -142,6 +149,23 @@ export class StoryDirector {
       if (this.stateSeconds >= 2.5) this.finish('sealed');
       return;
     }
+
+    if (this.state === 'keypad-complete') {
+      if (this.stateSeconds >= 0.65) {
+        this.setVisual({ drawer: 'open' });
+        this.audio.playStatic();
+        this.callbacks.sendCue('whisper');
+        this.enter('tape-one', 'tape-warning-one');
+      }
+      return;
+    }
+
+    if (this.state === 'door-choice') {
+      this.updateDoorChoice(direction, actionRisingEdge);
+      return;
+    }
+
+    if (actionRisingEdge && this.handleCentralAction()) return;
 
     const interaction = this.interactionForState();
     if (!interaction) {
@@ -187,15 +211,18 @@ export class StoryDirector {
     if (this.state === 'keypad') {
       if (id === 'digit' && value && this.code.length < 4) {
         this.code += value;
+        this.callbacks.setCodeDigits(this.code);
         return;
       }
       if (id === 'clear-code') {
         this.code = '';
+        this.callbacks.setCodeDigits('');
         return;
       }
       if (id === 'submit-code') {
         if (this.code !== '0317') {
           this.code = '';
+          this.callbacks.setCodeDigits('');
           this.callbacks.sendCue('impact');
           this.audio.playSting(0.35);
           this.callbacks.showNotice('密碼錯誤。牆上照片背面的死亡時間是 03：17。');
@@ -262,8 +289,9 @@ export class StoryDirector {
           activate: () => {
             this.setVisual({ window: 'broken' });
             this.audio.playThunder();
-            this.audio.playSting(0.55);
-            this.callbacks.sendCue('impact');
+            this.audio.playJumpscare();
+            this.callbacks.setJumpscareVisible(true);
+            this.callbacks.sendCue('jumpscare');
             this.enter('window-opened', 'window-opened');
           },
         };
@@ -285,7 +313,11 @@ export class StoryDirector {
           target: DRAWER_TARGET,
           prompt: '按「檢查抽屜」',
           hint: '抽屜在畫面左下方的矮櫃。',
-          activate: () => this.enter('keypad', 'keypad-0317'),
+          activate: () => {
+            this.code = '';
+            this.callbacks.setCodeDigits('');
+            this.enter('keypad', 'keypad-0317');
+          },
         };
       case 'find-door':
         return {
@@ -338,10 +370,10 @@ export class StoryDirector {
     }
   }
 
-  private isLookingAt(direction: Direction3, target: THREE.Vector3): boolean {
+  private isLookingAt(direction: Direction3, target: THREE.Vector3, maxAngleDeg = 23): boolean {
     const targetDirection = target.clone().sub(this.origin).normalize();
     const sample = new THREE.Vector3(...direction).normalize();
-    return sample.dot(targetDirection) >= Math.cos(THREE.MathUtils.degToRad(23));
+    return sample.dot(targetDirection) >= Math.cos(THREE.MathUtils.degToRad(maxAngleDeg));
   }
 
   private enter(state: StoryState, screen?: StoryScreenId): void {
@@ -349,7 +381,60 @@ export class StoryDirector {
     this.stateSeconds = 0;
     this.hintPlayed = false;
     this.callbacks.setPrompt(null);
+    if (state !== 'door-choice') this.callbacks.setChoiceFocus(null);
     if (screen) this.callbacks.sendScreen(screen);
+  }
+
+  private handleCentralAction(): boolean {
+    switch (this.state) {
+      case 'incoming':
+        this.handleStoryAction('answer');
+        return true;
+      case 'call-window':
+      case 'window-opened':
+      case 'portrait-changed':
+      case 'tape-one':
+      case 'tape-two':
+      case 'ending-open':
+      case 'ending-sealed':
+        this.handleStoryAction('continue');
+        return true;
+      case 'keypad':
+        this.advanceCode();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private advanceCode(): void {
+    const expected = '0317';
+    if (this.code.length >= expected.length) return;
+    this.code += expected[this.code.length];
+    this.callbacks.setCodeDigits(this.code);
+    this.audio.playSting(0.12);
+    this.callbacks.sendCue('impact');
+    if (this.code.length === expected.length) {
+      this.state = 'keypad-complete';
+      this.stateSeconds = 0;
+      this.callbacks.setPrompt(null);
+    }
+  }
+
+  private updateDoorChoice(direction: Direction3 | null, actionRisingEdge: boolean): void {
+    let focus: 'seal' | 'open' | null = null;
+    if (direction && this.isLookingAt(direction, CHOICE_SEAL_TARGET, 30)) focus = 'seal';
+    if (direction && this.isLookingAt(direction, CHOICE_OPEN_TARGET, 30)) focus = 'open';
+    this.callbacks.setChoiceFocus(focus);
+    this.callbacks.setPrompt(
+      focus === 'seal'
+        ? '按中央鍵：重新封印'
+        : focus === 'open'
+          ? '按中央鍵：打開房門'
+          : '用光照向左或右的選擇',
+    );
+    if (!actionRisingEdge || !focus) return;
+    this.handleStoryAction(focus === 'seal' ? 'choose-seal' : 'choose-open');
   }
 
   private setVisual(patch: Partial<StoryVisualState>): void {

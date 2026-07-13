@@ -1,11 +1,16 @@
 # THE CORNER
 
-A phone-controlled cinematic browser horror experience. Open the host on a larger screen, scan
-its QR code with a phone, allow motion sensors and audio, then use the phone as the flashlight.
+A two-screen cinematic browser horror experience. Open the host on a larger screen, scan its QR
+code with a phone, then keep watching the host while using the phone only as a motion-controlled
+flashlight and one-button controller.
 
 The first playable chapter is **407 號房：最後點交**: a 6–10 minute investigation with a phone
-call, window and portrait triggers, a keypad puzzle, a recorded warning, a door choice, and two
-endings. The complete event outline is documented in [STORY.md](STORY.md).
+call, window and portrait triggers, a host-screen code sequence, a recorded warning, an aimed door
+choice, and two endings. The complete event outline is documented in [STORY.md](STORY.md).
+
+After the phone is ready, click **開啟聲音並開始** once on the host. Browsers require this host-side
+gesture to unlock room audio. From that point onward, every interaction uses the phone's same
+central button; story text, codes, and choices stay on the larger screen.
 
 ## Live experience
 

@@ -144,6 +144,15 @@
     background: linear-gradient(112deg, transparent 45%, rgba(205,225,240,.8) 50%, transparent 52%);
     opacity: 0;
   }
+  #window-face {
+    position: absolute;
+    inset: -8% -12%;
+    opacity: 0;
+    background: url('assets/jumpscare-face.png') center 24% / cover no-repeat;
+    filter: grayscale(.75) contrast(1.4) brightness(.62);
+    transform: scale(1.35);
+    mix-blend-mode: screen;
+  }
   #story-visuals[data-window='ready'] #story-window,
   #story-visuals[data-window='broken'] #story-window,
   #story-visuals[data-window='sealed'] #story-window { opacity: .72; }
@@ -180,6 +189,7 @@
   #handprint span:nth-child(4) { left: 2.2rem; height: 2.25rem; transform: rotate(8deg); }
   #handprint span:nth-child(5) { left: 2.82rem; height: 1.7rem; transform: rotate(18deg); }
   #story-visuals[data-window='broken'] #handprint { opacity: 1; animation: hand-arrive .3s both; }
+  #story-visuals[data-window='broken'] #window-face { animation: window-face-scare .72s both; }
   #story-visuals[data-window='sealed'] #handprint { opacity: .22; }
   #door-shadow {
     position: absolute;
@@ -213,10 +223,12 @@
   #story-visuals[data-footsteps='true'] #footsteps i { animation: footprint-appear 4s infinite; }
   #story-hud {
     position: fixed;
-    left: clamp(1rem, 3vw, 3rem);
-    top: clamp(3.6rem, 9vh, 6rem);
+    left: 50%;
+    top: clamp(3.2rem, 7vh, 5rem);
     z-index: 4;
-    max-width: min(34rem, 72vw);
+    width: min(46rem, 82vw);
+    transform: translateX(-50%);
+    text-align: center;
     opacity: 0;
     transition: opacity .5s;
     text-shadow: 0 2px 12px #000;
@@ -255,9 +267,50 @@
     opacity: 0;
   }
   #story-notice.show { animation: notice 5s both; }
+  #story-flash { position: absolute; inset: 0; opacity: 0; background: #d7e2e8; mix-blend-mode: screen; }
+  #story-visuals[data-window='broken'] #story-flash { animation: room-flash .62s both; }
+  #host-code {
+    margin: 1.25rem 0 0;
+    color: #c5a39b;
+    font: 400 clamp(2rem, 5vw, 4.5rem)/1 ui-monospace, monospace;
+    letter-spacing: .34em;
+    text-shadow: 0 0 1.4rem rgba(132,42,34,.42);
+  }
+  #host-code[hidden], #host-choices[hidden] { display: none; }
+  #host-choices {
+    position: fixed;
+    left: 50%;
+    bottom: 10%;
+    z-index: 6;
+    width: min(78vw, 54rem);
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(1rem, 5vw, 5rem);
+  }
+  .host-choice {
+    min-height: 5rem;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(104,70,64,.38);
+    background: rgba(4,2,2,.82);
+    color: #796b67;
+    font: 400 clamp(.8rem, 1.6vw, 1.05rem)/1.4 Georgia, serif;
+    letter-spacing: .1em;
+    transition: .18s ease;
+  }
+  #host-choices[data-focus='seal'] [data-choice='seal'],
+  #host-choices[data-focus='open'] [data-choice='open'] {
+    transform: scale(1.05);
+    border-color: #9d5b51;
+    color: #d1aaa2;
+    box-shadow: 0 0 2.6rem rgba(121,35,28,.34), inset 0 0 1.2rem rgba(86,21,17,.18);
+  }
   @keyframes window-rattle { 0%,92%,100%{transform:perspective(600px) rotateY(8deg)} 94%{transform:perspective(600px) rotateY(8deg) translateX(-2px)} 96%{transform:perspective(600px) rotateY(8deg) translateX(3px)} }
   @keyframes lightning-flash { 0%,100%{opacity:0} 12%{opacity:1} 28%{opacity:.15} 40%{opacity:.8} }
   @keyframes hand-arrive { from{transform:scale(1.8);filter:blur(8px)} to{transform:scale(1);filter:blur(.3px)} }
+  @keyframes window-face-scare { 0%,8%{opacity:0;transform:scale(1.8)} 12%,28%{opacity:.9;transform:scale(1.12)} 36%,100%{opacity:0;transform:scale(.96)} }
+  @keyframes room-flash { 0%,100%{opacity:0} 8%{opacity:.52} 15%{opacity:.05} 22%{opacity:.34} 36%{opacity:0} }
   @keyframes shadow-breathe { 50%{transform:scaleX(1.08) translateY(-1%);filter:blur(3px)} }
   @keyframes footprint-appear { 0%,12%{opacity:0} 22%,72%{opacity:.78} 100%{opacity:0} }
   @keyframes notice { 0%,100%{opacity:0} 10%,75%{opacity:1} }
@@ -266,17 +319,24 @@
 <div id="story-visuals" data-window="hidden" data-door="normal" data-footsteps="false">
   <div id="story-window">
     <div id="red-thread"></div>
+    <div id="window-face"></div>
     <div id="handprint"><span></span><span></span><span></span><span></span><span></span></div>
   </div>
   <div id="door-shadow"></div>
   <div id="footsteps"><i></i><i></i><i></i><i></i><i></i></div>
+  <div id="story-flash"></div>
 </div>
 <section id="story-hud" aria-live="polite">
   <div id="story-eyebrow"></div>
   <h2 id="story-title"></h2>
   <p id="story-body"></p>
   <p id="story-objective"></p>
+  <div id="host-code" hidden>_ _ _ _</div>
 </section>
+<div id="host-choices" data-focus="" hidden>
+  <div class="host-choice" data-choice="seal">重新封印</div>
+  <div class="host-choice" data-choice="open">打開房門</div>
+</div>
 <div id="interaction-prompt"></div>
 <div id="story-notice"></div>
 <button id="sound-toggle" type="button">點此啟動主機恐怖音效</button>
