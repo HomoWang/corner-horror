@@ -14,6 +14,7 @@ export type StoryScreenId =
   | 'tape-warning-one'
   | 'tape-warning-two'
   | 'find-door'
+  | 'door-listen'
   | 'door-choice'
   | 'reseal-portrait'
   | 'reseal-window'
@@ -149,6 +150,14 @@ export const STORY_SCREENS: Record<StoryScreenId, StoryScreen> = {
     body: '房門開始震動。對準右側門鎖後按手機中央鍵。',
     objective: '檢查右側房門',
     actionLabel: '握住鑰匙',
+  },
+  'door-listen': {
+    kind: 'call',
+    eyebrow: '耳朵貼住房門',
+    title: '「媽媽，我知道妳在裡面。」',
+    body: '女孩的哭聲在走廊；同一時間，濕腳印停在你背後。先不要動。聽到手機和門外同時響起後，再按中央鍵。',
+    objective: '不要轉身・聽完整段聲音',
+    primaryLabel: '我聽見了',
   },
   'door-choice': {
     kind: 'choice',

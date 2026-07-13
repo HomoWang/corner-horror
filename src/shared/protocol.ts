@@ -90,6 +90,7 @@ const STORY_SCREEN_IDS = new Set<StoryScreenId>([
   'tape-warning-one',
   'tape-warning-two',
   'find-door',
+  'door-listen',
   'door-choice',
   'reseal-portrait',
   'reseal-window',

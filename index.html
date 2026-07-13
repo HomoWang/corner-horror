@@ -82,6 +82,10 @@
     color: #b88;
     padding: 0.45rem 0.7rem;
   }
+  #sound-toggle, #calibrate, #status-line { transition: opacity .18s ease; }
+  body.cinematic-lock #sound-toggle,
+  body.cinematic-lock #calibrate,
+  body.cinematic-lock #status-line { opacity: 0; pointer-events: none; }
   #calibration-layer { position: fixed; inset: 0; z-index: 30; display: none; }
   #calibration-layer.active { display: block; }
   .calibration-line {
@@ -228,6 +232,201 @@
     letter-spacing: .12em;
     text-shadow: 0 2px 10px #000;
   }
+  #tape-playback {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    padding-top: 8vh;
+    background: radial-gradient(ellipse at 50% 57%, rgba(25,19,15,.34), rgba(0,0,0,.82) 68%);
+    pointer-events: none;
+  }
+  #tape-playback[hidden] { display: none; }
+  #tape-console {
+    width: min(72rem, 86vw);
+    min-height: min(48vh, 27rem);
+    display: grid;
+    grid-template-columns: minmax(15rem, 32%) 1fr;
+    gap: clamp(1.5rem, 4vw, 4.5rem);
+    align-items: center;
+    padding: clamp(1.2rem, 3vw, 2.5rem);
+    border: 1px solid #433830;
+    border-radius: .35rem;
+    background:
+      repeating-linear-gradient(91deg, rgba(255,255,255,.018) 0 1px, transparent 1px 7px),
+      linear-gradient(145deg, rgba(42,36,31,.96), rgba(10,9,8,.98));
+    box-shadow: 0 2rem 6rem #000, inset 0 0 3rem rgba(0,0,0,.72);
+  }
+  #tape-deck {
+    position: relative;
+    aspect-ratio: 1.38;
+    border: 1px solid #59483b;
+    border-radius: .25rem;
+    background: linear-gradient(155deg, #322b25, #0d0c0b 68%);
+    box-shadow: inset 0 0 2rem #000, .8rem 1.1rem 2rem rgba(0,0,0,.7);
+    transform: rotate(-1.4deg);
+  }
+  #tape-deck::before {
+    content: 'PROPERTY OF 407';
+    position: absolute;
+    left: 9%;
+    top: 8%;
+    color: #755e4e;
+    font: .55rem/1 ui-monospace, monospace;
+    letter-spacing: .14em;
+  }
+  #cassette {
+    position: absolute;
+    inset: 24% 10% 16%;
+    border: 1px solid #6e5d4d;
+    border-radius: .3rem;
+    background: linear-gradient(#171513, #29231e 46%, #11100f);
+    box-shadow: inset 0 0 1rem #000;
+  }
+  #cassette-label {
+    position: absolute;
+    inset: 8% 8% 51%;
+    display: grid;
+    place-items: center;
+    border-bottom: 1px solid #7a624c;
+    background: #968873;
+    color: #2d211b;
+    font: italic 700 .68rem/1 Georgia, serif;
+    letter-spacing: .2em;
+    filter: sepia(.35) brightness(.72);
+  }
+  .tape-reel {
+    position: absolute;
+    top: 47%;
+    width: 23%;
+    aspect-ratio: 1;
+    border: .35rem dotted #8b7964;
+    border-radius: 50%;
+    background: radial-gradient(circle, #090807 0 20%, #4f4338 22% 35%, #0b0a09 37%);
+    animation: tape-spin 1.25s linear infinite;
+  }
+  .tape-reel.left { left: 17%; }
+  .tape-reel.right { right: 17%; animation-direction: reverse; }
+  #tape-led {
+    position: absolute;
+    left: 8%;
+    bottom: 7%;
+    width: .42rem;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #7b130d;
+    box-shadow: 0 0 .8rem #c12015;
+    animation: tape-led 2.1s steps(2) infinite;
+  }
+  #tape-transcript { min-width: 0; }
+  .tape-copy { display: none; }
+  #tape-playback[data-track='warning-one'] .tape-copy[data-track='warning-one'],
+  #tape-playback[data-track='warning-two'] .tape-copy[data-track='warning-two'] { display: block; }
+  .tape-meta {
+    margin: 0 0 1.1rem;
+    color: #795f57;
+    font: .62rem/1.4 ui-monospace, monospace;
+    letter-spacing: .18em;
+  }
+  .tape-line {
+    margin: .75rem 0;
+    color: #b2a49b;
+    font: 400 clamp(.92rem, 1.65vw, 1.3rem)/1.6 Georgia, serif;
+    opacity: 0;
+    transform: translateY(.35rem);
+    animation: tape-line-in .45s forwards;
+  }
+  .tape-line:nth-of-type(2) { animation-delay: .8s; }
+  .tape-line:nth-of-type(3) { animation-delay: 2.05s; }
+  .tape-line:nth-of-type(4) { animation-delay: 3.45s; }
+  .tape-line:nth-of-type(5) { animation-delay: 4.85s; }
+  .tape-line.cut { color: #8a625d; font-style: italic; }
+  #tape-progress {
+    height: 1px;
+    margin-top: 1.5rem;
+    overflow: hidden;
+    background: #302723;
+  }
+  #tape-progress::after {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #7e251d;
+    transform-origin: left;
+    animation: tape-progress 7.2s linear both;
+  }
+  #door-listening {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 77% 52%, rgba(34,24,19,.15), rgba(0,0,0,.76) 56%, rgba(0,0,0,.95));
+  }
+  #door-listening[hidden] { display: none; }
+  #listening-door {
+    position: absolute;
+    right: 7%;
+    top: 10%;
+    width: min(34vw, 29rem);
+    height: 78%;
+    border: clamp(.7rem, 1.5vw, 1.4rem) solid #18110e;
+    background:
+      repeating-linear-gradient(91deg, transparent 0 21px, rgba(10,5,3,.18) 22px 24px),
+      linear-gradient(97deg, #1b120e, #39261c 48%, #170f0c);
+    box-shadow: inset 0 0 5rem #000, 0 0 5rem #000;
+    animation: listening-door 6.2s ease-in-out both;
+  }
+  #door-keyhole {
+    position: absolute;
+    left: 34%;
+    top: 48%;
+    width: 1.2rem;
+    height: 2.4rem;
+    border-radius: 50% 50% 25% 25%;
+    background: #020101;
+    box-shadow: 0 0 1.5rem rgba(0,0,0,.9), inset 0 0 .4rem #000;
+  }
+  #door-keyhole::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 22%;
+    width: .3rem;
+    height: .18rem;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: #5e0a08;
+    opacity: 0;
+    box-shadow: 0 0 .5rem #ae1810;
+    animation: keyhole-eye 6.2s both;
+  }
+  #listen-wave {
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: 8%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #55352f, transparent);
+    animation: listen-wave .8s ease-in-out infinite;
+  }
+  #peripheral-shadow {
+    position: absolute;
+    top: 13%;
+    width: 15%;
+    height: 72%;
+    opacity: 0;
+    background:
+      radial-gradient(ellipse at 50% 12%, #010101 0 15%, transparent 16%),
+      linear-gradient(90deg, transparent 6%, #010101 32% 68%, transparent 94%);
+    filter: blur(6px);
+  }
+  #peripheral-shadow[data-side='left'] { animation: peripheral-left 1.25s ease-in-out both; }
+  #peripheral-shadow[data-side='right'] { animation: peripheral-right 1.25s ease-in-out both; }
+  #room-pulse { position: absolute; inset: 0; opacity: 0; background: #000; }
+  #room-pulse[data-effect='flicker'] { animation: room-flicker 1.25s steps(1) both; }
+  #room-pulse[data-effect='blackout'] { animation: room-blackout 1.75s ease-in-out both; }
   #drawer-glint {
     position: absolute;
     left: 4%;
@@ -439,6 +638,22 @@
   @keyframes shadow-breathe { 50%{transform:scaleX(1.08) translateY(-1%);filter:blur(3px)} }
   @keyframes footprint-appear { 0%,12%{opacity:0} 22%,72%{opacity:.78} 100%{opacity:0} }
   @keyframes notice { 0%,100%{opacity:0} 10%,75%{opacity:1} }
+  @keyframes tape-spin { to{transform:rotate(360deg)} }
+  @keyframes tape-led { 50%{opacity:.28} }
+  @keyframes tape-line-in { to{opacity:1;transform:none} }
+  @keyframes tape-progress { from{transform:scaleX(0)} to{transform:scaleX(1)} }
+  @keyframes listening-door { 0%{transform:scale(1)} 45%{transform:scale(1.035) translateX(-1%)} 100%{transform:scale(1.07) translateX(-2%)} }
+  @keyframes keyhole-eye { 0%,66%,75%,100%{opacity:0} 69%,72%{opacity:.75} }
+  @keyframes listen-wave { 50%{opacity:.28;transform:scaleX(.72)} }
+  @keyframes peripheral-left { 0%{left:-13%;opacity:0} 22%{opacity:.75} 62%{opacity:.54} 100%{left:13%;opacity:0} }
+  @keyframes peripheral-right { 0%{right:-13%;opacity:0} 22%{opacity:.75} 62%{opacity:.54} 100%{right:13%;opacity:0} }
+  @keyframes room-flicker { 0%,17%,36%,58%,100%{opacity:0} 9%{opacity:.92} 25%{opacity:.64} 48%{opacity:.84} }
+  @keyframes room-blackout { 0%{opacity:0} 18%,72%{opacity:1} 100%{opacity:0} }
+  @media (max-width: 720px) {
+    #tape-console { grid-template-columns: 1fr; gap: 1rem; }
+    #tape-deck { width: min(52vw, 16rem); justify-self: center; }
+    #tape-transcript { text-align: center; }
+  }
 </style>
 <canvas id="stage"></canvas>
 <div id="story-visuals" data-window="hidden" data-door="normal" data-footsteps="false">
@@ -450,6 +665,8 @@
   <div id="door-shadow"></div>
   <div id="drawer-glint"></div>
   <div id="footsteps"><i></i><i></i><i></i><i></i><i></i></div>
+  <div id="peripheral-shadow" data-side=""></div>
+  <div id="room-pulse" data-effect=""></div>
   <div id="story-flash"></div>
 </div>
 <div id="photo-inspection" data-side="front" hidden>
@@ -465,6 +682,38 @@
     </div>
   </div>
   <p id="photo-inspection-hint">按手機中央鍵查看照片背面</p>
+</div>
+<div id="tape-playback" data-track="warning-one" hidden>
+  <div id="tape-console">
+    <div id="tape-deck">
+      <div id="cassette">
+        <div id="cassette-label">林宅・最後錄音</div>
+        <i class="tape-reel left"></i><i class="tape-reel right"></i>
+      </div>
+      <i id="tape-led"></i>
+    </div>
+    <div id="tape-transcript">
+      <div class="tape-copy" data-track="warning-one">
+        <p class="tape-meta">TAPE A / 03:12 / 林太太</p>
+        <p class="tape-line">「如果你聽見小雨叫媽媽……」</p>
+        <p class="tape-line">「不要回答。我的女兒三天前已經死了。」</p>
+        <p class="tape-line cut">［走廊傳來赤腳踩水聲］</p>
+        <p class="tape-line">「回來的東西，只是在學她。」</p>
+      </div>
+      <div class="tape-copy" data-track="warning-two">
+        <p class="tape-meta">TAPE B / 訊號嚴重毀損</p>
+        <p class="tape-line">「窗扣的紅線、照片後的記號、門鎖。」</p>
+        <p class="tape-line">「三道封印，一道都不能拆。」</p>
+        <p class="tape-line cut">［錄音中斷 1.7 秒］</p>
+        <p class="tape-line">「門外哭的不是她。你背後的才是。」</p>
+      </div>
+      <div id="tape-progress"></div>
+    </div>
+  </div>
+</div>
+<div id="door-listening" hidden>
+  <div id="listening-door"><div id="door-keyhole"></div></div>
+  <div id="listen-wave"></div>
 </div>
 <section id="story-hud" aria-live="polite">
   <div id="story-eyebrow"></div>

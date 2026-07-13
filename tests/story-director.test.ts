@@ -27,6 +27,9 @@ function createHarness() {
   const endings: string[] = [];
   const faceStates: boolean[] = [];
   const photoStates: string[] = [];
+  const tapeStates: string[] = [];
+  const listeningStates: boolean[] = [];
+  const effects: string[] = [];
   const audio = {
     startScore: vi.fn(),
     stopScore: vi.fn(),
@@ -49,6 +52,10 @@ function createHarness() {
     setCodeDigits: vi.fn(),
     setChoiceFocus: vi.fn(),
     setPhotoInspection: (state) => photoStates.push(state),
+    setTapePlayback: (state) => tapeStates.push(state),
+    setDoorListening: (active) => listeningStates.push(active),
+    setCinematicChromeHidden: vi.fn(),
+    triggerManifestation: (effect) => effects.push(effect),
     showNotice: vi.fn(),
     onEnding: (ending) => endings.push(ending),
     onRestart: vi.fn(),
@@ -65,7 +72,21 @@ function createHarness() {
     director.update(0.016, direction, true);
     director.update(0.016, direction, false);
   };
-  return { director, screens, cues, visuals, endings, faceStates, photoStates, audio, activate, press };
+  return {
+    director,
+    screens,
+    cues,
+    visuals,
+    endings,
+    faceStates,
+    photoStates,
+    tapeStates,
+    listeningStates,
+    effects,
+    audio,
+    activate,
+    press,
+  };
 }
 
 afterEach(() => vi.useRealTimers());
@@ -112,12 +133,14 @@ describe('StoryDirector 407 chapter', () => {
     director.handleStoryAction('continue');
     director.handleStoryAction('continue');
     activate(TARGETS.door);
+    expect(screens.at(-1)).toBe('door-listen');
+    director.handleStoryAction('continue');
     expect(screens.at(-1)).toBe('door-choice');
     director.handleStoryAction('choose-seal');
     activate(TARGETS.portrait);
     activate(TARGETS.window);
     activate(TARGETS.door);
-    director.update(2.5, null, false);
+    director.update(4.35, null, false);
 
     expect(screens.at(-1)).toBe('ending-sealed');
     expect(endings).toEqual(['sealed']);
@@ -152,16 +175,19 @@ describe('StoryDirector 407 chapter', () => {
     expect(director.enteredCode).toBe('0317');
     director.update(0.65, null, false);
     expect(screens.at(-1)).toBe('tape-warning-one');
-    director.update(4.5, null, false);
+    director.update(7.2, null, false);
     press();
-    director.update(4.5, null, false);
+    director.update(7.2, null, false);
     press();
     activate(TARGETS.door);
+    expect(screens.at(-1)).toBe('door-listen');
+    director.update(6.2, null, false);
+    press();
     press(TARGETS.sealChoice);
     activate(TARGETS.portrait);
     activate(TARGETS.window);
     activate(TARGETS.door);
-    director.update(2.5, null, false);
+    director.update(4.35, null, false);
 
     expect(endings).toEqual(['sealed']);
     expect(screens.at(-1)).toBe('ending-sealed');
@@ -194,12 +220,55 @@ describe('StoryDirector 407 chapter', () => {
     director.handleStoryAction('continue');
     director.handleStoryAction('continue');
     activate(TARGETS.door);
+    director.handleStoryAction('continue');
     director.handleStoryAction('choose-open');
-    director.update(1.2, null, false);
+    director.update(2.2, null, false);
     expect(faceStates.at(-1)).toBe(true);
     expect(audio.playJumpscare).toHaveBeenCalledTimes(2);
-    director.update(2.2, null, false);
+    director.update(2.5, null, false);
     expect(endings).toEqual(['open']);
     expect(screens.at(-1)).toBe('ending-open');
+  });
+
+  it('stages the tape, peripheral scares, and door-listening pause before the choice', () => {
+    const harness = createHarness();
+    const { director, screens, tapeStates, listeningStates, effects, activate } = harness;
+
+    director.start();
+    director.update(7.2, null, false);
+    director.handleStoryAction('answer');
+    director.handleStoryAction('continue');
+    activate(TARGETS.window);
+    director.handleStoryAction('continue');
+    activate(TARGETS.portrait);
+    director.handleStoryAction('continue');
+    director.update(2.3, null, false);
+    expect(effects).toContain('shadow-left');
+    director.handleStoryAction('continue');
+    director.handleStoryAction('continue');
+    activate(TARGETS.drawer);
+    for (const digit of ['0', '3', '1', '7']) director.handleStoryAction('digit', digit);
+    director.handleStoryAction('submit-code');
+    expect(tapeStates.at(-1)).toBe('warning-one');
+    director.update(3.7, null, false);
+    expect(effects.at(-1)).toBe('shadow-left');
+    director.handleStoryAction('continue');
+    expect(tapeStates.at(-1)).toBe('warning-two');
+    director.update(4.1, null, false);
+    expect(effects).toContain('flicker');
+    expect(effects.at(-1)).toBe('shadow-right');
+    director.handleStoryAction('continue');
+    expect(tapeStates.at(-1)).toBe('hidden');
+
+    activate(TARGETS.door);
+    expect(screens.at(-1)).toBe('door-listen');
+    expect(listeningStates.at(-1)).toBe(true);
+    director.update(4.75, null, false);
+    expect(effects).toContain('flicker');
+    expect(effects).toContain('shadow-left');
+    director.update(1.45, null, false);
+    harness.press();
+    expect(screens.at(-1)).toBe('door-choice');
+    expect(listeningStates.at(-1)).toBe(false);
   });
 });

@@ -11,8 +11,10 @@ import { createCalibrationUi } from './calibration-ui';
 import { HostAudioEngine } from './audio';
 import {
   StoryDirector,
+  type ManifestationEffect,
   type PhotoInspectionState,
   type StoryVisualState,
+  type TapePlaybackState,
 } from './story-director';
 import { createScene, VIEWPOINT } from './scene';
 import { STORY_SCREENS, type StoryScreenId } from '../shared/story';
@@ -37,6 +39,10 @@ const hostCode = document.querySelector<HTMLDivElement>('#host-code')!;
 const hostChoices = document.querySelector<HTMLDivElement>('#host-choices')!;
 const photoInspection = document.querySelector<HTMLDivElement>('#photo-inspection')!;
 const photoInspectionHint = document.querySelector<HTMLParagraphElement>('#photo-inspection-hint')!;
+const tapePlayback = document.querySelector<HTMLDivElement>('#tape-playback')!;
+const doorListening = document.querySelector<HTMLDivElement>('#door-listening')!;
+const peripheralShadow = document.querySelector<HTMLDivElement>('#peripheral-shadow')!;
+const roomPulse = document.querySelector<HTMLDivElement>('#room-pulse')!;
 const interactionPrompt = document.querySelector<HTMLDivElement>('#interaction-prompt')!;
 const storyNotice = document.querySelector<HTMLDivElement>('#story-notice')!;
 const roomCode =
@@ -88,6 +94,39 @@ function setPhotoInspection(state: PhotoInspectionState): void {
     state === 'back' ? '先聽幾秒，再按中央鍵把照片放回去' : '按手機中央鍵查看照片背面';
 }
 
+function setTapePlayback(state: TapePlaybackState): void {
+  if (state === 'hidden') {
+    tapePlayback.hidden = true;
+    tapePlayback.dataset.track = 'warning-one';
+    return;
+  }
+  // 每一面錄音都重新開始轉輪、字幕與 7.2 秒進度，避免第二段沿用第一段動畫時間。
+  tapePlayback.hidden = true;
+  tapePlayback.dataset.track = state;
+  void tapePlayback.offsetWidth;
+  tapePlayback.hidden = false;
+}
+
+function setDoorListening(active: boolean): void {
+  doorListening.hidden = !active;
+}
+
+function setCinematicChromeHidden(hidden: boolean): void {
+  document.body.classList.toggle('cinematic-lock', hidden);
+}
+
+function triggerManifestation(effect: ManifestationEffect): void {
+  if (effect === 'shadow-left' || effect === 'shadow-right') {
+    peripheralShadow.dataset.side = '';
+    void peripheralShadow.offsetWidth;
+    peripheralShadow.dataset.side = effect === 'shadow-left' ? 'left' : 'right';
+    return;
+  }
+  roomPulse.dataset.effect = '';
+  void roomPulse.offsetWidth;
+  roomPulse.dataset.effect = effect;
+}
+
 function setStoryVisual(state: StoryVisualState): void {
   storyVisuals.dataset.window = state.window;
   storyVisuals.dataset.portrait = state.portrait;
@@ -127,6 +166,10 @@ const director = new StoryDirector(
     setCodeDigits,
     setChoiceFocus,
     setPhotoInspection,
+    setTapePlayback,
+    setDoorListening,
+    setCinematicChromeHidden,
+    triggerManifestation,
     showNotice: showStoryNotice,
     onEnding: (ending) => {
       setStatus(ending === 'sealed' ? '封印成功；按手機中央鍵再玩一次' : '封印解除；按手機中央鍵再玩一次');

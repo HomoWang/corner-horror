@@ -6,6 +6,8 @@ import type { Direction3 } from '../shared/event-engine';
 
 export type StoryEnding = 'open' | 'sealed';
 export type PhotoInspectionState = 'hidden' | 'front' | 'back';
+export type TapePlaybackState = 'hidden' | 'warning-one' | 'warning-two';
+export type ManifestationEffect = 'shadow-left' | 'shadow-right' | 'flicker' | 'blackout';
 
 export interface StoryVisualState {
   window: 'hidden' | 'ready' | 'broken' | 'sealed';
@@ -32,6 +34,7 @@ type StoryState =
   | 'tape-one'
   | 'tape-two'
   | 'find-door'
+  | 'door-listen'
   | 'door-choice'
   | 'reseal-portrait'
   | 'reseal-window'
@@ -51,6 +54,10 @@ export interface StoryDirectorCallbacks {
   setCodeDigits(value: string): void;
   setChoiceFocus(choice: 'seal' | 'open' | null): void;
   setPhotoInspection(state: PhotoInspectionState): void;
+  setTapePlayback(state: TapePlaybackState): void;
+  setDoorListening(active: boolean): void;
+  setCinematicChromeHidden(hidden: boolean): void;
+  triggerManifestation(effect: ManifestationEffect): void;
   showNotice(text: string): void;
   onEnding(ending: StoryEnding): void;
   onRestart(): void;
@@ -81,6 +88,7 @@ export class StoryDirector {
   private code = '';
   private jumpscareHidden = false;
   private tensionCuePlayed = false;
+  private eventStage = 0;
   private nextIncomingRingAt = Number.POSITIVE_INFINITY;
   private endingRingTimer: ReturnType<typeof setTimeout> | null = null;
   private visual = defaultVisualState();
@@ -110,6 +118,7 @@ export class StoryDirector {
     this.code = '';
     this.jumpscareHidden = false;
     this.tensionCuePlayed = false;
+    this.eventStage = 0;
     this.nextIncomingRingAt = Number.POSITIVE_INFINITY;
     this.visual = defaultVisualState();
     this.callbacks.setVisual(this.visual);
@@ -117,6 +126,9 @@ export class StoryDirector {
     this.callbacks.setCodeDigits('');
     this.callbacks.setChoiceFocus(null);
     this.callbacks.setPhotoInspection('hidden');
+    this.callbacks.setTapePlayback('hidden');
+    this.callbacks.setDoorListening(false);
+    this.callbacks.setCinematicChromeHidden(false);
     this.callbacks.setFrame(0);
     this.callbacks.setJumpscareVisible(false);
     this.audio.setTension(0);
@@ -164,6 +176,12 @@ export class StoryDirector {
       this.callbacks.showNotice('刮擦聲不是從你手上的照片傳來。它在你身後。');
     }
 
+    if (this.state === 'portrait-inspect-back' && this.stateSeconds >= 2.25 && this.eventStage === 0) {
+      this.eventStage = 1;
+      this.callbacks.triggerManifestation('shadow-left');
+      this.audio.playFootsteps();
+    }
+
     if (this.state === 'find-portrait' && this.stateSeconds >= 4.8 && !this.tensionCuePlayed) {
       this.tensionCuePlayed = true;
       this.callbacks.sendCue('whisper');
@@ -177,25 +195,85 @@ export class StoryDirector {
       this.callbacks.showNotice('抽屜裡響了一聲。接著，聲音從你身後又響了一次。');
     }
 
+    if (this.state === 'tape-one') {
+      if (this.stateSeconds >= 1.25 && this.eventStage === 0) {
+        this.eventStage = 1;
+        this.audio.playStatic();
+      }
+      if (this.stateSeconds >= 3.7 && this.eventStage === 1) {
+        this.eventStage = 2;
+        this.callbacks.triggerManifestation('shadow-left');
+        this.audio.playFootsteps();
+        this.callbacks.showNotice('錄音裡的腳步聲，和房間左側同時停下。');
+      }
+    }
+
+    if (this.state === 'tape-two') {
+      if (this.stateSeconds >= 1.2 && this.eventStage === 0) {
+        this.eventStage = 1;
+        this.callbacks.triggerManifestation('flicker');
+        this.audio.playStatic();
+      }
+      if (this.stateSeconds >= 4.1 && this.eventStage === 1) {
+        this.eventStage = 2;
+        this.callbacks.triggerManifestation('shadow-right');
+        this.callbacks.sendCue('whisper');
+        this.callbacks.showNotice('錄音帶停了一拍。右側門縫裡，有東西也停了下來。');
+      }
+    }
+
+    if (this.state === 'door-listen') {
+      if (this.stateSeconds >= 0.65 && this.eventStage === 0) {
+        this.eventStage = 1;
+        this.audio.playKnock();
+        this.callbacks.triggerManifestation('flicker');
+      }
+      if (this.stateSeconds >= 2.45 && this.eventStage === 1) {
+        this.eventStage = 2;
+        this.audio.playFootsteps();
+        this.callbacks.triggerManifestation('shadow-left');
+        this.callbacks.showNotice('哭聲在門外；濕腳步卻在你背後。');
+      }
+      if (this.stateSeconds >= 4.75 && this.eventStage === 2) {
+        this.eventStage = 3;
+        this.callbacks.sendCue('ring');
+        this.callbacks.showNotice('手機來電。門外，同一支鈴聲也響了。');
+      }
+    }
+
     if (this.state === 'open-scare') {
-      if (this.stateSeconds >= 1.15 && !this.jumpscareHidden) {
+      if (this.stateSeconds >= 0.55 && this.eventStage === 0) {
+        this.eventStage = 1;
+        this.callbacks.triggerManifestation('blackout');
+      }
+      if (this.stateSeconds >= 2.2 && !this.jumpscareHidden) {
         this.jumpscareHidden = true;
         this.callbacks.setJumpscareVisible(true);
         this.callbacks.sendCue('jumpscare');
         this.audio.playJumpscare();
       }
-      if (this.stateSeconds >= 3.35) this.finish('open');
+      if (this.stateSeconds >= 4.7) this.finish('open');
       return;
     }
 
     if (this.state === 'sealed-scare') {
-      if (this.stateSeconds >= 0.85 && !this.jumpscareHidden) {
+      if (this.stateSeconds >= 0.55 && this.eventStage === 0) {
+        this.eventStage = 1;
+        this.callbacks.triggerManifestation('flicker');
+      }
+      if (this.stateSeconds >= 1.45 && !this.jumpscareHidden) {
         this.jumpscareHidden = true;
         this.callbacks.setFrame(2);
         this.callbacks.sendCue('impact');
         this.audio.playSting(0.9);
       }
-      if (this.stateSeconds >= 2.5) this.finish('sealed');
+      if (this.stateSeconds >= 2.65 && this.eventStage === 1) {
+        this.eventStage = 2;
+        this.callbacks.triggerManifestation('shadow-left');
+        this.callbacks.sendCue('whisper');
+        this.callbacks.showNotice('你照著錄音沒有轉身。背後的呼吸，慢慢退回牆裡。');
+      }
+      if (this.stateSeconds >= 4.35) this.finish('sealed');
       return;
     }
 
@@ -204,6 +282,7 @@ export class StoryDirector {
         this.setVisual({ drawer: 'open' });
         this.audio.playStatic();
         this.callbacks.sendCue('whisper');
+        this.callbacks.setTapePlayback('warning-one');
         this.enter('tape-one', 'tape-warning-one');
       }
       return;
@@ -289,23 +368,36 @@ export class StoryDirector {
         this.setVisual({ drawer: 'open' });
         this.audio.playStatic();
         this.callbacks.sendCue('whisper');
+        this.callbacks.setTapePlayback('warning-one');
         this.enter('tape-one', 'tape-warning-one');
         return;
       }
     }
     if (this.state === 'tape-one' && id === 'continue') {
       this.audio.playStatic();
+      this.callbacks.setTapePlayback('warning-two');
       this.enter('tape-two', 'tape-warning-two');
       return;
     }
     if (this.state === 'tape-two' && id === 'continue') {
       this.audio.setTension(0.72);
       this.audio.playKnock();
+      this.callbacks.setTapePlayback('hidden');
       this.setVisual({ door: 'ready', footsteps: true });
       this.enter('find-door', 'find-door');
       return;
     }
+    if (this.state === 'door-listen' && id === 'continue') {
+      this.callbacks.setDoorListening(false);
+      this.audio.playSting(0.28);
+      this.enter('door-choice', 'door-choice');
+      return;
+    }
     if (this.state === 'door-choice' && id === 'choose-open') {
+      this.callbacks.setDoorListening(false);
+      this.callbacks.showNotice('');
+      this.callbacks.sendScreen('standby');
+      this.callbacks.setCinematicChromeHidden(true);
       this.setVisual({ door: 'shadow', footsteps: false });
       this.callbacks.setFrame(2);
       this.audio.playDoor();
@@ -314,6 +406,7 @@ export class StoryDirector {
       return;
     }
     if (this.state === 'door-choice' && id === 'choose-seal') {
+      this.callbacks.setDoorListening(false);
       this.setVisual({ portrait: 'ready', door: 'shadow' });
       this.enter('reseal-portrait', 'reseal-portrait');
       return;
@@ -380,8 +473,9 @@ export class StoryDirector {
           hint: '房門在畫面右側。腳印正往那裡移動。',
           activate: () => {
             this.audio.playFootsteps();
-            this.callbacks.sendCue('ring');
-            this.enter('door-choice', 'door-choice');
+            this.callbacks.setDoorListening(true);
+            this.setVisual({ door: 'shadow', footsteps: false });
+            this.enter('door-listen', 'door-listen');
           },
         };
       case 'reseal-portrait':
@@ -416,6 +510,9 @@ export class StoryDirector {
             this.setVisual({ door: 'sealed', footsteps: false });
             this.audio.playDoor();
             this.audio.setTension(0.25);
+            this.callbacks.showNotice('');
+            this.callbacks.sendScreen('standby');
+            this.callbacks.setCinematicChromeHidden(true);
             this.enter('sealed-scare');
           },
         };
@@ -435,6 +532,7 @@ export class StoryDirector {
     this.stateSeconds = 0;
     this.hintPlayed = false;
     this.tensionCuePlayed = false;
+    this.eventStage = 0;
     if (state !== 'incoming') this.nextIncomingRingAt = Number.POSITIVE_INFINITY;
     this.callbacks.setPrompt(null);
     if (state !== 'door-choice') this.callbacks.setChoiceFocus(null);
@@ -467,11 +565,15 @@ export class StoryDirector {
         this.handleStoryAction('continue');
         return true;
       case 'tape-one':
-        if (this.stateSeconds < 4.5) return true;
+        if (this.stateSeconds < 7.2) return true;
         this.handleStoryAction('continue');
         return true;
       case 'tape-two':
-        if (this.stateSeconds < 4.5) return true;
+        if (this.stateSeconds < 7.2) return true;
+        this.handleStoryAction('continue');
+        return true;
+      case 'door-listen':
+        if (this.stateSeconds < 6.2) return true;
         this.handleStoryAction('continue');
         return true;
       case 'ending-open':
@@ -539,6 +641,7 @@ export class StoryDirector {
 
   private finish(ending: StoryEnding): void {
     this.callbacks.setJumpscareVisible(false);
+    this.callbacks.setCinematicChromeHidden(false);
     this.callbacks.setFrame(ending === 'sealed' ? 0 : 3);
     this.audio.setTension(ending === 'sealed' ? 0.08 : 0);
     this.audio.stopScore();
