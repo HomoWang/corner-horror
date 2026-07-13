@@ -2,7 +2,8 @@
 const WebSocket = require('ws');
 
 const url = process.argv[2] ?? 'wss://127.0.0.1:5173/ws?room=0123456789abcdef';
-const options = { rejectUnauthorized: false };
+const origin = process.argv[3];
+const options = { rejectUnauthorized: false, ...(origin ? { origin } : {}) };
 const host = new WebSocket(url, options);
 const controller = new WebSocket(url, options);
 const seen = { status: false, orient: false, cue: false };
