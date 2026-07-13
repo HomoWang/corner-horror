@@ -1,6 +1,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Corner Horror — Host</title>
+<title>407 號房：最後點交</title>
 <style>
   :root { color-scheme: dark; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
@@ -17,6 +17,7 @@
     background: rgba(0, 0, 0, 0.85);
     color: #9a9a9a;
     transition: opacity 0.6s;
+    z-index: 10;
   }
   #overlay.hidden { opacity: 0; pointer-events: none; }
   #overlay h1 { font-size: 1rem; font-weight: normal; letter-spacing: 0.3em; color: #555; }
@@ -118,8 +119,166 @@
     font-size: 0.75rem;
   }
   #calibration-panel button { border: 1px solid #555; background: #181818; color: #bbb; padding: 0.35rem 0.6rem; }
+  #story-visuals { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+  #story-window {
+    position: absolute;
+    left: 8%;
+    top: 17%;
+    width: min(18vw, 16rem);
+    height: 43%;
+    opacity: 0;
+    transform: perspective(600px) rotateY(8deg);
+    border: clamp(6px, 0.8vw, 13px) solid #211914;
+    background:
+      linear-gradient(90deg, transparent 48%, #1c1512 49% 52%, transparent 53%),
+      linear-gradient(transparent 48%, #1c1512 49% 52%, transparent 53%),
+      repeating-linear-gradient(102deg, transparent 0 16px, rgba(175, 190, 200, 0.12) 17px 18px),
+      linear-gradient(#05090c, #101217 60%, #020304);
+    box-shadow: inset 0 0 35px #000, 0 0 30px rgba(0,0,0,.9);
+    transition: opacity .7s, filter .25s;
+  }
+  #story-window::after {
+    content: '';
+    position: absolute;
+    inset: -1.2rem;
+    background: linear-gradient(112deg, transparent 45%, rgba(205,225,240,.8) 50%, transparent 52%);
+    opacity: 0;
+  }
+  #story-visuals[data-window='ready'] #story-window,
+  #story-visuals[data-window='broken'] #story-window,
+  #story-visuals[data-window='sealed'] #story-window { opacity: .72; }
+  #story-visuals[data-window='ready'] #story-window { animation: window-rattle 2.8s infinite; }
+  #story-visuals[data-window='broken'] #story-window::after { animation: lightning-flash .65s ease-out; }
+  #red-thread {
+    position: absolute;
+    right: -1.15rem;
+    top: 48%;
+    width: 2.5rem;
+    height: 2px;
+    background: #601616;
+    box-shadow: 0 0 5px #8d1111;
+    transform: rotate(-18deg);
+  }
+  #story-visuals[data-window='broken'] #red-thread { transform: rotate(32deg) translateY(1.2rem); opacity: .45; }
+  #story-visuals[data-window='sealed'] #red-thread { width: 3rem; opacity: 1; }
+  #handprint { position: absolute; left: 48%; top: 42%; width: 3.4rem; height: 4.4rem; opacity: 0; filter: blur(.3px); }
+  #handprint::before {
+    content: '';
+    position: absolute;
+    left: .65rem;
+    top: 1.45rem;
+    width: 2.1rem;
+    height: 2.5rem;
+    border-radius: 48% 48% 55% 55%;
+    background: rgba(83, 8, 8, .68);
+    box-shadow: -.45rem 2rem 0 -.25rem rgba(83,8,8,.6);
+  }
+  #handprint span { position: absolute; bottom: 2.3rem; width: .42rem; border-radius: 50%; background: rgba(83,8,8,.72); transform-origin: 50% 100%; }
+  #handprint span:nth-child(1) { left: .25rem; height: 1.8rem; transform: rotate(-18deg); }
+  #handprint span:nth-child(2) { left: .9rem; height: 2.3rem; transform: rotate(-7deg); }
+  #handprint span:nth-child(3) { left: 1.55rem; height: 2.55rem; }
+  #handprint span:nth-child(4) { left: 2.2rem; height: 2.25rem; transform: rotate(8deg); }
+  #handprint span:nth-child(5) { left: 2.82rem; height: 1.7rem; transform: rotate(18deg); }
+  #story-visuals[data-window='broken'] #handprint { opacity: 1; animation: hand-arrive .3s both; }
+  #story-visuals[data-window='sealed'] #handprint { opacity: .22; }
+  #door-shadow {
+    position: absolute;
+    left: 79.3%;
+    top: 27%;
+    width: 5.5%;
+    height: 45%;
+    opacity: 0;
+    border-radius: 48% 48% 12% 12%;
+    background: radial-gradient(circle at 50% 13%, #010101 0 17%, transparent 18%), linear-gradient(90deg, transparent 8%, #010101 28% 72%, transparent 92%);
+    filter: blur(2px);
+    transition: opacity 1.1s;
+  }
+  #story-visuals[data-door='shadow'] #door-shadow { opacity: .86; animation: shadow-breathe 2.6s infinite; }
+  #footsteps { position: absolute; inset: 0; opacity: 0; transition: opacity .4s; }
+  #footsteps i {
+    position: absolute;
+    width: 1.15rem;
+    height: 2.5rem;
+    border-radius: 55% 45% 60% 40%;
+    background: rgba(44, 12, 9, .72);
+    filter: blur(.4px);
+    opacity: 0;
+  }
+  #footsteps i:nth-child(1) { left: 35%; bottom: 17%; transform: rotate(22deg); animation-delay: .1s; }
+  #footsteps i:nth-child(2) { left: 44%; bottom: 13%; transform: rotate(-16deg); animation-delay: .65s; }
+  #footsteps i:nth-child(3) { left: 55%; bottom: 18%; transform: rotate(19deg); animation-delay: 1.2s; }
+  #footsteps i:nth-child(4) { left: 66%; bottom: 15%; transform: rotate(-12deg); animation-delay: 1.75s; }
+  #footsteps i:nth-child(5) { left: 76%; bottom: 21%; transform: rotate(14deg); animation-delay: 2.3s; }
+  #story-visuals[data-footsteps='true'] #footsteps { opacity: 1; }
+  #story-visuals[data-footsteps='true'] #footsteps i { animation: footprint-appear 4s infinite; }
+  #story-hud {
+    position: fixed;
+    left: clamp(1rem, 3vw, 3rem);
+    top: clamp(3.6rem, 9vh, 6rem);
+    z-index: 4;
+    max-width: min(34rem, 72vw);
+    opacity: 0;
+    transition: opacity .5s;
+    text-shadow: 0 2px 12px #000;
+    pointer-events: none;
+  }
+  #story-hud.active { opacity: 1; }
+  #story-eyebrow { color: #8f6d66; font-size: .68rem; letter-spacing: .24em; text-transform: uppercase; }
+  #story-title { margin: .45rem 0; color: #c5b7ae; font: 400 clamp(1.2rem, 2.4vw, 2rem)/1.2 Georgia, serif; letter-spacing: .08em; }
+  #story-body { margin: 0; color: #827a75; font-size: clamp(.72rem, 1.25vw, .92rem); line-height: 1.75; }
+  #story-objective { margin: .85rem 0 0; color: #a3877f; font-size: .72rem; letter-spacing: .08em; }
+  #interaction-prompt {
+    position: fixed;
+    left: 50%;
+    bottom: 8%;
+    z-index: 5;
+    transform: translate(-50%, .5rem);
+    opacity: 0;
+    padding: .65rem 1rem;
+    border: 1px solid rgba(130,80,70,.5);
+    background: rgba(5,2,2,.8);
+    color: #c5a19a;
+    font-size: .76rem;
+    letter-spacing: .12em;
+    transition: opacity .2s, transform .2s;
+  }
+  #interaction-prompt.active { opacity: 1; transform: translate(-50%, 0); }
+  #story-notice {
+    position: fixed;
+    left: 50%;
+    top: 78%;
+    z-index: 5;
+    transform: translateX(-50%);
+    color: #9e8a82;
+    font: italic .8rem/1.6 Georgia, serif;
+    text-shadow: 0 2px 10px #000;
+    opacity: 0;
+  }
+  #story-notice.show { animation: notice 5s both; }
+  @keyframes window-rattle { 0%,92%,100%{transform:perspective(600px) rotateY(8deg)} 94%{transform:perspective(600px) rotateY(8deg) translateX(-2px)} 96%{transform:perspective(600px) rotateY(8deg) translateX(3px)} }
+  @keyframes lightning-flash { 0%,100%{opacity:0} 12%{opacity:1} 28%{opacity:.15} 40%{opacity:.8} }
+  @keyframes hand-arrive { from{transform:scale(1.8);filter:blur(8px)} to{transform:scale(1);filter:blur(.3px)} }
+  @keyframes shadow-breathe { 50%{transform:scaleX(1.08) translateY(-1%);filter:blur(3px)} }
+  @keyframes footprint-appear { 0%,12%{opacity:0} 22%,72%{opacity:.78} 100%{opacity:0} }
+  @keyframes notice { 0%,100%{opacity:0} 10%,75%{opacity:1} }
 </style>
 <canvas id="stage"></canvas>
+<div id="story-visuals" data-window="hidden" data-door="normal" data-footsteps="false">
+  <div id="story-window">
+    <div id="red-thread"></div>
+    <div id="handprint"><span></span><span></span><span></span><span></span><span></span></div>
+  </div>
+  <div id="door-shadow"></div>
+  <div id="footsteps"><i></i><i></i><i></i><i></i><i></i></div>
+</div>
+<section id="story-hud" aria-live="polite">
+  <div id="story-eyebrow"></div>
+  <h2 id="story-title"></h2>
+  <p id="story-body"></p>
+  <p id="story-objective"></p>
+</section>
+<div id="interaction-prompt"></div>
+<div id="story-notice"></div>
 <button id="sound-toggle" type="button">點此啟動主機恐怖音效</button>
 <button id="calibrate" type="button" aria-pressed="false">投影校正</button>
 <div id="calibration-layer">

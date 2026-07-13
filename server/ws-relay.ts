@@ -40,11 +40,17 @@ export class WsRelay {
         }
         return;
       }
-      // 只有 controller 的 orient / btn 需要轉發給 host
-      if (role === 'controller' && (msg.type === 'orient' || msg.type === 'btn')) {
+      // controller 的方向、動作與劇情 UI 回應都只轉發給 host。
+      if (
+        role === 'controller' &&
+        (msg.type === 'orient' ||
+          msg.type === 'btn' ||
+          msg.type === 'ready' ||
+          msg.type === 'story-action')
+      ) {
         if (this.host) safeSend(this.host, JSON.stringify(msg));
       }
-      if (role === 'host' && msg.type === 'cue') {
+      if (role === 'host' && (msg.type === 'cue' || msg.type === 'story')) {
         if (this.controller) safeSend(this.controller, JSON.stringify(msg));
       }
     });

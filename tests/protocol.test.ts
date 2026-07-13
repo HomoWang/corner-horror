@@ -51,6 +51,7 @@ describe('parseMessage', () => {
     });
     expect(parseMessage(JSON.stringify({ type: 'status' }))).toBeNull();
     expect(parseMessage(JSON.stringify({ type: 'kick' }))).toEqual({ type: 'kick' });
+    expect(parseMessage(JSON.stringify({ type: 'ready' }))).toEqual({ type: 'ready' });
   });
 
   it('只接受已知的手機音效 cue', () => {
@@ -71,6 +72,24 @@ describe('parseMessage', () => {
       id: 'jumpscare',
     });
     expect(parseMessage(JSON.stringify({ type: 'cue', id: 'unknown' }))).toBeNull();
+  });
+
+  it('解析劇情畫面與手機劇情操作', () => {
+    expect(parseMessage(JSON.stringify({ type: 'story', screen: 'incoming-407' }))).toEqual({
+      type: 'story',
+      screen: 'incoming-407',
+    });
+    expect(parseMessage(JSON.stringify({ type: 'story-action', id: 'answer' }))).toEqual({
+      type: 'story-action',
+      id: 'answer',
+    });
+    expect(
+      parseMessage(JSON.stringify({ type: 'story-action', id: 'digit', value: '7' })),
+    ).toEqual({ type: 'story-action', id: 'digit', value: '7' });
+    expect(parseMessage(JSON.stringify({ type: 'story', screen: 'not-a-scene' }))).toBeNull();
+    expect(
+      parseMessage(JSON.stringify({ type: 'story-action', id: 'digit', value: '31' })),
+    ).toBeNull();
   });
 
   it('拒絕非字串、壞 JSON、未知 type', () => {

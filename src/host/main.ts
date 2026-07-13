@@ -9,8 +9,9 @@ import { buildWebSocketUrl, createRoomCode, normalizeRoomCode } from '../shared/
 import { Flashlight } from './flashlight';
 import { createCalibrationUi } from './calibration-ui';
 import { HostAudioEngine } from './audio';
-import { HorrorDirector } from './horror-director';
+import { StoryDirector, type StoryVisualState } from './story-director';
 import { createScene, VIEWPOINT } from './scene';
+import { STORY_SCREENS, type StoryScreenId } from '../shared/story';
 
 const stageCanvas = document.querySelector<HTMLCanvasElement>('#stage')!;
 const overlayEl = document.querySelector<HTMLDivElement>('#overlay')!;
@@ -22,6 +23,14 @@ const experienceOverlay = document.querySelector<HTMLDivElement>('#experience-ov
 const experienceTitle = document.querySelector<HTMLHeadingElement>('#experience-title')!;
 const experienceCopy = document.querySelector<HTMLParagraphElement>('#experience-copy')!;
 const experienceButton = document.querySelector<HTMLButtonElement>('#experience-start')!;
+const storyVisuals = document.querySelector<HTMLDivElement>('#story-visuals')!;
+const storyHud = document.querySelector<HTMLElement>('#story-hud')!;
+const storyEyebrow = document.querySelector<HTMLElement>('#story-eyebrow')!;
+const storyTitle = document.querySelector<HTMLElement>('#story-title')!;
+const storyBody = document.querySelector<HTMLElement>('#story-body')!;
+const storyObjective = document.querySelector<HTMLElement>('#story-objective')!;
+const interactionPrompt = document.querySelector<HTMLDivElement>('#interaction-prompt')!;
+const storyNotice = document.querySelector<HTMLDivElement>('#story-notice')!;
 const roomCode =
   normalizeRoomCode(new URLSearchParams(location.search).get('room')) ??
   normalizeRoomCode(sessionStorage.getItem('corner-horror-room')) ??
@@ -37,19 +46,65 @@ let hostWs: WebSocket | null = null;
 let controllerReady = false;
 let actionPressed = false;
 let experienceStarting = false;
-const director = new HorrorDirector(
-  handles.actors,
+function sendToController(payload: unknown): void {
+  if (hostWs?.readyState === WebSocket.OPEN) hostWs.send(JSON.stringify(payload));
+}
+
+function setStoryScreen(screenId: StoryScreenId): void {
+  const screen = STORY_SCREENS[screenId];
+  storyEyebrow.textContent = screen.eyebrow;
+  storyTitle.textContent = screen.title;
+  storyBody.textContent = screen.body;
+  storyObjective.textContent = screen.objective ?? '';
+  storyObjective.hidden = !screen.objective;
+  storyHud.classList.toggle('active', screenId !== 'standby');
+}
+
+function setStoryVisual(state: StoryVisualState): void {
+  storyVisuals.dataset.window = state.window;
+  storyVisuals.dataset.portrait = state.portrait;
+  storyVisuals.dataset.drawer = state.drawer;
+  storyVisuals.dataset.door = state.door;
+  storyVisuals.dataset.footsteps = String(state.footsteps);
+}
+
+function setInteractionPrompt(text: string | null): void {
+  interactionPrompt.textContent = text ?? '';
+  interactionPrompt.classList.toggle('active', text !== null);
+}
+
+function showStoryNotice(text: string): void {
+  storyNotice.textContent = text;
+  storyNotice.classList.remove('show');
+  void storyNotice.offsetWidth;
+  storyNotice.classList.add('show');
+}
+
+const director = new StoryDirector(
   VIEWPOINT,
   audio,
-  (id) => {
-    if (hostWs?.readyState === WebSocket.OPEN) hostWs.send(JSON.stringify({ type: 'cue', id }));
+  {
+    sendScreen: (screen) => {
+      setStoryScreen(screen);
+      sendToController({ type: 'story', screen });
+    },
+    sendCue: (id) => sendToController({ type: 'cue', id }),
+    setFrame: (frame) => handles.cinematic.setFrame(frame),
+    setJumpscareVisible: (visible) => {
+      if (visible) handles.jumpscare.trigger();
+      else handles.jumpscare.reset();
+    },
+    setVisual: setStoryVisual,
+    setPrompt: setInteractionPrompt,
+    showNotice: showStoryNotice,
+    onEnding: (ending) => {
+      setStatus(ending === 'sealed' ? '封印成功；可在手機選擇再玩一次' : '封印解除；可在手機選擇再玩一次');
+    },
+    onRestart: () => {
+      hideExperienceOverlay();
+      setStatus('407 號房點交進行中');
+    },
   },
-  (frame) => handles.cinematic.setFrame(frame),
-  (visible) => {
-    if (visible) handles.jumpscare.trigger();
-    else handles.jumpscare.reset();
-  },
-  showExperienceEnd,
 );
 
 let kicked = false;
@@ -74,18 +129,10 @@ function hideExperienceOverlay(): void {
 }
 
 function showExperienceStart(): void {
-  experienceTitle.textContent = 'THE CORNER';
-  experienceCopy.textContent = '戴上手機耳機，按手機的「開始／動作」；主機音效需點左上角解鎖';
-  experienceButton.textContent = '開始體驗';
+  experienceTitle.textContent = '407 號房：最後點交';
+  experienceCopy.textContent = '戴上手機耳機，把手機指向畫面中央；按手機的「開始／動作」進房';
+  experienceButton.textContent = '從主機開始';
   experienceOverlay.hidden = false;
-}
-
-function showExperienceEnd(): void {
-  experienceTitle.textContent = '你不該看那裡';
-  experienceCopy.textContent = '房間記得你。再看一次，它可能不在同一個位置。';
-  experienceButton.textContent = '再玩一次';
-  experienceOverlay.hidden = false;
-  setStatus('事件完成，可重新開始');
 }
 
 function startExperience(): void {
@@ -148,13 +195,14 @@ function setControllerConnected(connected: boolean): void {
   setStatus('控制器已連線，請在手機按「開始」');
 }
 
-function markControllerReady(): void {
-  if (controllerReady) return;
-  controllerReady = true;
-  flashlight.setConnected(true);
-  overlayEl.classList.add('hidden');
-  showExperienceStart();
-  setStatus('控制器已就緒，等待開始體驗');
+function markControllerReady(hasOrientation: boolean): void {
+  if (hasOrientation) flashlight.setConnected(true);
+  if (!controllerReady) {
+    controllerReady = true;
+    overlayEl.classList.add('hidden');
+    showExperienceStart();
+    setStatus(hasOrientation ? '控制器已就緒，等待開始體驗' : '手機已就緒；可用主畫面滑鼠控制光錐');
+  }
 }
 
 function connect(): void {
@@ -180,8 +228,11 @@ function connect(): void {
         setControllerConnected(msg.controller);
         break;
       case 'orient':
-        markControllerReady();
+        markControllerReady(true);
         flashlight.setTargetQuaternion(msg.q);
+        break;
+      case 'ready':
+        markControllerReady(false);
         break;
       case 'btn':
         actionPressed = msg.pressed;
@@ -190,6 +241,9 @@ function connect(): void {
         } else if (experienceOverlay.hidden) {
           setStatus(`action ${msg.pressed ? 'down' : 'up'}`);
         }
+        break;
+      case 'story-action':
+        director.handleStoryAction(msg.id, msg.value);
         break;
       case 'kick':
         kicked = true;

@@ -82,6 +82,95 @@ export class HostAudioEngine {
     this.playSting(0.25);
   }
 
+  playKnock(): void {
+    if (!this.context || this.context.state !== 'running') return;
+    const context = this.context;
+    const output = this.masterGain ?? context.destination;
+    const start = context.currentTime;
+    for (const offset of [0, 0.34, 0.72]) {
+      const oscillator = context.createOscillator();
+      const filter = context.createBiquadFilter();
+      const gain = context.createGain();
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(92, start + offset);
+      oscillator.frequency.exponentialRampToValueAtTime(42, start + offset + 0.14);
+      filter.type = 'lowpass';
+      filter.frequency.value = 270;
+      gain.gain.setValueAtTime(0.0001, start + offset);
+      gain.gain.exponentialRampToValueAtTime(0.3, start + offset + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + 0.22);
+      oscillator.connect(filter).connect(gain).connect(output);
+      oscillator.start(start + offset);
+      oscillator.stop(start + offset + 0.24);
+    }
+  }
+
+  playFootsteps(): void {
+    if (!this.context || this.context.state !== 'running') return;
+    const context = this.context;
+    const output = this.masterGain ?? context.destination;
+    const start = context.currentTime;
+    for (let step = 0; step < 5; step++) {
+      const at = start + step * 0.48;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const pan = context.createStereoPanner();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(68 - step * 4, at);
+      oscillator.frequency.exponentialRampToValueAtTime(31, at + 0.2);
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.11 + step * 0.025, at + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.3);
+      pan.pan.value = -0.65 + step * 0.28;
+      oscillator.connect(gain).connect(pan).connect(output);
+      oscillator.start(at);
+      oscillator.stop(at + 0.32);
+    }
+  }
+
+  playThunder(): void {
+    if (!this.context || this.context.state !== 'running') return;
+    const context = this.context;
+    const duration = 1.8;
+    const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let index = 0; index < data.length; index++) {
+      const decay = Math.exp((-5 * index) / data.length);
+      data[index] = (Math.random() * 2 - 1) * decay;
+    }
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    filter.type = 'lowpass';
+    filter.frequency.value = 190;
+    gain.gain.value = 0.5;
+    source.buffer = buffer;
+    source.connect(filter).connect(gain).connect(this.masterGain ?? context.destination);
+    source.start();
+  }
+
+  playStatic(): void {
+    if (!this.context || this.context.state !== 'running') return;
+    const context = this.context;
+    const duration = 0.9;
+    const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let index = 0; index < data.length; index++) data[index] = Math.random() * 2 - 1;
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    const now = context.currentTime;
+    filter.type = 'bandpass';
+    filter.frequency.value = 1350;
+    filter.Q.value = 0.85;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.13, now + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    source.buffer = buffer;
+    source.connect(filter).connect(gain).connect(this.masterGain ?? context.destination);
+    source.start();
+  }
+
   playJumpscare(): void {
     if (!this.context || this.context.state !== 'running') return;
     const output = this.masterGain ?? this.context.destination;

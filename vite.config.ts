@@ -12,7 +12,7 @@ function deploymentBase(): string {
 
 export default defineConfig({
   base: deploymentBase(),
-  plugins: [basicSsl(), wsRelayPlugin()],
+  plugins: [process.env.VITE_NO_SSL === 'true' ? null : basicSsl(), wsRelayPlugin()],
   server: {
     host: true, // 綁 0.0.0.0，區網手機才連得進來
     port: 5173,

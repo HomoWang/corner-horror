@@ -1,6 +1,8 @@
 // WebSocket 訊息協定：所有進出 relay 的訊息都經過 parseMessage 驗證，
 // 兩端與伺服器共用本模組，型別即文件。
 
+import type { StoryActionId, StoryScreenId } from './story';
+
 export type Role = 'host' | 'controller';
 
 export interface HelloMsg {
@@ -19,6 +21,10 @@ export interface BtnMsg {
   type: 'btn';
   id: 'action';
   pressed: boolean;
+}
+
+export interface ReadyMsg {
+  type: 'ready';
 }
 
 /** server → host：控制器連線狀態 */
@@ -46,7 +52,59 @@ export interface CueMsg {
   id: ControllerCueId;
 }
 
-export type Msg = HelloMsg | OrientMsg | BtnMsg | StatusMsg | KickMsg | CueMsg;
+export interface StoryMsg {
+  type: 'story';
+  screen: StoryScreenId;
+}
+
+export interface StoryActionMsg {
+  type: 'story-action';
+  id: StoryActionId;
+  value?: string;
+}
+
+export type Msg =
+  | HelloMsg
+  | OrientMsg
+  | BtnMsg
+  | ReadyMsg
+  | StatusMsg
+  | KickMsg
+  | CueMsg
+  | StoryMsg
+  | StoryActionMsg;
+
+const STORY_SCREEN_IDS = new Set<StoryScreenId>([
+  'standby',
+  'prologue',
+  'incoming-407',
+  'call-window',
+  'find-window',
+  'window-opened',
+  'find-portrait',
+  'portrait-changed',
+  'find-drawer',
+  'keypad-0317',
+  'tape-warning-one',
+  'tape-warning-two',
+  'find-door',
+  'door-choice',
+  'reseal-portrait',
+  'reseal-window',
+  'reseal-door',
+  'ending-open',
+  'ending-sealed',
+]);
+
+const STORY_ACTION_IDS = new Set<StoryActionId>([
+  'answer',
+  'continue',
+  'digit',
+  'clear-code',
+  'submit-code',
+  'choose-open',
+  'choose-seal',
+]);
 
 function isQuaternion(q: unknown): q is [number, number, number, number] {
   return (
@@ -81,6 +139,8 @@ export function parseMessage(raw: unknown): Msg | null {
       return m.id === 'action' && typeof m.pressed === 'boolean'
         ? { type: 'btn', id: 'action', pressed: m.pressed }
         : null;
+    case 'ready':
+      return { type: 'ready' };
     case 'status':
       return typeof m.controller === 'boolean'
         ? { type: 'status', controller: m.controller }
@@ -96,6 +156,18 @@ export function parseMessage(raw: unknown): Msg | null {
         m.id === 'jumpscare'
         ? { type: 'cue', id: m.id }
         : null;
+    case 'story':
+      return typeof m.screen === 'string' && STORY_SCREEN_IDS.has(m.screen as StoryScreenId)
+        ? { type: 'story', screen: m.screen as StoryScreenId }
+        : null;
+    case 'story-action': {
+      if (typeof m.id !== 'string' || !STORY_ACTION_IDS.has(m.id as StoryActionId)) return null;
+      if (m.value !== undefined && (typeof m.value !== 'string' || m.value.length > 16)) return null;
+      if (m.id === 'digit' && (typeof m.value !== 'string' || !/^[0-9]$/.test(m.value))) return null;
+      return m.value === undefined
+        ? { type: 'story-action', id: m.id as StoryActionId }
+        : { type: 'story-action', id: m.id as StoryActionId, value: m.value };
+    }
     default:
       return null;
   }

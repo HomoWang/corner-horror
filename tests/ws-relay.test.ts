@@ -35,7 +35,7 @@ function hello(socket: FakeSocket, role: 'host' | 'controller'): void {
 }
 
 describe('WsRelay', () => {
-  it('forwards controller input to host and host cues to controller only', () => {
+  it('forwards controller input to host and host story output to controller only', () => {
     const relay = new WsRelay();
     const host = new FakeSocket();
     const controller = new FakeSocket();
@@ -47,10 +47,20 @@ describe('WsRelay', () => {
     controller.sent = [];
 
     controller.emit('message', JSON.stringify({ type: 'orient', q: [0, 0, 0, 1], t: 1 }));
+    controller.emit('message', JSON.stringify({ type: 'ready' }));
+    controller.emit('message', JSON.stringify({ type: 'story-action', id: 'answer' }));
     host.emit('message', JSON.stringify({ type: 'cue', id: 'ring' }));
+    host.emit('message', JSON.stringify({ type: 'story', screen: 'incoming-407' }));
 
-    expect(host.messages()).toEqual([{ type: 'orient', q: [0, 0, 0, 1], t: 1 }]);
-    expect(controller.messages()).toEqual([{ type: 'cue', id: 'ring' }]);
+    expect(host.messages()).toEqual([
+      { type: 'orient', q: [0, 0, 0, 1], t: 1 },
+      { type: 'ready' },
+      { type: 'story-action', id: 'answer' },
+    ]);
+    expect(controller.messages()).toEqual([
+      { type: 'cue', id: 'ring' },
+      { type: 'story', screen: 'incoming-407' },
+    ]);
   });
 
   it('last-wins replacement is safe even when close emits synchronously', () => {
@@ -85,4 +95,3 @@ describe('WsRelay', () => {
     expect(host.messages()).toEqual([{ type: 'status', controller: false }]);
   });
 });
-
