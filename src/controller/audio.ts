@@ -20,6 +20,7 @@ export class ControllerAudioEngine {
   private readonly samples = new Map<AudioSampleId, AudioBuffer>();
   private sampleLoadPromise: Promise<void> | null = null;
   private ambienceRequested = false;
+  private pendingCues: ControllerCueId[] = [];
 
   async unlock(): Promise<boolean> {
     try {
@@ -39,6 +40,10 @@ export class ControllerAudioEngine {
       }
       if (this.context.state === 'suspended') await this.context.resume();
       void this.loadSamples();
+      if (this.context.state === 'running' && this.pendingCues.length > 0) {
+        const pending = this.pendingCues.splice(0);
+        for (const cue of pending) this.play(cue);
+      }
       return this.context.state === 'running';
     } catch {
       return false;
@@ -46,7 +51,15 @@ export class ControllerAudioEngine {
   }
 
   play(id: ControllerCueId): void {
-    if (!this.context || this.context.state !== 'running') return;
+    if (!this.context || this.context.state !== 'running') {
+      if (id === 'ambience-stop') {
+        this.pendingCues = this.pendingCues.filter((cue) => cue !== 'ambience-start');
+        return;
+      }
+      if (id !== 'ambience-start' || !this.pendingCues.includes(id)) this.pendingCues.push(id);
+      if (this.pendingCues.length > 8) this.pendingCues.shift();
+      return;
+    }
     if (id === 'ambience-start') this.startAmbience();
     if (id === 'ambience-stop') this.stopAmbience();
     if (id === 'ring') this.playRing();

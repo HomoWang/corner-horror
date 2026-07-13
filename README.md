@@ -8,9 +8,10 @@ The first playable chapter is **407 號房：最後點交**: a 6–10 minute inv
 call, window and portrait triggers, a host-screen code sequence, a recorded warning, an aimed door
 choice, and two endings. The complete event outline is documented in [STORY.md](STORY.md).
 
-After the phone is ready, click **開啟聲音並開始** once on the host. Browsers require this host-side
-gesture to unlock room audio. From that point onward, every interaction uses the phone's same
-central button; story text, codes, and choices stay on the larger screen.
+After the phone is ready, press its central button to start. The phone owns the guaranteed audio
+track because that touch can unlock mobile audio directly. The host can optionally be clicked once
+for synchronized room audio, but it never blocks the experience. Story text, codes, and choices
+stay on the larger screen.
 
 ## Live experience
 

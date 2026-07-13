@@ -112,8 +112,12 @@ async function start(): Promise<void> {
 
 startBtn.addEventListener('click', () => void start());
 recenterBtn.addEventListener('click', () => stream.recenter());
-actionBtn.addEventListener('pointerdown', () => send({ type: 'btn', id: 'action', pressed: true }));
-actionBtn.addEventListener('pointerdown', () => actionBtn.classList.add('pressed'));
+actionBtn.addEventListener('pointerdown', () => {
+  // 每次真實觸碰都再嘗試恢復手機音效，避免行動瀏覽器把背景 AudioContext 暫停。
+  void audio.unlock();
+  actionBtn.classList.add('pressed');
+  send({ type: 'btn', id: 'action', pressed: true });
+});
 actionBtn.addEventListener('pointerup', () => {
   actionBtn.classList.remove('pressed');
   send({ type: 'btn', id: 'action', pressed: false });

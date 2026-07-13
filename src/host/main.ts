@@ -147,20 +147,20 @@ function hideExperienceOverlay(): void {
 
 function showExperienceStart(): void {
   experienceTitle.textContent = '407 號房：最後點交';
-  experienceCopy.textContent = '先在大螢幕點這一次來開啟聲音；之後不用再低頭，只需移動手機並按中央鍵';
-  experienceButton.textContent = '開啟聲音並開始';
+  experienceCopy.textContent = '按手機中央鍵直接開始；聲音由手機播放。也可點下方讓大螢幕同步出聲';
+  experienceButton.textContent = '主機聲音＋開始';
   experienceOverlay.hidden = false;
 }
 
-function startExperience(): void {
+function startExperience(useHostGesture = false): void {
   if (!controllerReady || experienceStarting || experienceOverlay.hidden) return;
   experienceStarting = true;
 
-  // 呼叫必須留在主機 click 的同步鏈內，才能通過瀏覽器的 Web Audio 限制。
+  // 手機可以直接開始影像與手機音效；若由主機 click 進入，桌面音效也能同步解鎖。
   const soundStart = audio.start();
   hideExperienceOverlay();
   director.start();
-  setStatus('體驗開始');
+  setStatus(useHostGesture ? '體驗開始；主機聲音已請求啟動' : '體驗開始；聲音由手機播放');
   experienceStarting = false;
 
   void soundStart.then((soundStarted) => {
@@ -168,11 +168,11 @@ function startExperience(): void {
       soundButton.hidden = true;
       return;
     }
-    setStatus('體驗已開始；若未聽到聲音，請再按左上角啟動音效');
+    if (useHostGesture) setStatus('體驗已開始；若未聽到主機聲音，請再按左上角啟動音效');
   });
 }
 
-experienceButton.addEventListener('click', startExperience);
+experienceButton.addEventListener('click', () => startExperience(true));
 
 async function showQr(): Promise<void> {
   try {
@@ -256,8 +256,7 @@ function connect(): void {
         actionPressed = msg.pressed;
         if (msg.pressed) actionPulse = true;
         if (msg.pressed && !experienceOverlay.hidden) {
-          showExperienceStart();
-          setStatus('請在大螢幕點一次「開啟聲音並開始」');
+          startExperience(false);
         }
         break;
       case 'story-action':
