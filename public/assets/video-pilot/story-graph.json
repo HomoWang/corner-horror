@@ -4,7 +4,8 @@
   "defaults": {
     "aspectRatio": "16:9",
     "fps": 24,
-    "preload": "auto"
+    "preload": "auto",
+    "playbackRate": 1.3
   },
   "entry": "incoming_call",
   "nodes": {
@@ -13,10 +14,15 @@
       "firstFrame": "p01-first-frame.png",
       "video": "p01-incoming-call.mp4",
       "durationHintSeconds": 8,
-      "next": "approach_phone",
+      "action": {
+        "timeoutSeconds": 2.4,
+        "input": "central-button",
+        "prompt": "接起電話",
+        "next": "approach_phone"
+      },
       "cues": [
-        { "at": 2.2, "audio": "ring" },
-        { "at": 4.8, "audio": "ring" }
+        { "at": 1.4, "audio": "ring" },
+        { "at": 4.4, "audio": "ring" }
       ]
     },
     "approach_phone": {
@@ -24,10 +30,15 @@
       "firstFrame": "p01-last-frame.png",
       "video": "p02-approach-phone.mp4",
       "durationHintSeconds": 8,
-      "next": "door_threshold",
+      "action": {
+        "timeoutSeconds": 2.4,
+        "input": "central-button",
+        "prompt": "去門口查看",
+        "next": "door_threshold"
+      },
       "cues": [
-        { "at": 0.8, "audio": "ring-stop" },
-        { "at": 5.6, "narration": "別看門。" }
+        { "at": 2.4, "audio": "whisper", "haptic": "double-short" },
+        { "at": 5.2, "audio": "voice-warning", "caption": "別看門。她已經看見你了。" }
       ]
     },
     "door_threshold": {
@@ -36,14 +47,14 @@
       "video": "p03-door-threshold.mp4",
       "durationHintSeconds": 8,
       "choice": {
-        "timeoutSeconds": 8,
+        "timeoutSeconds": 4.5,
         "input": "aim-and-central-button",
         "options": [
           {
             "id": "retreat",
             "screenSide": "left",
             "label": "立刻甩門",
-            "next": "slam_door_1"
+            "next": "slam_ending"
           },
           {
             "id": "open",
@@ -54,31 +65,24 @@
         ]
       },
       "cues": [
-        { "at": 4.1, "audio": "scratch" },
-        { "at": 6.85, "audio": "impact", "haptic": "double-short" }
+        { "at": 3.4, "audio": "scratch" },
+        { "at": 6.35, "audio": "voice-door", "caption": "媽媽……你為什麼把我關在外面？", "haptic": "double-short" },
+        { "at": 7.05, "audio": "impact", "haptic": "long" }
       ]
     },
-    "slam_door_1": {
+    "slam_ending": {
       "status": "ready",
       "firstFrame": "p03-last-frame.png",
-      "video": "p04a-slam-1.mp4",
-      "durationHintSeconds": 8,
-      "next": "slam_door_2",
-      "cues": [
-        { "at": 1.35, "audio": "impact", "haptic": "long" },
-        { "at": 3.1, "audio": "scratch" }
-      ]
-    },
-    "slam_door_2": {
-      "status": "ready",
-      "firstFrame": "p04a-slam-1-last-frame.png",
-      "video": "p04a-slam-2.mp4",
-      "durationHintSeconds": 8,
+      "video": "p04a-slam-ending.mp4",
+      "durationHintSeconds": 10.833333,
+      "playbackRate": 1,
       "ending": "caught",
       "cues": [
-        { "at": 1.2, "audio": "ring" },
-        { "at": 5.2, "narration": "你關錯邊了。" },
-        { "at": 7.1, "audio": "jumpscare", "haptic": "long" }
+        { "at": 0.75, "audio": "impact", "haptic": "long" },
+        { "at": 2.25, "audio": "scratch" },
+        { "at": 5.45, "audio": "ring" },
+        { "at": 8.3, "audio": "voice-wrong-side", "caption": "你……關錯邊了。", "haptic": "double-short" },
+        { "at": 10.05, "audio": "jumpscare", "haptic": "long" }
       ]
     },
     "freeze_1": {
@@ -89,7 +93,7 @@
       "next": "freeze_2",
       "cues": [
         { "at": 3.8, "audio": "breath" },
-        { "at": 6.2, "narration": "很好。不要眨眼。" }
+        { "at": 6.2, "caption": "很好。不要眨眼。" }
       ]
     },
     "freeze_2": {
@@ -99,7 +103,7 @@
       "ending": "marked",
       "cues": [
         { "at": 2.1, "audio": "ring" },
-        { "at": 5.3, "narration": "現在，換我看著你。" },
+        { "at": 5.3, "caption": "現在，換我看著你。" },
         { "at": 7.4, "audio": "breath", "haptic": "double-short" }
       ]
     }

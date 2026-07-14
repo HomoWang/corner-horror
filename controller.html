@@ -1,6 +1,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>407 號房 — 控制器</title>
+<title>407 號房 — 控制器 · Voice by elevenlabs.io</title>
 <style>
   :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
   * { box-sizing: border-box; }
@@ -64,6 +64,14 @@
     color: #4e4744;
     font-size: .72rem;
   }
+  #voice-credit {
+    position: fixed;
+    right: .55rem;
+    bottom: .35rem;
+    color: #282322;
+    font-size: .48rem;
+    text-decoration: none;
+  }
   body[data-story='incoming-407'] #action {
     animation: incoming-pulse 1.05s infinite;
   }
@@ -82,4 +90,5 @@
   </div>
   <button id="recenter" type="button">重新對準畫面中央</button>
 </main>
+<a id="voice-credit" href="https://elevenlabs.io" rel="noreferrer">voice: elevenlabs.io</a>
 <script type="module" src="/src/controller/main.ts"></script>

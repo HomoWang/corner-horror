@@ -45,6 +45,9 @@ export type ControllerCueId =
   | 'ring'
   | 'whisper'
   | 'impact'
+  | 'voice-warning'
+  | 'voice-door'
+  | 'voice-wrong-side'
   | 'jumpscare';
 
 /** host 要求手機播放的私人音效／震動 cue。 */
@@ -128,6 +131,9 @@ const CONTROLLER_CUE_IDS = new Set<ControllerCueId>([
   'ring',
   'whisper',
   'impact',
+  'voice-warning',
+  'voice-door',
+  'voice-wrong-side',
   'jumpscare',
 ]);
 

@@ -5,8 +5,16 @@ export type VideoStoryPreload = '' | 'none' | 'metadata' | 'auto';
 export interface VideoStoryCue {
   at: number;
   audio?: string;
+  caption?: string;
   narration?: string;
   haptic?: string;
+}
+
+export interface VideoStoryAction {
+  timeoutSeconds: number;
+  input: 'central-button';
+  prompt: string;
+  next: string;
 }
 
 export interface VideoStoryChoiceOption {
@@ -27,7 +35,9 @@ export interface VideoStoryNode {
   firstFrame?: string;
   video: string;
   durationHintSeconds: number;
+  playbackRate?: number;
   next?: string;
+  action?: VideoStoryAction;
   choice?: VideoStoryChoice;
   ending?: string;
   cues: VideoStoryCue[];
@@ -40,6 +50,7 @@ export interface VideoStoryManifest {
     aspectRatio: string;
     fps: number;
     preload: VideoStoryPreload;
+    playbackRate: number;
   };
   entry: string;
   nodes: Record<string, VideoStoryNode>;
@@ -67,10 +78,22 @@ function parseCue(value: unknown, path: string, duration: number): VideoStoryCue
   if (at < 0 || at > duration) throw new Error(`${path}.at must be within the node duration`);
   const cue: VideoStoryCue = { at };
   if (value.audio !== undefined) cue.audio = requireString(value.audio, `${path}.audio`);
+  if (value.caption !== undefined) cue.caption = requireString(value.caption, `${path}.caption`);
   if (value.narration !== undefined) cue.narration = requireString(value.narration, `${path}.narration`);
   if (value.haptic !== undefined) cue.haptic = requireString(value.haptic, `${path}.haptic`);
-  if (!cue.audio && !cue.narration && !cue.haptic) throw new Error(`${path} has no effect`);
+  if (!cue.audio && !cue.caption && !cue.narration && !cue.haptic) throw new Error(`${path} has no effect`);
   return cue;
+}
+
+function parseAction(value: unknown, path: string): VideoStoryAction {
+  if (!isRecord(value)) throw new Error(`${path} must be an object`);
+  if (value.input !== 'central-button') throw new Error(`${path}.input must be central-button`);
+  return {
+    timeoutSeconds: requirePositiveNumber(value.timeoutSeconds, `${path}.timeoutSeconds`),
+    input: 'central-button',
+    prompt: requireString(value.prompt, `${path}.prompt`),
+    next: requireString(value.next, `${path}.next`),
+  };
 }
 
 function parseChoice(value: unknown, path: string): VideoStoryChoice {
@@ -137,11 +160,15 @@ export function parseVideoStoryManifest(value: unknown): VideoStoryManifest {
     if (rawNode.firstFrame !== undefined) {
       node.firstFrame = requireString(rawNode.firstFrame, `${path}.firstFrame`);
     }
+    if (rawNode.playbackRate !== undefined) {
+      node.playbackRate = requirePositiveNumber(rawNode.playbackRate, `${path}.playbackRate`);
+    }
     if (rawNode.next !== undefined) node.next = requireString(rawNode.next, `${path}.next`);
+    if (rawNode.action !== undefined) node.action = parseAction(rawNode.action, `${path}.action`);
     if (rawNode.choice !== undefined) node.choice = parseChoice(rawNode.choice, `${path}.choice`);
     if (rawNode.ending !== undefined) node.ending = requireString(rawNode.ending, `${path}.ending`);
-    if ([node.next, node.choice, node.ending].filter(Boolean).length > 1) {
-      throw new Error(`${path} may define only one of next, choice, or ending`);
+    if ([node.next, node.action, node.choice, node.ending].filter(Boolean).length > 1) {
+      throw new Error(`${path} may define only one of next, action, choice, or ending`);
     }
     nodes[id] = node;
   }
@@ -150,6 +177,9 @@ export function parseVideoStoryManifest(value: unknown): VideoStoryManifest {
   if (!nodes[entry]) throw new Error(`entry references missing node ${entry}`);
   for (const [id, node] of Object.entries(nodes)) {
     if (node.next && !nodes[node.next]) throw new Error(`nodes.${id}.next references missing node ${node.next}`);
+    if (node.action && !nodes[node.action.next]) {
+      throw new Error(`nodes.${id}.action.next references missing node ${node.action.next}`);
+    }
     for (const option of node.choice?.options ?? []) {
       if (!nodes[option.next]) {
         throw new Error(`nodes.${id} option ${option.id} references missing node ${option.next}`);
@@ -161,6 +191,9 @@ export function parseVideoStoryManifest(value: unknown): VideoStoryManifest {
   if (preload !== '' && preload !== 'none' && preload !== 'metadata' && preload !== 'auto') {
     throw new Error('defaults.preload is invalid');
   }
+  const playbackRate = value.defaults.playbackRate === undefined
+    ? 1
+    : requirePositiveNumber(value.defaults.playbackRate, 'defaults.playbackRate');
 
   return {
     version: requirePositiveNumber(value.version, 'version'),
@@ -169,6 +202,7 @@ export function parseVideoStoryManifest(value: unknown): VideoStoryManifest {
       aspectRatio: requireString(value.defaults.aspectRatio, 'defaults.aspectRatio'),
       fps: requirePositiveNumber(value.defaults.fps, 'defaults.fps'),
       preload,
+      playbackRate,
     },
     entry,
     nodes,

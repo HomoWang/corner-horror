@@ -10,14 +10,19 @@ function validManifest(): VideoStoryManifest {
   return {
     version: 1,
     status: 'in-production',
-    defaults: { aspectRatio: '16:9', fps: 24, preload: 'auto' },
+    defaults: { aspectRatio: '16:9', fps: 24, preload: 'auto', playbackRate: 1 },
     entry: 'opening',
     nodes: {
       opening: {
         status: 'ready',
         video: 'opening.mp4',
         durationHintSeconds: 8,
-        next: 'choice',
+        action: {
+          timeoutSeconds: 3,
+          input: 'central-button',
+          prompt: 'Answer',
+          next: 'choice',
+        },
         cues: [{ at: 2.2, audio: 'ring' }],
       },
       choice: {
@@ -61,15 +66,16 @@ describe('video story manifest', () => {
     expect(manifest.nodes.incoming_call?.status).toBe('ready');
     expect(manifest.nodes.approach_phone?.status).toBe('ready');
     expect(manifest.nodes.door_threshold?.status).toBe('ready');
-    expect(manifest.nodes.slam_door_1?.status).toBe('ready');
-    expect(manifest.nodes.slam_door_2?.status).toBe('ready');
+    expect(manifest.nodes.slam_ending?.status).toBe('ready');
     expect(manifest.nodes.freeze_1?.status).toBe('awaiting-generation');
   });
 
   it('accepts a connected graph and preserves production statuses', () => {
     const manifest = parseVideoStoryManifest(validManifest());
     expect(manifest.entry).toBe('opening');
+    expect(manifest.defaults.playbackRate).toBe(1);
     expect(manifest.nodes.opening?.status).toBe('ready');
+    expect(manifest.nodes.opening?.action?.prompt).toBe('Answer');
     expect(manifest.nodes.choice?.choice?.options.map((option) => option.screenSide)).toEqual([
       'left',
       'right',
@@ -78,7 +84,7 @@ describe('video story manifest', () => {
 
   it('rejects broken references, cues outside the clip, and one-sided choices', () => {
     const brokenReference = validManifest();
-    brokenReference.nodes.opening!.next = 'missing';
+    brokenReference.nodes.opening!.action!.next = 'missing';
     expect(() => parseVideoStoryManifest(brokenReference)).toThrow(/missing node/);
 
     const lateCue = validManifest();

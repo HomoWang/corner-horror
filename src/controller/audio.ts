@@ -66,6 +66,9 @@ export class ControllerAudioEngine {
     if (id === 'ring') this.playRing();
     if (id === 'whisper') this.playWhisper();
     if (id === 'impact') this.playImpact();
+    if (id === 'voice-warning') this.playVoice(id, 'voiceWarning');
+    if (id === 'voice-door') this.playVoice(id, 'voiceDoor');
+    if (id === 'voice-wrong-side') this.playVoice(id, 'voiceWrongSide');
     if (id === 'jumpscare') this.playJumpscare();
   }
 
@@ -175,6 +178,33 @@ export class ControllerAudioEngine {
     if (scream) playAudioSample(context, output, scream, 1.12);
     if (!scream) this.playImpact();
     navigator.vibrate?.([420, 35, 520]);
+  }
+
+  private playVoice(
+    cue: 'voice-warning' | 'voice-door' | 'voice-wrong-side',
+    id: 'voiceWarning' | 'voiceDoor' | 'voiceWrongSide',
+  ): void {
+    const context = this.context!;
+    const sample = this.samples.get(id);
+    if (!sample) {
+      if (!this.pendingCues.includes(cue)) this.pendingCues.push(cue);
+      void this.loadSamples().then(() => {
+        const pendingIndex = this.pendingCues.indexOf(cue);
+        if (pendingIndex < 0 || !this.context || this.context.state !== 'running') return;
+        this.pendingCues.splice(pendingIndex, 1);
+        if (!this.samples.has(id)) return;
+        this.playVoice(cue, id);
+      });
+      return;
+    }
+    const now = context.currentTime;
+    if (this.ambienceGain) {
+      const restoreLevel = this.samples.has('score') || this.samples.has('ambience') ? 0.74 : 0.085;
+      this.ambienceGain.gain.cancelScheduledValues(now);
+      this.ambienceGain.gain.setTargetAtTime(0.18, now, 0.08);
+      this.ambienceGain.gain.setTargetAtTime(restoreLevel, now + sample.duration + 0.15, 0.35);
+    }
+    playAudioSample(context, this.master ?? context.destination, sample, 1.18);
   }
 
   private startAmbience(): void {

@@ -2,6 +2,7 @@ import {
   parseVideoStoryManifest,
   resolveVideoStoryAsset,
   videoStoryChoiceSide,
+  type VideoStoryAction,
   type VideoStoryChoice,
   type VideoStoryCue,
   type VideoStoryManifest,
@@ -13,6 +14,7 @@ import {
 export interface VideoStoryPlayerCallbacks {
   onNodeChange?(id: string, node: VideoStoryNode): void;
   onCue?(cue: VideoStoryCue): void;
+  onAction?(action: VideoStoryAction): void;
   onChoice?(choice: VideoStoryChoice): void;
   onChoiceFocus?(side: VideoStorySide | null): void;
   onEnding?(ending: string): void;
@@ -35,6 +37,8 @@ export class VideoStoryPlayer {
   private currentNodeId: string | null = null;
   private nextPreloadedId: string | null = null;
   private cueIndex = 0;
+  private pendingAction: VideoStoryAction | null = null;
+  private actionDeadlineAt = 0;
   private pendingChoice: VideoStoryChoice | null = null;
   private choiceDeadlineAt = 0;
   private choiceFocus: VideoStorySide | null = null;
@@ -84,6 +88,15 @@ export class VideoStoryPlayer {
       void this.start();
       return;
     }
+    if (this.pendingAction) {
+      const timedOut = performance.now() >= this.actionDeadlineAt;
+      if (!actionRisingEdge && !timedOut) return;
+      const next = this.pendingAction.next;
+      this.pendingAction = null;
+      this.actionDeadlineAt = 0;
+      void this.playNode(next, true);
+      return;
+    }
     if (!this.pendingChoice) return;
     const nextFocus = videoStoryChoiceSide(aimX);
     if (nextFocus !== this.choiceFocus) {
@@ -112,6 +125,8 @@ export class VideoStoryPlayer {
     this.currentNodeId = null;
     this.nextPreloadedId = null;
     this.cueIndex = 0;
+    this.pendingAction = null;
+    this.actionDeadlineAt = 0;
     this.pendingChoice = null;
     this.choiceDeadlineAt = 0;
     this.choiceFocus = null;
@@ -184,13 +199,15 @@ export class VideoStoryPlayer {
     this.setVideoActive(video, true);
     this.currentNodeId = id;
     this.cueIndex = 0;
+    this.pendingAction = null;
+    this.actionDeadlineAt = 0;
     this.pendingChoice = null;
     this.choiceDeadlineAt = 0;
     this.choiceFocus = null;
     this.completed = false;
     this.nextPreloadedId = null;
     this.callbacks.onNodeChange?.(id, node);
-    this.preload(node.next ?? null);
+    this.preload(node.next ?? node.action?.next ?? null);
     try {
       await video.play();
     } catch (error) {
@@ -200,6 +217,7 @@ export class VideoStoryPlayer {
 
   private preload(id: string | null): void {
     if (!id || !this.manifest) return;
+    if (this.nextPreloadedId === id) return;
     const node = this.manifest.nodes[id];
     if (!node || node.status !== 'ready') return;
     const video = this.standbyVideo;
@@ -216,6 +234,9 @@ export class VideoStoryPlayer {
       video.removeAttribute('poster');
     }
     video.preload = preload;
+    const playbackRate = node.playbackRate ?? this.manifest?.defaults.playbackRate ?? 1;
+    video.defaultPlaybackRate = playbackRate;
+    video.playbackRate = playbackRate;
     video.load();
   }
 
@@ -235,6 +256,13 @@ export class VideoStoryPlayer {
       const cue = node.cues[this.cueIndex];
       this.cueIndex += 1;
       if (cue) this.callbacks.onCue?.(cue);
+    }
+    if (node.action) {
+      this.pendingAction = node.action;
+      this.actionDeadlineAt = performance.now() + node.action.timeoutSeconds * 1000;
+      this.preload(node.action.next);
+      this.callbacks.onAction?.(node.action);
+      return;
     }
     if (node.choice) {
       this.pendingChoice = node.choice;

@@ -7,6 +7,9 @@ export const AUDIO_SAMPLE_URLS = {
   impact: publicUrl('assets/audio/cinematic-deep-impact.mp3'),
   door: publicUrl('assets/audio/scary-door-opening.mp3'),
   jumpscare: publicUrl('assets/audio/jumpscare-scream.mp3'),
+  voiceWarning: publicUrl('assets/audio/voice/warning-dont-look.mp3'),
+  voiceDoor: publicUrl('assets/audio/voice/door-mother.mp3'),
+  voiceWrongSide: publicUrl('assets/audio/voice/wrong-side.mp3'),
 } as const;
 
 export type AudioSampleId = keyof typeof AUDIO_SAMPLE_URLS;

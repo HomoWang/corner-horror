@@ -52,6 +52,7 @@ const voiceCaption = document.querySelector<HTMLDivElement>('#voice-caption')!;
 const voiceSpeaker = document.querySelector<HTMLSpanElement>('#voice-speaker')!;
 const voiceLine = document.querySelector<HTMLSpanElement>('#voice-line')!;
 const videoStoryContainer = document.querySelector<HTMLDivElement>('#video-story')!;
+const videoStoryAction = document.querySelector<HTMLDivElement>('#video-story-action')!;
 const videoStoryChoices = document.querySelector<HTMLDivElement>('#video-story-choices')!;
 const videoStoryLeft = videoStoryChoices.querySelector<HTMLDivElement>("[data-side='left']")!;
 const videoStoryRight = videoStoryChoices.querySelector<HTMLDivElement>("[data-side='right']")!;
@@ -129,6 +130,9 @@ function controllerCueForVideo(id: string): ControllerCueId | null {
   if (id === 'ring') return 'ring';
   if (id === 'jumpscare') return 'jumpscare';
   if (id === 'impact') return 'impact';
+  if (id === 'voice-warning') return 'voice-warning';
+  if (id === 'voice-door') return 'voice-door';
+  if (id === 'voice-wrong-side') return 'voice-wrong-side';
   if (id === 'scratch' || id === 'breath') return 'whisper';
   return null;
 }
@@ -239,6 +243,7 @@ const director = new StoryDirector(
 const videoPlayer = new VideoStoryPlayer(videoStoryContainer, {
   onNodeChange: (id) => {
     videoStoryContainer.hidden = false;
+    videoStoryAction.hidden = true;
     videoStoryChoices.hidden = true;
     videoStoryChoices.dataset.focus = '';
     showStoryNotice('');
@@ -249,6 +254,7 @@ const videoPlayer = new VideoStoryPlayer(videoStoryContainer, {
     if (cue.audio === 'scratch') audio.playDoor();
     if (cue.audio === 'impact') audio.playSting(0.8);
     if (cue.audio === 'jumpscare') audio.playJumpscare();
+    if (cue.caption) showVideoCaption(cue.caption);
     if (cue.narration) showVideoCaption(cue.narration);
     if (controllerAudio || cue.narration || cue.haptic) {
       sendToController({
@@ -259,7 +265,13 @@ const videoPlayer = new VideoStoryPlayer(videoStoryContainer, {
       });
     }
   },
+  onAction: (action) => {
+    videoStoryChoices.hidden = true;
+    videoStoryAction.textContent = `按手機中央鍵｜${action.prompt}`;
+    videoStoryAction.hidden = false;
+  },
   onChoice: (choice) => {
+    videoStoryAction.hidden = true;
     const left = choice.options.find((option) => option.screenSide === 'left');
     const right = choice.options.find((option) => option.screenSide === 'right');
     videoStoryLeft.textContent = left?.label ?? '';
@@ -271,10 +283,12 @@ const videoPlayer = new VideoStoryPlayer(videoStoryContainer, {
     videoStoryChoices.dataset.focus = side ?? '';
   },
   onEnding: (ending) => {
+    videoStoryAction.hidden = true;
     setStatus(`互動影片結局：${ending}；按手機中央鍵重新開始`);
     showStoryNotice('試片結束。按手機中央鍵，從來電重新開始。');
   },
   onIncomplete: (id) => {
+    videoStoryAction.hidden = true;
     videoStoryChoices.hidden = true;
     setStatus(`試片已播放至 ${id}；下一段影片仍在製作`);
     showStoryNotice('下一段影像正在生成；目前停在可銜接的最後一格。');
@@ -373,6 +387,7 @@ function setControllerConnected(connected: boolean): void {
     director.reset();
     videoPlayer.reset();
     videoStoryContainer.hidden = true;
+    videoStoryAction.hidden = true;
     videoStoryChoices.hidden = true;
     document.body.classList.remove('video-story-mode');
     hideExperienceOverlay();
@@ -388,6 +403,7 @@ function setControllerConnected(connected: boolean): void {
   director.reset();
   videoPlayer.reset();
   videoStoryContainer.hidden = true;
+  videoStoryAction.hidden = true;
   videoStoryChoices.hidden = true;
   document.body.classList.remove('video-story-mode');
   hideExperienceOverlay();

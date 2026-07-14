@@ -52,6 +52,22 @@
     pointer-events: none;
   }
   #video-story-choices[hidden] { display: none; }
+  #video-story-action {
+    position: fixed;
+    left: 50%;
+    bottom: 9vh;
+    z-index: 8;
+    transform: translateX(-50%);
+    padding: .85rem 1.4rem;
+    border: 1px solid rgba(194, 109, 97, .62);
+    background: rgba(9, 4, 4, .9);
+    color: #ead0ca;
+    font: 400 clamp(.85rem, 1.4vw, 1.15rem)/1.4 Georgia, serif;
+    letter-spacing: .13em;
+    box-shadow: 0 0 2rem rgba(145, 35, 25, .24);
+    pointer-events: none;
+  }
+  #video-story-action[hidden] { display: none; }
   .video-story-choice {
     padding: 1.1rem 1.4rem;
     border: 1px solid rgba(169, 125, 116, .4);
@@ -750,6 +766,7 @@
 </style>
 <canvas id="stage"></canvas>
 <div id="video-story" hidden></div>
+<div id="video-story-action" hidden></div>
 <div id="video-story-choices" data-focus="" hidden>
   <div class="video-story-choice" data-side="left"></div>
   <div class="video-story-choice" data-side="right"></div>

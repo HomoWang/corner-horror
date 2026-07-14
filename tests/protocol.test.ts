@@ -67,6 +67,10 @@ describe('parseMessage', () => {
       type: 'cue',
       id: 'ring',
     });
+    expect(parseMessage(JSON.stringify({ type: 'cue', id: 'voice-warning' }))).toEqual({
+      type: 'cue',
+      id: 'voice-warning',
+    });
     expect(parseMessage(JSON.stringify({ type: 'cue', id: 'jumpscare' }))).toEqual({
       type: 'cue',
       id: 'jumpscare',
@@ -115,6 +119,10 @@ describe('parseMessage', () => {
       haptic: 'double-short',
     });
     expect(parseMessage(JSON.stringify({ type: 'fmv-cue', narration: '' }))).toBeNull();
+    expect(parseMessage(JSON.stringify({ type: 'fmv-cue', audio: 'voice-wrong-side' }))).toEqual({
+      type: 'fmv-cue',
+      audio: 'voice-wrong-side',
+    });
     expect(parseMessage(JSON.stringify({ type: 'fmv-cue', role: 'ghost' }))).toBeNull();
     expect(parseMessage(JSON.stringify({ type: 'fmv-cue', haptic: 'forever' }))).toBeNull();
   });
