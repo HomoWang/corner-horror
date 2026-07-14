@@ -10,6 +10,7 @@
   "nodes": {
     "incoming_call": {
       "status": "ready",
+      "firstFrame": "p01-first-frame.png",
       "video": "p01-incoming-call.mp4",
       "durationHintSeconds": 8,
       "next": "approach_phone",

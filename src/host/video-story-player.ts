@@ -6,6 +6,7 @@ import {
   type VideoStoryCue,
   type VideoStoryManifest,
   type VideoStoryNode,
+  type VideoStoryPreload,
   type VideoStorySide,
 } from '../shared/video-story';
 
@@ -44,7 +45,7 @@ export class VideoStoryPlayer {
   constructor(
     private readonly container: HTMLElement,
     private readonly callbacks: VideoStoryPlayerCallbacks = {},
-    private readonly fetcher: FetchLike = fetch,
+    private readonly fetcher: FetchLike = (input, init) => fetch(input, init),
   ) {
     this.videos = [this.createVideo('front'), this.createVideo('back')];
     for (const video of this.videos) this.container.append(video);
@@ -119,8 +120,9 @@ export class VideoStoryPlayer {
     for (const video of this.videos) {
       video.pause();
       video.removeAttribute('src');
+      video.removeAttribute('poster');
       video.load();
-      video.hidden = true;
+      this.setVideoActive(video, false);
     }
     this.activeIndex = 0;
   }
@@ -141,13 +143,14 @@ export class VideoStoryPlayer {
 
   private createVideo(layer: string): HTMLVideoElement {
     const video = document.createElement('video');
-    video.className = 'video-story-layer';
+    video.className = 'video-story-layer standby';
     video.dataset.layer = layer;
     video.muted = true;
     video.playsInline = true;
     video.preload = 'auto';
     video.disablePictureInPicture = true;
     video.hidden = true;
+    video.setAttribute('aria-hidden', 'true');
     video.addEventListener('ended', () => {
       if (video !== this.activeVideo || this.destroyed) return;
       void this.handleEnded();
@@ -171,15 +174,14 @@ export class VideoStoryPlayer {
     let video = this.activeVideo;
     if (usePreloaded && this.nextPreloadedId === id) {
       this.activeVideo.pause();
-      this.activeVideo.hidden = true;
+      this.setVideoActive(this.activeVideo, false);
       this.activeIndex = this.activeIndex === 0 ? 1 : 0;
       video = this.activeVideo;
     } else {
-      video.src = resolveVideoStoryAsset(this.manifestUrl, node.video);
-      video.load();
+      this.loadVideoSource(video, node, 'auto');
     }
     video.currentTime = 0;
-    video.hidden = false;
+    this.setVideoActive(video, true);
     this.currentNodeId = id;
     this.cueIndex = 0;
     this.pendingChoice = null;
@@ -201,10 +203,27 @@ export class VideoStoryPlayer {
     const node = this.manifest.nodes[id];
     if (!node || node.status !== 'ready') return;
     const video = this.standbyVideo;
-    video.src = resolveVideoStoryAsset(this.manifestUrl, node.video);
-    video.preload = this.manifest.defaults.preload;
-    video.load();
+    this.setVideoActive(video, false);
+    this.loadVideoSource(video, node, this.manifest.defaults.preload);
     this.nextPreloadedId = id;
+  }
+
+  private loadVideoSource(video: HTMLVideoElement, node: VideoStoryNode, preload: VideoStoryPreload): void {
+    video.src = resolveVideoStoryAsset(this.manifestUrl, node.video);
+    if (node.firstFrame) {
+      video.poster = resolveVideoStoryAsset(this.manifestUrl, node.firstFrame);
+    } else {
+      video.removeAttribute('poster');
+    }
+    video.preload = preload;
+    video.load();
+  }
+
+  private setVideoActive(video: HTMLVideoElement, active: boolean): void {
+    video.classList.toggle('active', active);
+    video.classList.toggle('standby', !active);
+    video.hidden = !active;
+    video.setAttribute('aria-hidden', active ? 'false' : 'true');
   }
 
   private async handleEnded(): Promise<void> {

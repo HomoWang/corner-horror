@@ -9,7 +9,7 @@
   #video-story {
     position: fixed;
     inset: 0;
-    z-index: 1;
+    z-index: 6;
     overflow: hidden;
     background: #000;
   }
@@ -21,7 +21,18 @@
     height: 100%;
     object-fit: cover;
     background: #000;
+    display: none;
+    visibility: hidden;
+    opacity: 0;
+    z-index: 1;
   }
+  .video-story-layer.active {
+    display: block;
+    visibility: visible;
+    opacity: 1;
+    z-index: 2;
+  }
+  .video-story-layer.standby { display: none; }
   .video-story-layer[hidden] { display: none; }
   body.video-story-mode #stage,
   body.video-story-mode #story-visuals,
@@ -632,7 +643,7 @@
     position: fixed;
     left: 50%;
     top: 78%;
-    z-index: 5;
+    z-index: 7;
     transform: translateX(-50%);
     color: #9e8a82;
     font: italic .8rem/1.6 Georgia, serif;
