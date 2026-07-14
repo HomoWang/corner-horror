@@ -312,6 +312,7 @@ const videoPlayer = new VideoStoryPlayer(videoStoryContainer, {
       stage === 1 ? '影片未起播：改用 1.0 倍速重試…' : '影片未起播：改用單層播放重試…',
     );
   },
+  onBuffering: () => showStoryNotice('影片載入中…'),
 });
 const videoStoryReady = videoPilotMode
   ? videoPlayer.load(publicUrl('assets/video-pilot/story-graph.json'))

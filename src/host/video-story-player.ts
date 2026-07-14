@@ -25,6 +25,8 @@ export interface VideoStoryPlayerCallbacks {
   onPlaybackRecovered?(): void;
   /** 影片遲遲沒起播（電視解碼管線常見），已自動降級重試：1=鎖回 1.0 倍速、2=改單層播放。 */
   onStallRecovery?(stage: number): void;
+  /** 影片還在下載緩衝（不是壞掉）；每個節點最多通知一次。 */
+  onBuffering?(): void;
 }
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -56,6 +58,9 @@ export class VideoStoryPlayer {
   };
   private stallTimer: number | null = null;
   private stallStage = 0;
+  private stallSnapshot: { readyState: number; bufferedEnd: number } | null = null;
+  private stallStrikes = 0;
+  private bufferingNotified = false;
   // 兩者一旦觸發就整個工作階段維持：屬於裝置能力，不會播到一半變回來。
   private rateLocked = false;
   private singleLayer = false;
@@ -93,6 +98,8 @@ export class VideoStoryPlayer {
       // 已確認起播，解除看門狗並歸零降級階段。
       this.clearStallWatchdog();
       this.stallStage = 0;
+      this.stallSnapshot = null;
+      this.stallStrikes = 0;
     }
     while (this.cueIndex < node.cues.length) {
       const cue = node.cues[this.cueIndex];
@@ -144,6 +151,9 @@ export class VideoStoryPlayer {
     this.removeGestureRecovery();
     this.clearStallWatchdog();
     this.stallStage = 0;
+    this.stallSnapshot = null;
+    this.stallStrikes = 0;
+    this.bufferingNotified = false;
     this.currentNodeId = null;
     this.nextPreloadedId = null;
     this.cueIndex = 0;
@@ -228,6 +238,9 @@ export class VideoStoryPlayer {
     this.choiceFocus = null;
     this.completed = false;
     this.nextPreloadedId = null;
+    this.stallSnapshot = null;
+    this.stallStrikes = 0;
+    this.bufferingNotified = false;
     this.callbacks.onNodeChange?.(id, node);
     this.preload(node.next ?? node.action?.next ?? null);
     // 看門狗在 play() 前就上膛：部分電視的 play() promise 會永遠懸著，不 resolve 也不 reject。
@@ -256,8 +269,9 @@ export class VideoStoryPlayer {
   }
 
   /**
-   * 起播看門狗：3.2 秒內畫面沒前進就分段降級——電視 SoC 常因非 1.0 倍速或
-   * 第二條解碼管線被待命層占走而凍在第一格，而且不會丟任何錯誤事件。
+   * 起播看門狗：判斷「進度」而非時鐘——資料仍在下載（電視網路慢是常態）就靜靜等；
+   * 只有「資料夠了卻不動」（多為非 1.0 倍速或雙層搶硬體解碼器）或「連續兩輪
+   * 毫無下載進度」才分段降級。這類凍結電視不會丟任何錯誤事件，只能這樣偵測。
    */
   private armStallWatchdog(): void {
     this.clearStallWatchdog();
@@ -275,6 +289,32 @@ export class VideoStoryPlayer {
         this.armStallWatchdog();
         return;
       }
+      // HAVE_FUTURE_DATA：可以播的資料已經到了，畫面卻沒前進 → 真凍結，立刻降級。
+      if (video.readyState >= 3) {
+        this.recoverFromStall(video);
+        return;
+      }
+      // 還在載入：只要 buffered 或 readyState 有前進就不是壞掉，繼續等。
+      const bufferedEnd = video.buffered.length > 0 ? video.buffered.end(video.buffered.length - 1) : 0;
+      const previous = this.stallSnapshot;
+      const progressing =
+        !previous || video.readyState > previous.readyState || bufferedEnd > previous.bufferedEnd + 0.01;
+      this.stallSnapshot = { readyState: video.readyState, bufferedEnd };
+      if (progressing) {
+        this.stallStrikes = 0;
+        if (!this.bufferingNotified) {
+          this.bufferingNotified = true;
+          this.callbacks.onBuffering?.();
+        }
+        this.armStallWatchdog();
+        return;
+      }
+      this.stallStrikes += 1;
+      if (this.stallStrikes < 2) {
+        this.armStallWatchdog();
+        return;
+      }
+      this.stallStrikes = 0;
       this.recoverFromStall(video);
     }, 3200);
   }
