@@ -20,6 +20,9 @@ export interface VideoStoryPlayerCallbacks {
   onEnding?(ending: string): void;
   onIncomplete?(id: string): void;
   onError?(error: Error): void;
+  /** 瀏覽器（多為電視內建瀏覽器）擋下無手勢的 play()；提示使用者在本頁做一次操作。 */
+  onAutoplayBlocked?(): void;
+  onPlaybackRecovered?(): void;
 }
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -45,6 +48,10 @@ export class VideoStoryPlayer {
   private actionWasPressed = false;
   private completed = false;
   private destroyed = false;
+  private gestureRecoveryInstalled = false;
+  private readonly gestureRecovery = () => {
+    void this.retryBlockedPlayback();
+  };
 
   constructor(
     private readonly container: HTMLElement,
@@ -122,6 +129,7 @@ export class VideoStoryPlayer {
   }
 
   reset(): void {
+    this.removeGestureRecovery();
     this.currentNodeId = null;
     this.nextPreloadedId = null;
     this.cueIndex = 0;
@@ -211,8 +219,55 @@ export class VideoStoryPlayer {
     try {
       await video.play();
     } catch (error) {
+      if ((error as { name?: string } | null)?.name === 'NotAllowedError') {
+        this.installGestureRecovery();
+        return;
+      }
       this.callbacks.onError?.(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  /**
+   * 在真實點擊手勢內呼叫：對兩層 video 各觸發一次 play()，讓瀏覽器把它們標記為
+   * 已獲手勢，之後遠端（手機）啟動的自動播放與雙層切換才不會被 autoplay 政策擋下。
+   * 此時兩層都還沒有 src，play() 會立即 reject，不會真的播出任何東西。
+   */
+  primeWithGesture(): void {
+    for (const video of this.videos) {
+      const attempt = video.play();
+      if (attempt) void attempt.then(() => video.pause()).catch(() => {});
+    }
+  }
+
+  private installGestureRecovery(): void {
+    this.callbacks.onAutoplayBlocked?.();
+    if (this.gestureRecoveryInstalled) return;
+    this.gestureRecoveryInstalled = true;
+    window.addEventListener('pointerdown', this.gestureRecovery);
+    window.addEventListener('keydown', this.gestureRecovery);
+  }
+
+  private removeGestureRecovery(): void {
+    if (!this.gestureRecoveryInstalled) return;
+    this.gestureRecoveryInstalled = false;
+    window.removeEventListener('pointerdown', this.gestureRecovery);
+    window.removeEventListener('keydown', this.gestureRecovery);
+  }
+
+  private async retryBlockedPlayback(): Promise<void> {
+    if (this.destroyed || !this.currentNodeId) return;
+    const video = this.activeVideo;
+    try {
+      await video.play();
+    } catch {
+      return; // 這次手勢仍不夠（或其他錯誤）；監聽保留，下一次操作再試。
+    }
+    this.removeGestureRecovery();
+    // 同一個手勢內也解鎖待命層，之後雙層交替才不會再被擋一次。
+    const standby = this.standbyVideo;
+    const primed = standby.play();
+    if (primed) void primed.then(() => standby.pause()).catch(() => {});
+    this.callbacks.onPlaybackRecovered?.();
   }
 
   private preload(id: string | null): void {

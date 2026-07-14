@@ -293,7 +293,20 @@ const videoPlayer = new VideoStoryPlayer(videoStoryContainer, {
     setStatus(`試片已播放至 ${id}；下一段影片仍在製作`);
     showStoryNotice('下一段影像正在生成；目前停在可銜接的最後一格。');
   },
-  onError: (error) => setStatus(`互動影片無法播放：${error.message}`),
+  onError: (error) => {
+    // cinematic-lock 會把 #status-line 藏起來；錯誤必須同時走 story-notice 才看得到。
+    setStatus(`互動影片無法播放：${error.message}`);
+    showStoryNotice(`影片無法播放：${error.message}`);
+  },
+  onAutoplayBlocked: () => {
+    setStatus('電視瀏覽器擋下自動播放，等待畫面上的一次操作');
+    videoStoryAction.textContent = '電視擋下了自動播放｜請按遙控器確認鍵，或點一下電視畫面';
+    videoStoryAction.hidden = false;
+  },
+  onPlaybackRecovered: () => {
+    videoStoryAction.hidden = true;
+    setStatus('影片已恢復播放');
+  },
 });
 const videoStoryReady = videoPilotMode
   ? videoPlayer.load(publicUrl('assets/video-pilot/story-graph.json'))
@@ -339,12 +352,18 @@ function startExperience(useHostGesture = false): void {
   hideExperienceOverlay();
   if (videoPilotMode) {
     document.body.classList.add('video-story-mode', 'cinematic-lock');
+    // 電視按鈕啟動時趁真實點擊手勢先解鎖兩層 video；手機遠端啟動沒有本頁手勢可用，
+    // play() 若被擋會走 onAutoplayBlocked 的遙控器恢復流程。
+    if (useHostGesture) videoPlayer.primeWithGesture();
     audio.startScore();
     audio.setTension(0.26);
     sendToController({ type: 'cue', id: 'ambience-start' });
     void videoStoryReady
       .then(() => videoPlayer.start())
-      .catch((error) => setStatus(`互動影片載入失敗：${String(error)}`));
+      .catch((error) => {
+        setStatus(`互動影片載入失敗：${String(error)}`);
+        showStoryNotice('互動影片載入失敗；請重新整理電視頁面再試');
+      });
   } else {
     director.start();
   }
