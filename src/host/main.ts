@@ -319,8 +319,9 @@ function startExperience(useHostGesture = false): void {
   if (!controllerReady || experienceStarting || experienceOverlay.hidden) return;
   experienceStarting = true;
 
-  // 手機可以直接開始影像與手機音效；若由主機 click 進入，桌面音效也能同步解鎖。
-  const soundStart = audio.start();
+  // 瀏覽器只接受「本頁」的真實點擊來解鎖 Web Audio。手機透過 WebSocket 啟動時
+  // 不建立主機 AudioContext，避免 Chrome 反覆拋出 autoplay 警告；聲音改由手機播放。
+  const soundStart = useHostGesture ? audio.start() : Promise.resolve(false);
   hideExperienceOverlay();
   if (videoPilotMode) {
     document.body.classList.add('video-story-mode', 'cinematic-lock');
