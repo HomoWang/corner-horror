@@ -18,6 +18,7 @@ import {
 } from './story-director';
 import { createScene, VIEWPOINT } from './scene';
 import { STORY_SCREENS, type StoryScreenId } from '../shared/story';
+import { NARRATION_CUES } from '../shared/narration';
 
 const stageCanvas = document.querySelector<HTMLCanvasElement>('#stage')!;
 const overlayEl = document.querySelector<HTMLDivElement>('#overlay')!;
@@ -45,6 +46,9 @@ const peripheralShadow = document.querySelector<HTMLDivElement>('#peripheral-sha
 const roomPulse = document.querySelector<HTMLDivElement>('#room-pulse')!;
 const interactionPrompt = document.querySelector<HTMLDivElement>('#interaction-prompt')!;
 const storyNotice = document.querySelector<HTMLDivElement>('#story-notice')!;
+const voiceCaption = document.querySelector<HTMLDivElement>('#voice-caption')!;
+const voiceSpeaker = document.querySelector<HTMLSpanElement>('#voice-speaker')!;
+const voiceLine = document.querySelector<HTMLSpanElement>('#voice-line')!;
 const roomCode =
   normalizeRoomCode(new URLSearchParams(location.search).get('room')) ??
   normalizeRoomCode(sessionStorage.getItem('corner-horror-room')) ??
@@ -61,6 +65,7 @@ let controllerReady = false;
 let actionPressed = false;
 let actionPulse = false;
 let experienceStarting = false;
+let voiceCaptionTimer: ReturnType<typeof setTimeout> | null = null;
 function sendToController(payload: unknown): void {
   if (hostWs?.readyState === WebSocket.OPEN) hostWs.send(JSON.stringify(payload));
 }
@@ -76,6 +81,26 @@ function setStoryScreen(screenId: StoryScreenId): void {
   hostCode.hidden = screen.kind !== 'keypad';
   hostChoices.hidden = screen.kind !== 'choice';
   storyHud.classList.toggle('active', screenId !== 'standby');
+  setVoiceCaption(screenId);
+}
+
+function setVoiceCaption(screenId: StoryScreenId): void {
+  if (voiceCaptionTimer !== null) clearTimeout(voiceCaptionTimer);
+  voiceCaptionTimer = null;
+  voiceCaption.classList.remove('active');
+  const cue = NARRATION_CUES[screenId];
+  if (!cue) {
+    voiceSpeaker.textContent = '';
+    voiceLine.textContent = '';
+    return;
+  }
+  voiceCaption.dataset.role = cue.role;
+  voiceSpeaker.textContent = `${cue.speaker}｜`;
+  voiceLine.textContent = `「${cue.text}」`;
+  voiceCaptionTimer = setTimeout(() => {
+    voiceCaptionTimer = null;
+    voiceCaption.classList.add('active');
+  }, cue.delayMs ?? 0);
 }
 
 function setCodeDigits(value: string): void {
@@ -204,7 +229,7 @@ function hideExperienceOverlay(): void {
 
 function showExperienceStart(): void {
   experienceTitle.textContent = '407 號房：最後點交';
-  experienceCopy.textContent = '按手機中央鍵直接開始；聲音由手機播放。也可點下方讓大螢幕同步出聲';
+  experienceCopy.textContent = '把手機音量開大；中央鍵直接開始，角色語音由手機播放。主機聲音可選擇同步';
   experienceButton.textContent = '主機聲音＋開始';
   experienceOverlay.hidden = false;
 }

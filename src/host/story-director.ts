@@ -143,7 +143,7 @@ export class StoryDirector {
     const actionRisingEdge = actionPressed && !this.actionWasPressed;
     this.actionWasPressed = actionPressed;
 
-    if (this.state === 'prologue' && this.stateSeconds >= 7.2) {
+    if (this.state === 'prologue' && this.stateSeconds >= 10.2) {
       this.enter('incoming', 'incoming-407');
       this.callbacks.sendCue('ring');
       this.nextIncomingRingAt = 5.6;
@@ -206,6 +206,11 @@ export class StoryDirector {
         this.audio.playFootsteps();
         this.callbacks.showNotice('錄音裡的腳步聲，和房間左側同時停下。');
       }
+      if (this.stateSeconds >= 10.6 && this.eventStage === 2) {
+        this.eventStage = 3;
+        this.callbacks.triggerManifestation('flicker');
+        this.callbacks.sendCue('whisper');
+      }
     }
 
     if (this.state === 'tape-two') {
@@ -219,6 +224,11 @@ export class StoryDirector {
         this.callbacks.triggerManifestation('shadow-right');
         this.callbacks.sendCue('whisper');
         this.callbacks.showNotice('錄音帶停了一拍。右側門縫裡，有東西也停了下來。');
+      }
+      if (this.stateSeconds >= 11.8 && this.eventStage === 2) {
+        this.eventStage = 3;
+        this.audio.playKnock();
+        this.callbacks.showNotice('這次只有敲門。門外沒有再哭。');
       }
     }
 
@@ -302,8 +312,11 @@ export class StoryDirector {
     }
 
     const looking = direction !== null && this.isLookingAt(direction, interaction.target);
-    this.callbacks.setPrompt(looking ? interaction.prompt : null);
-    if (looking && actionRisingEdge) {
+    const interactionReady = this.stateSeconds >= (interaction.minSeconds ?? 0);
+    this.callbacks.setPrompt(
+      looking ? (interactionReady ? interaction.prompt : '先聽完聲音……') : null,
+    );
+    if (looking && interactionReady && actionRisingEdge) {
       interaction.activate();
       return;
     }
@@ -428,6 +441,7 @@ export class StoryDirector {
     target: THREE.Vector3;
     prompt: string;
     hint: string;
+    minSeconds?: number;
     activate: () => void;
   } | null {
     switch (this.state) {
@@ -436,6 +450,7 @@ export class StoryDirector {
           target: WINDOW_TARGET,
           prompt: '按「壓下窗扣」',
           hint: '窗戶在畫面左側。慢慢把光移向滲水的玻璃。',
+          minSeconds: 4.6,
           activate: () => {
             this.setVisual({ window: 'broken' });
             this.audio.playThunder();
@@ -450,6 +465,7 @@ export class StoryDirector {
           target: PORTRAIT_TARGET,
           prompt: '按中央鍵：拿起照片',
           hint: '家庭照掛在牆面中央，門的左邊。',
+          minSeconds: 3.6,
           activate: () => {
             this.callbacks.setPhotoInspection('front');
             this.enter('portrait-inspect-front', 'portrait-inspect-front');
@@ -460,6 +476,7 @@ export class StoryDirector {
           target: DRAWER_TARGET,
           prompt: '按「檢查抽屜」',
           hint: '抽屜在畫面左下方的矮櫃。',
+          minSeconds: 4.8,
           activate: () => {
             this.code = '';
             this.callbacks.setCodeDigits('');
@@ -471,6 +488,7 @@ export class StoryDirector {
           target: DOOR_TARGET,
           prompt: '按「握住鑰匙」',
           hint: '房門在畫面右側。腳印正往那裡移動。',
+          minSeconds: 6.2,
           activate: () => {
             this.audio.playFootsteps();
             this.callbacks.setDoorListening(true);
@@ -483,6 +501,7 @@ export class StoryDirector {
           target: PORTRAIT_TARGET,
           prompt: '按「封住照片」',
           hint: '第一道封印在牆中央的照片後面。',
+          minSeconds: 5.4,
           activate: () => {
             this.setVisual({ portrait: 'sealed', window: 'ready' });
             this.callbacks.setFrame(0);
@@ -495,6 +514,7 @@ export class StoryDirector {
           target: WINDOW_TARGET,
           prompt: '按「纏回紅線」',
           hint: '第二道封印在畫面左側的窗扣。',
+          minSeconds: 5.8,
           activate: () => {
             this.setVisual({ window: 'sealed', door: 'ready' });
             this.audio.playKnock();
@@ -506,6 +526,7 @@ export class StoryDirector {
           target: DOOR_TARGET,
           prompt: '按「反鎖房門」',
           hint: '最後一道封印是畫面右側的門鎖。不要轉身。',
+          minSeconds: 6.3,
           activate: () => {
             this.setVisual({ door: 'sealed', footsteps: false });
             this.audio.playDoor();
@@ -545,39 +566,40 @@ export class StoryDirector {
         this.handleStoryAction('answer');
         return true;
       case 'call-window':
-        if (this.stateSeconds < 2.8) return true;
+        if (this.stateSeconds < 10.2) return true;
         this.handleStoryAction('continue');
         return true;
       case 'window-opened':
-        if (this.stateSeconds < 3.2) return true;
+        if (this.stateSeconds < 6.5) return true;
         this.handleStoryAction('continue');
         return true;
       case 'portrait-inspect-front':
-        if (this.stateSeconds < 1.8) return true;
+        if (this.stateSeconds < 4.6) return true;
         this.flipPortrait();
         return true;
       case 'portrait-inspect-back':
-        if (this.stateSeconds < 3.0) return true;
+        if (this.stateSeconds < 7.8) return true;
         this.closePortraitInspection();
         return true;
       case 'portrait-changed':
-        if (this.stateSeconds < 2.4) return true;
+        if (this.stateSeconds < 6.6) return true;
         this.handleStoryAction('continue');
         return true;
       case 'tape-one':
-        if (this.stateSeconds < 7.2) return true;
+        if (this.stateSeconds < 14.5) return true;
         this.handleStoryAction('continue');
         return true;
       case 'tape-two':
-        if (this.stateSeconds < 7.2) return true;
+        if (this.stateSeconds < 16) return true;
         this.handleStoryAction('continue');
         return true;
       case 'door-listen':
-        if (this.stateSeconds < 6.2) return true;
+        if (this.stateSeconds < 8.5) return true;
         this.handleStoryAction('continue');
         return true;
       case 'ending-open':
       case 'ending-sealed':
+        if (this.stateSeconds < 5.2) return true;
         this.handleStoryAction('continue');
         return true;
       case 'keypad':
@@ -624,13 +646,15 @@ export class StoryDirector {
     if (direction && this.isLookingAt(direction, CHOICE_OPEN_TARGET, 30)) focus = 'open';
     this.callbacks.setChoiceFocus(focus);
     this.callbacks.setPrompt(
-      focus === 'seal'
+      this.stateSeconds < 6.8
+        ? '先聽完門外的聲音……'
+        : focus === 'seal'
         ? '按中央鍵：重新封印'
         : focus === 'open'
           ? '按中央鍵：打開房門'
           : '用光照向左或右的選擇',
     );
-    if (!actionRisingEdge || !focus) return;
+    if (!actionRisingEdge || !focus || this.stateSeconds < 6.8) return;
     this.handleStoryAction(focus === 'seal' ? 'choose-seal' : 'choose-open');
   }
 

@@ -337,10 +337,10 @@
     transform: translateY(.35rem);
     animation: tape-line-in .45s forwards;
   }
-  .tape-line:nth-of-type(2) { animation-delay: .8s; }
-  .tape-line:nth-of-type(3) { animation-delay: 2.05s; }
-  .tape-line:nth-of-type(4) { animation-delay: 3.45s; }
-  .tape-line:nth-of-type(5) { animation-delay: 4.85s; }
+  .tape-line:nth-of-type(2) { animation-delay: 1.2s; }
+  .tape-line:nth-of-type(3) { animation-delay: 4.2s; }
+  .tape-line:nth-of-type(4) { animation-delay: 7.8s; }
+  .tape-line:nth-of-type(5) { animation-delay: 11.2s; }
   .tape-line.cut { color: #8a625d; font-style: italic; }
   #tape-progress {
     height: 1px;
@@ -355,8 +355,9 @@
     height: 100%;
     background: #7e251d;
     transform-origin: left;
-    animation: tape-progress 7.2s linear both;
+    animation: tape-progress 14.5s linear both;
   }
+  #tape-playback[data-track='warning-two'] #tape-progress::after { animation-duration: 16s; }
   #door-listening {
     position: fixed;
     inset: 0;
@@ -587,6 +588,35 @@
     opacity: 0;
   }
   #story-notice.show { animation: notice 5s both; }
+  #voice-caption {
+    position: fixed;
+    left: 50%;
+    bottom: 2.2%;
+    z-index: 7;
+    width: min(70rem, 92vw);
+    transform: translate(-50%, .45rem);
+    color: #bbb0aa;
+    text-align: center;
+    font: 400 clamp(.78rem, 1.3vw, .98rem)/1.55 Georgia, serif;
+    letter-spacing: .035em;
+    text-shadow: 0 2px 8px #000, 0 0 18px #000;
+    opacity: 0;
+    transition: opacity .35s ease, transform .35s ease;
+    pointer-events: none;
+  }
+  #voice-caption.active { opacity: 1; transform: translate(-50%, 0); }
+  #voice-speaker {
+    color: #83645d;
+    font: 600 .62rem/1.5 ui-monospace, monospace;
+    letter-spacing: .12em;
+  }
+  #voice-caption[data-role='xiaoyu'] #voice-speaker { color: #8c7f8d; }
+  #voice-caption[data-role='mother'] #voice-speaker { color: #88645c; }
+  #voice-caption[data-role='whisper'] { color: #817a77; font-style: italic; }
+  #voice-caption[data-role='entity'] {
+    color: #c0aaa6;
+    text-shadow: 0 2px 8px #000, .08rem 0 rgba(93,16,13,.55), -.08rem 0 rgba(18,44,48,.45);
+  }
   #story-flash { position: absolute; inset: 0; opacity: 0; background: #d7e2e8; mix-blend-mode: screen; }
   #story-visuals[data-window='broken'] #story-flash { animation: room-flash .62s both; }
   #host-code {
@@ -728,6 +758,9 @@
 </div>
 <div id="interaction-prompt"></div>
 <div id="story-notice"></div>
+<div id="voice-caption" data-role="manager" aria-live="polite">
+  <span id="voice-speaker"></span><span id="voice-line"></span>
+</div>
 <button id="sound-toggle" type="button">點此啟動主機恐怖音效</button>
 <button id="calibrate" type="button" aria-pressed="false">投影校正</button>
 <div id="calibration-layer">

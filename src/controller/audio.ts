@@ -69,6 +69,14 @@ export class ControllerAudioEngine {
     if (id === 'jumpscare') this.playJumpscare();
   }
 
+  /** 語音由 SpeechSynthesis 直接輸出；朗讀期間壓低 Web Audio，讓台詞不被配樂吃掉。 */
+  setVoiceDucking(active: boolean): void {
+    if (!this.context || !this.master) return;
+    const now = this.context.currentTime;
+    this.master.gain.cancelScheduledValues(now);
+    this.master.gain.setTargetAtTime(active ? 0.34 : 0.82, now, active ? 0.12 : 0.45);
+  }
+
   private playRing(): void {
     const context = this.context!;
     if (context.currentTime - this.lastRingAt < 1) return;

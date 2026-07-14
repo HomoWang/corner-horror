@@ -11,7 +11,9 @@ choice, and two endings. The complete event outline is documented in [STORY.md](
 After the phone is ready, press its central button to start. The phone owns the guaranteed audio
 track because that touch can unlock mobile audio directly. The host can optionally be clicked once
 for synchronized room audio, but it never blocks the experience. Story text, codes, and choices
-stay on the larger screen.
+stay on the larger screen. Character dialogue uses the phone's on-device Traditional Chinese speech
+voice and appears as synchronized subtitles on the host; no generated voice recording is redistributed.
+Mobile Safari or Chrome is recommended for speech synthesis and orientation support.
 
 ## Live experience
 

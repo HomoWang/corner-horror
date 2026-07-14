@@ -61,6 +61,8 @@ function createHarness() {
     onRestart: vi.fn(),
   });
   const activate = (target: THREE.Vector3) => {
+    // 所有可瞄準物件都會先讓角色台詞播完；7.5 秒涵蓋目前最長的互動等待。
+    director.update(7.5, null, false);
     const direction = directionTo(target);
     director.update(0.016, direction, false);
     director.update(0.016, direction, true);
@@ -99,7 +101,7 @@ describe('StoryDirector 407 chapter', () => {
 
     director.start();
     expect(screens.at(-1)).toBe('prologue');
-    director.update(7.2, null, false);
+    director.update(10.2, null, false);
     expect(screens.at(-1)).toBe('incoming-407');
     expect(cues.filter((cue) => cue === 'ring')).toHaveLength(1);
     director.update(5.6, null, false);
@@ -153,19 +155,19 @@ describe('StoryDirector 407 chapter', () => {
     const { director, screens, endings, activate, press } = harness;
 
     director.start();
-    director.update(7.2, null, false);
+    director.update(10.2, null, false);
     press(); // 接聽
-    director.update(2.8, null, false);
+    director.update(10.2, null, false);
     press(); // 掛斷並查看
     activate(TARGETS.window);
-    director.update(3.2, null, false);
+    director.update(6.5, null, false);
     press(); // 繼續點交
     activate(TARGETS.portrait);
-    director.update(1.8, null, false);
+    director.update(4.6, null, false);
     press(); // 翻到照片背面
-    director.update(3, null, false);
+    director.update(7.8, null, false);
     press(); // 把照片放回牆上
-    director.update(2.4, null, false);
+    director.update(6.6, null, false);
     press(); // 查看抽屜
     activate(TARGETS.drawer);
     press();
@@ -175,14 +177,15 @@ describe('StoryDirector 407 chapter', () => {
     expect(director.enteredCode).toBe('0317');
     director.update(0.65, null, false);
     expect(screens.at(-1)).toBe('tape-warning-one');
-    director.update(7.2, null, false);
+    director.update(14.5, null, false);
     press();
-    director.update(7.2, null, false);
+    director.update(16, null, false);
     press();
     activate(TARGETS.door);
     expect(screens.at(-1)).toBe('door-listen');
-    director.update(6.2, null, false);
+    director.update(8.5, null, false);
     press();
+    director.update(6.8, null, false);
     press(TARGETS.sealChoice);
     activate(TARGETS.portrait);
     activate(TARGETS.window);
@@ -193,12 +196,35 @@ describe('StoryDirector 407 chapter', () => {
     expect(screens.at(-1)).toBe('ending-sealed');
   });
 
+  it('ignores early central presses until the current spoken line has time to finish', () => {
+    const harness = createHarness();
+    const { director, screens, press } = harness;
+
+    director.start();
+    director.update(10.2, null, false);
+    press();
+    expect(screens.at(-1)).toBe('call-window');
+
+    director.update(3, null, false);
+    press();
+    expect(screens.at(-1)).toBe('call-window');
+    director.update(7.2, null, false);
+    press();
+    expect(screens.at(-1)).toBe('find-window');
+
+    press(TARGETS.window);
+    expect(screens.at(-1)).toBe('find-window');
+    director.update(4.6, null, false);
+    press(TARGETS.window);
+    expect(screens.at(-1)).toBe('window-opened');
+  });
+
   it('rejects a wrong code and triggers both window and open-door scares', () => {
     const harness = createHarness();
     const { director, screens, faceStates, endings, activate, audio } = harness;
 
     director.start();
-    director.update(7.2, null, false);
+    director.update(10.2, null, false);
     director.handleStoryAction('answer');
     director.handleStoryAction('continue');
     activate(TARGETS.window);
@@ -235,7 +261,7 @@ describe('StoryDirector 407 chapter', () => {
     const { director, screens, tapeStates, listeningStates, effects, activate } = harness;
 
     director.start();
-    director.update(7.2, null, false);
+    director.update(10.2, null, false);
     director.handleStoryAction('answer');
     director.handleStoryAction('continue');
     activate(TARGETS.window);
@@ -266,7 +292,7 @@ describe('StoryDirector 407 chapter', () => {
     director.update(4.75, null, false);
     expect(effects).toContain('flicker');
     expect(effects).toContain('shadow-left');
-    director.update(1.45, null, false);
+    director.update(3.75, null, false);
     harness.press();
     expect(screens.at(-1)).toBe('door-choice');
     expect(listeningStates.at(-1)).toBe(false);

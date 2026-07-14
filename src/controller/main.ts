@@ -6,6 +6,7 @@ import { parseMessage } from '../shared/protocol';
 import { buildWebSocketUrl, normalizeRoomCode } from '../shared/session';
 import { OrientationStream, requestOrientationPermission } from './sensors';
 import { ControllerAudioEngine } from './audio';
+import { NarrationEngine } from './narration';
 
 const statusEl = document.querySelector<HTMLParagraphElement>('#status')!;
 const startBtn = document.querySelector<HTMLButtonElement>('#start')!;
@@ -20,6 +21,7 @@ const roomCode = normalizeRoomCode(new URLSearchParams(location.search).get('roo
 
 const stream = new OrientationStream();
 const audio = new ControllerAudioEngine();
+const narration = new NarrationEngine((active) => audio.setVoiceDucking(active));
 let ws: WebSocket | null = null;
 let kicked = false;
 let reconnectDelay = RECONNECT_BASE_MS;
@@ -50,12 +52,17 @@ function connect(): void {
     const msg = parseMessage(ev.data);
     if (msg?.type === 'kick') {
       kicked = true;
+      narration.stop();
       setStatus('已被其他控制器取代（重新整理可搶回）');
       ws?.close();
     }
-    if (msg?.type === 'cue') audio.play(msg.id);
+    if (msg?.type === 'cue') {
+      if (msg.id === 'jumpscare') narration.stop();
+      audio.play(msg.id);
+    }
     if (msg?.type === 'story') {
       document.body.dataset.story = msg.screen;
+      narration.play(msg.screen);
       // 來電畫面本身也觸發鈴聲；即使獨立 cue 在網路切換時遺失，電話仍一定會響。
       if (msg.screen === 'incoming-407') audio.play('ring');
     }
@@ -63,6 +70,7 @@ function connect(): void {
 
   ws.addEventListener('close', () => {
     ws = null;
+    narration.stop();
     if (kicked) return;
     setStatus(`連線中斷，${(reconnectDelay / 1000).toFixed(1)} 秒後重連…`);
     setTimeout(connect, reconnectDelay);
@@ -83,6 +91,7 @@ async function start(): Promise<void> {
   starting = true;
   // 兩個 API 都必須直接在 click 的使用者手勢內被呼叫。
   void audio.unlock();
+  const narrationReady = narration.unlock();
   const permissionRequest = requestOrientationPermission();
   // 音效解鎖在部分 WebView 可能長時間停在 suspended；不能讓它卡住故事 UI。
   const permission = await permissionRequest;
@@ -103,12 +112,14 @@ async function start(): Promise<void> {
     /* 不支援或被拒都不影響功能 */
   }
 
-  if (permission === 'unsupported' || permission === 'denied') {
+  if (!narrationReady) {
+    setStatus('此瀏覽器沒有角色語音；請改用手機 Safari 或 Chrome');
+  } else if (permission === 'unsupported' || permission === 'denied') {
     setStatus('此裝置沒有方向感測；請用主畫面滑鼠控制光錐');
   } else {
     setTimeout(() => {
       if (!stream.hasData) {
-      setStatus('偵測不到感測資料——請確認用手機開啟本頁（桌機無陀螺儀）');
+        setStatus('偵測不到感測資料——請確認用手機開啟本頁（桌機無陀螺儀）');
       }
     }, NO_SENSOR_TIMEOUT_MS);
   }
@@ -119,6 +130,7 @@ recenterBtn.addEventListener('click', () => stream.recenter());
 actionBtn.addEventListener('pointerdown', () => {
   // 每次真實觸碰都再嘗試恢復手機音效，避免行動瀏覽器把背景 AudioContext 暫停。
   void audio.unlock();
+  narration.unlock();
   actionBtn.classList.add('pressed');
   send({ type: 'btn', id: 'action', pressed: true });
 });

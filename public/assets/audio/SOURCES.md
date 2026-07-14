@@ -15,3 +15,11 @@ music may be used in personal and commercial projects; attribution is not requir
 
 The scream is a 2.4-second project cut of the downloaded source. The ambience, door, and ring
 files are short usable excerpts to keep mobile loading time low.
+
+## Character narration
+
+Character dialogue is not a bundled audio asset. It is authored in `src/shared/narration.ts` and
+spoken at runtime by the player's own device through the Web Speech API after the user presses the
+controller start button. This avoids redistributing output from a proprietary desktop TTS voice or
+a Chinese open-source model whose training-data license is unclear. The host displays the same authored
+line as a synchronized subtitle when speech synthesis is unavailable.
