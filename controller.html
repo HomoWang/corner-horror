@@ -30,6 +30,14 @@
   }
   #status { margin: 0; min-height: 1.2rem; color: #5c5552; font-size: .72rem; }
   #screen-cue { margin: .45rem 0 0; color: #302c2a; font-size: .66rem; letter-spacing: .16em; }
+  #audio-diag {
+    margin: .4rem 0 0;
+    min-height: 2.4rem;
+    color: #46403d;
+    font-size: .58rem;
+    line-height: 1.4;
+    white-space: pre-line;
+  }
   #start,
   #action {
     width: min(52vw, 13rem);
@@ -83,6 +91,7 @@
   <header id="top">
     <p id="status">連線中…</p>
     <p id="screen-cue">把手機音量開大・不用再低頭</p>
+    <p id="audio-diag" aria-live="polite"></p>
   </header>
   <button id="start" type="button">開始</button>
   <div id="controls">

@@ -51,6 +51,10 @@ describe('WsRelay', () => {
     controller.emit('message', JSON.stringify({ type: 'story-action', id: 'answer' }));
     host.emit('message', JSON.stringify({ type: 'cue', id: 'ring' }));
     host.emit('message', JSON.stringify({ type: 'story', screen: 'incoming-407' }));
+    host.emit(
+      'message',
+      JSON.stringify({ type: 'fmv-cue', audio: 'voice-warning', haptic: 'double-short' }),
+    );
 
     expect(host.messages()).toEqual([
       { type: 'orient', q: [0, 0, 0, 1], t: 1 },
@@ -60,6 +64,7 @@ describe('WsRelay', () => {
     expect(controller.messages()).toEqual([
       { type: 'cue', id: 'ring' },
       { type: 'story', screen: 'incoming-407' },
+      { type: 'fmv-cue', audio: 'voice-warning', haptic: 'double-short' },
     ]);
   });
 

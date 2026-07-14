@@ -9,6 +9,7 @@ import { ControllerAudioEngine } from './audio';
 import { NarrationEngine } from './narration';
 
 const statusEl = document.querySelector<HTMLParagraphElement>('#status')!;
+const audioDiagEl = document.querySelector<HTMLParagraphElement>('#audio-diag')!;
 const startBtn = document.querySelector<HTMLButtonElement>('#start')!;
 const controlsEl = document.querySelector<HTMLDivElement>('#controls')!;
 const actionBtn = document.querySelector<HTMLButtonElement>('#action')!;
@@ -20,7 +21,16 @@ const NO_SENSOR_TIMEOUT_MS = 2000;
 const roomCode = normalizeRoomCode(new URLSearchParams(location.search).get('room'));
 
 const stream = new OrientationStream();
-const audio = new ControllerAudioEngine();
+// 手機端音訊診斷：顯示最近三筆人聲事件（received / decoded / playing），實機除錯用。
+const audioDiagLines: string[] = [];
+function pushAudioDiag(line: string): void {
+  const time = new Date();
+  const stamp = `${String(time.getMinutes()).padStart(2, '0')}:${String(time.getSeconds()).padStart(2, '0')}`;
+  audioDiagLines.push(`${stamp} ${line}`);
+  if (audioDiagLines.length > 3) audioDiagLines.shift();
+  audioDiagEl.textContent = audioDiagLines.join('\n');
+}
+const audio = new ControllerAudioEngine(pushAudioDiag);
 const narration = new NarrationEngine((active) => audio.setVoiceDucking(active));
 let ws: WebSocket | null = null;
 let kicked = false;

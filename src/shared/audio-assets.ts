@@ -14,15 +14,28 @@ export const AUDIO_SAMPLE_URLS = {
 
 export type AudioSampleId = keyof typeof AUDIO_SAMPLE_URLS;
 
+/** 載入並解碼單支樣本；失敗時丟出帶原因的錯誤，讓呼叫端能顯示診斷而非默默消音。 */
+export async function loadAudioSample(context: AudioContext, id: AudioSampleId): Promise<AudioBuffer> {
+  let response: Response;
+  try {
+    response = await fetch(AUDIO_SAMPLE_URLS[id]);
+  } catch (error) {
+    throw new Error(`fetch：${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.arrayBuffer();
+  try {
+    return await context.decodeAudioData(data);
+  } catch (error) {
+    throw new Error(`decode：${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 export async function loadAudioSamples(context: AudioContext): Promise<Map<AudioSampleId, AudioBuffer>> {
   const results = await Promise.all(
-    (Object.entries(AUDIO_SAMPLE_URLS) as [AudioSampleId, string][]).map(async ([id, url]) => {
+    (Object.keys(AUDIO_SAMPLE_URLS) as AudioSampleId[]).map(async (id) => {
       try {
-        const response = await fetch(url);
-        if (!response.ok) return null;
-        const data = await response.arrayBuffer();
-        const buffer = await context.decodeAudioData(data);
-        return [id, buffer] as const;
+        return [id, await loadAudioSample(context, id)] as const;
       } catch {
         return null;
       }

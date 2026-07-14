@@ -50,7 +50,10 @@ export class WsRelay {
       ) {
         if (this.host) safeSend(this.host, JSON.stringify(msg));
       }
-      if (role === 'host' && (msg.type === 'cue' || msg.type === 'story')) {
+      if (
+        role === 'host' &&
+        (msg.type === 'cue' || msg.type === 'story' || msg.type === 'fmv-cue')
+      ) {
         if (this.controller) safeSend(this.controller, JSON.stringify(msg));
       }
     });

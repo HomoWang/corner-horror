@@ -1,6 +1,7 @@
 import type { ControllerCueId } from '../shared/protocol';
 import {
-  loadAudioSamples,
+  AUDIO_SAMPLE_URLS,
+  loadAudioSample,
   playAudioSample,
   type AudioSampleId,
 } from '../shared/audio-assets';
@@ -12,16 +13,36 @@ function audioContextConstructor(): AudioContextConstructor | null {
   return window.AudioContext ?? browserWindow.webkitAudioContext ?? null;
 }
 
+type VoiceCueId = 'voice-warning' | 'voice-door' | 'voice-wrong-side';
+type VoiceSampleId = 'voiceWarning' | 'voiceDoor' | 'voiceWrongSide';
+
+const VOICE_SAMPLE_IDS: readonly VoiceSampleId[] = ['voiceWarning', 'voiceDoor', 'voiceWrongSide'];
+const VOICE_CUE_BY_SAMPLE: Record<VoiceSampleId, VoiceCueId> = {
+  voiceWarning: 'voice-warning',
+  voiceDoor: 'voice-door',
+  voiceWrongSide: 'voice-wrong-side',
+};
+
+function isVoiceSampleId(id: AudioSampleId): id is VoiceSampleId {
+  return (VOICE_SAMPLE_IDS as readonly AudioSampleId[]).includes(id);
+}
+
 export class ControllerAudioEngine {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private ambienceGain: GainNode | null = null;
   private ambienceSources: (OscillatorNode | AudioBufferSourceNode)[] = [];
   private readonly samples = new Map<AudioSampleId, AudioBuffer>();
-  private sampleLoadPromise: Promise<void> | null = null;
+  private readonly samplePromises = new Map<AudioSampleId, Promise<AudioBuffer | null>>();
+  private ambienceUpgradeWatched = false;
+  private ambienceUsesSamples = false;
   private ambienceRequested = false;
   private pendingCues: ControllerCueId[] = [];
   private lastRingAt = Number.NEGATIVE_INFINITY;
+  private lastReportedContextState: string | null = null;
+
+  /** onDiagnostic 會收到人聲 cue 的 received / decoded / playing 等狀態，顯示在手機畫面上除錯。 */
+  constructor(private readonly onDiagnostic: (line: string) => void = () => {}) {}
 
   async unlock(): Promise<boolean> {
     try {
@@ -40,7 +61,8 @@ export class ControllerAudioEngine {
         this.master.connect(compressor).connect(this.context.destination);
       }
       if (this.context.state === 'suspended') await this.context.resume();
-      void this.loadSamples();
+      this.reportContextState();
+      this.loadSamples();
       if (this.context.state === 'running' && this.pendingCues.length > 0) {
         const pending = this.pendingCues.splice(0);
         for (const cue of pending) this.play(cue);
@@ -52,6 +74,9 @@ export class ControllerAudioEngine {
   }
 
   play(id: ControllerCueId): void {
+    if (id.startsWith('voice-')) {
+      this.onDiagnostic(`${id} 已收到（ctx=${this.context?.state ?? 'none'}）`);
+    }
     if (!this.context || this.context.state !== 'running') {
       if (id === 'ambience-stop') {
         this.pendingCues = this.pendingCues.filter((cue) => cue !== 'ambience-start');
@@ -59,6 +84,7 @@ export class ControllerAudioEngine {
       }
       if (id !== 'ambience-start' || !this.pendingCues.includes(id)) this.pendingCues.push(id);
       if (this.pendingCues.length > 8) this.pendingCues.shift();
+      if (id.startsWith('voice-')) this.onDiagnostic(`${id} 已排入佇列，等待觸碰解鎖音訊`);
       return;
     }
     if (id === 'ambience-start') this.startAmbience();
@@ -180,24 +206,32 @@ export class ControllerAudioEngine {
     navigator.vibrate?.([420, 35, 520]);
   }
 
-  private playVoice(
-    cue: 'voice-warning' | 'voice-door' | 'voice-wrong-side',
-    id: 'voiceWarning' | 'voiceDoor' | 'voiceWrongSide',
-  ): void {
+  private playVoice(cue: VoiceCueId, id: VoiceSampleId): void {
     const context = this.context!;
     const sample = this.samples.get(id);
     if (!sample) {
+      this.onDiagnostic(`${cue} 等待音檔下載／解碼…`);
       if (!this.pendingCues.includes(cue)) this.pendingCues.push(cue);
-      void this.loadSamples().then(() => {
+      void this.ensureSample(id).then((buffer) => {
         const pendingIndex = this.pendingCues.indexOf(cue);
-        if (pendingIndex < 0 || !this.context || this.context.state !== 'running') return;
+        if (pendingIndex < 0) return;
+        if (!buffer) {
+          this.pendingCues.splice(pendingIndex, 1);
+          this.onDiagnostic(`${cue} 放棄播放：音檔載入失敗`);
+          return;
+        }
+        if (!this.context || this.context.state !== 'running') {
+          // 留在佇列，下一次 unlock()（真實觸碰）會重播。
+          this.onDiagnostic(`${cue} 已解碼，等待觸碰恢復音訊後播放`);
+          return;
+        }
         this.pendingCues.splice(pendingIndex, 1);
-        if (!this.samples.has(id)) return;
         this.playVoice(cue, id);
       });
       return;
     }
     const now = context.currentTime;
+    // 只壓低 ambienceGain（配樂）；人聲走 master，不會被自己 duck 到。
     if (this.ambienceGain) {
       const restoreLevel = this.samples.has('score') || this.samples.has('ambience') ? 0.74 : 0.085;
       this.ambienceGain.gain.cancelScheduledValues(now);
@@ -205,6 +239,7 @@ export class ControllerAudioEngine {
       this.ambienceGain.gain.setTargetAtTime(restoreLevel, now + sample.duration + 0.15, 0.35);
     }
     playAudioSample(context, this.master ?? context.destination, sample, 1.18);
+    this.onDiagnostic(`${cue} 播放中（${sample.duration.toFixed(1)} 秒）`);
   }
 
   private startAmbience(): void {
@@ -219,6 +254,7 @@ export class ControllerAudioEngine {
 
     const score = this.samples.get('score');
     const sampleAmbience = this.samples.get('ambience');
+    this.ambienceUsesSamples = Boolean(score || sampleAmbience);
     if (score || sampleAmbience) {
       const ambience = context.createGain();
       ambience.gain.setValueAtTime(0.0001, now);
@@ -302,19 +338,63 @@ export class ControllerAudioEngine {
     for (const source of sources) source.stop(now + 1.4);
     this.ambienceGain = null;
     this.ambienceSources = [];
+    this.ambienceUsesSamples = false;
   }
 
-  private loadSamples(): Promise<void> {
-    if (!this.context) return Promise.resolve();
-    if (!this.sampleLoadPromise) {
-      this.sampleLoadPromise = loadAudioSamples(this.context).then((samples) => {
-        for (const [id, buffer] of samples) this.samples.set(id, buffer);
-        if (this.ambienceRequested && (this.samples.has('score') || this.samples.has('ambience'))) {
+  /** 每支樣本獨立下載＋解碼，完成一支就可用一支；人聲優先起跑，不再等全部背景資源。 */
+  private loadSamples(): void {
+    if (!this.context) return;
+    for (const id of VOICE_SAMPLE_IDS) void this.ensureSample(id);
+    for (const id of Object.keys(AUDIO_SAMPLE_URLS) as AudioSampleId[]) {
+      if (!isVoiceSampleId(id)) void this.ensureSample(id);
+    }
+    if (!this.ambienceUpgradeWatched) {
+      this.ambienceUpgradeWatched = true;
+      // 兩支配樂都塵埃落定後，才把振盪器底噪升級成取樣配樂（維持舊行為：一次到位）。
+      void Promise.allSettled([this.ensureSample('score'), this.ensureSample('ambience')]).then(() => {
+        if (
+          this.ambienceRequested &&
+          !this.ambienceUsesSamples &&
+          (this.samples.has('score') || this.samples.has('ambience'))
+        ) {
           this.stopAmbienceSources();
           this.startAmbience();
         }
       });
     }
-    return this.sampleLoadPromise;
+  }
+
+  private ensureSample(id: AudioSampleId): Promise<AudioBuffer | null> {
+    const existing = this.samplePromises.get(id);
+    if (existing) return existing;
+    const context = this.context;
+    if (!context) return Promise.resolve(null);
+    const promise = loadAudioSample(context, id).then(
+      (buffer) => {
+        this.samples.set(id, buffer);
+        if (isVoiceSampleId(id)) {
+          this.onDiagnostic(`${VOICE_CUE_BY_SAMPLE[id]} 已解碼（${buffer.duration.toFixed(1)} 秒）`);
+        }
+        return buffer;
+      },
+      (error: unknown) => {
+        // 失敗不快取：下一次真實觸碰（unlock）或人聲 cue 會重試。
+        this.samplePromises.delete(id);
+        if (isVoiceSampleId(id)) {
+          const reason = error instanceof Error ? error.message : String(error);
+          this.onDiagnostic(`${VOICE_CUE_BY_SAMPLE[id]} 載入失敗：${reason}`);
+        }
+        return null;
+      },
+    );
+    this.samplePromises.set(id, promise);
+    return promise;
+  }
+
+  private reportContextState(): void {
+    const state = this.context?.state ?? 'none';
+    if (state === this.lastReportedContextState) return;
+    this.lastReportedContextState = state;
+    this.onDiagnostic(`AudioContext：${state}`);
   }
 }
