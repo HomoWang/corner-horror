@@ -307,10 +307,27 @@ const videoPlayer = new VideoStoryPlayer(videoStoryContainer, {
     videoStoryAction.hidden = true;
     setStatus('影片已恢復播放');
   },
+  onStallRecovery: (stage) => {
+    showStoryNotice(
+      stage === 1 ? '影片未起播：改用 1.0 倍速重試…' : '影片未起播：改用單層播放重試…',
+    );
+  },
 });
 const videoStoryReady = videoPilotMode
   ? videoPlayer.load(publicUrl('assets/video-pilot/story-graph.json'))
   : Promise.resolve(null);
+
+// 電視除錯：video 模式常駐一行狀態（bundle 版本＋播放器內部狀態）。
+// 電視瀏覽器打不開 devtools，也常快取舊版頁面；這行是唯一的現場證據。
+if (videoPilotMode) {
+  const videoDiagEl = document.querySelector<HTMLParagraphElement>('#video-diag')!;
+  const bundleId =
+    document.querySelector<HTMLScriptElement>('script[src*="host-"]')?.src.match(/host-([\w-]+)\.js/)?.[1] ??
+    'dev';
+  setInterval(() => {
+    videoDiagEl.textContent = `v:${bundleId}｜${videoPlayer.debugState()}`;
+  }, 500);
+}
 
 let kicked = false;
 

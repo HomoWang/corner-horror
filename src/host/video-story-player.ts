@@ -23,6 +23,8 @@ export interface VideoStoryPlayerCallbacks {
   /** 瀏覽器（多為電視內建瀏覽器）擋下無手勢的 play()；提示使用者在本頁做一次操作。 */
   onAutoplayBlocked?(): void;
   onPlaybackRecovered?(): void;
+  /** 影片遲遲沒起播（電視解碼管線常見），已自動降級重試：1=鎖回 1.0 倍速、2=改單層播放。 */
+  onStallRecovery?(stage: number): void;
 }
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -52,6 +54,11 @@ export class VideoStoryPlayer {
   private readonly gestureRecovery = () => {
     void this.retryBlockedPlayback();
   };
+  private stallTimer: number | null = null;
+  private stallStage = 0;
+  // 兩者一旦觸發就整個工作階段維持：屬於裝置能力，不會播到一半變回來。
+  private rateLocked = false;
+  private singleLayer = false;
 
   constructor(
     private readonly container: HTMLElement,
@@ -82,6 +89,11 @@ export class VideoStoryPlayer {
     const video = this.activeVideo;
     const node = this.manifest.nodes[this.currentNodeId];
     if (!node) return;
+    if (this.stallTimer !== null && video.currentTime > 0.15) {
+      // 已確認起播，解除看門狗並歸零降級階段。
+      this.clearStallWatchdog();
+      this.stallStage = 0;
+    }
     while (this.cueIndex < node.cues.length) {
       const cue = node.cues[this.cueIndex];
       if (!cue || cue.at > video.currentTime + 0.035) break;
@@ -130,6 +142,8 @@ export class VideoStoryPlayer {
 
   reset(): void {
     this.removeGestureRecovery();
+    this.clearStallWatchdog();
+    this.stallStage = 0;
     this.currentNodeId = null;
     this.nextPreloadedId = null;
     this.cueIndex = 0;
@@ -195,7 +209,7 @@ export class VideoStoryPlayer {
     }
 
     let video = this.activeVideo;
-    if (usePreloaded && this.nextPreloadedId === id) {
+    if (!this.singleLayer && usePreloaded && this.nextPreloadedId === id) {
       this.activeVideo.pause();
       this.setVideoActive(this.activeVideo, false);
       this.activeIndex = this.activeIndex === 0 ? 1 : 0;
@@ -216,6 +230,8 @@ export class VideoStoryPlayer {
     this.nextPreloadedId = null;
     this.callbacks.onNodeChange?.(id, node);
     this.preload(node.next ?? node.action?.next ?? null);
+    // 看門狗在 play() 前就上膛：部分電視的 play() promise 會永遠懸著，不 resolve 也不 reject。
+    this.armStallWatchdog();
     try {
       await video.play();
     } catch (error) {
@@ -237,6 +253,85 @@ export class VideoStoryPlayer {
       const attempt = video.play();
       if (attempt) void attempt.then(() => video.pause()).catch(() => {});
     }
+  }
+
+  /**
+   * 起播看門狗：3.2 秒內畫面沒前進就分段降級——電視 SoC 常因非 1.0 倍速或
+   * 第二條解碼管線被待命層占走而凍在第一格，而且不會丟任何錯誤事件。
+   */
+  private armStallWatchdog(): void {
+    this.clearStallWatchdog();
+    const nodeAtArm = this.currentNodeId;
+    this.stallTimer = window.setTimeout(() => {
+      this.stallTimer = null;
+      if (this.destroyed || !nodeAtArm || this.currentNodeId !== nodeAtArm) return;
+      const video = this.activeVideo;
+      if (video.currentTime > 0.15) {
+        this.stallStage = 0;
+        return;
+      }
+      if (this.gestureRecoveryInstalled) {
+        // 還在等使用者手勢解鎖，不算 stall；繼續守著。
+        this.armStallWatchdog();
+        return;
+      }
+      this.recoverFromStall(video);
+    }, 3200);
+  }
+
+  private clearStallWatchdog(): void {
+    if (this.stallTimer !== null) window.clearTimeout(this.stallTimer);
+    this.stallTimer = null;
+  }
+
+  private recoverFromStall(video: HTMLVideoElement): void {
+    this.stallStage += 1;
+    if (this.stallStage === 1) {
+      this.callbacks.onStallRecovery?.(1);
+      this.rateLocked = true;
+      video.defaultPlaybackRate = 1;
+      video.playbackRate = 1;
+      void video.play().catch(() => {});
+      this.armStallWatchdog();
+      return;
+    }
+    if (this.stallStage === 2) {
+      this.callbacks.onStallRecovery?.(2);
+      this.singleLayer = true;
+      const standby = this.standbyVideo;
+      standby.pause();
+      standby.removeAttribute('src');
+      standby.load();
+      this.nextPreloadedId = null;
+      video.load();
+      void video.play().catch(() => {});
+      this.armStallWatchdog();
+      return;
+    }
+    this.callbacks.onError?.(
+      new Error(
+        `影片無法起播（readyState=${video.readyState}, networkState=${video.networkState}` +
+          `${video.error ? `, mediaError=${video.error.code}` : ''}）`,
+      ),
+    );
+  }
+
+  /** 電視除錯用的一行狀態：目前節點、readyState/networkState、播放進度與降級旗標。 */
+  debugState(): string {
+    const video = this.activeVideo;
+    return [
+      this.currentNodeId ?? 'idle',
+      `rs${video.readyState}/ns${video.networkState}`,
+      `t${video.currentTime.toFixed(1)}`,
+      `x${video.playbackRate}`,
+      video.paused ? 'paused' : 'playing',
+      this.gestureRecoveryInstalled ? 'wait-gesture' : '',
+      this.rateLocked ? 'rate1' : '',
+      this.singleLayer ? '1layer' : '',
+      video.error ? `err${video.error.code}` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
   }
 
   private installGestureRecovery(): void {
@@ -271,6 +366,7 @@ export class VideoStoryPlayer {
   }
 
   private preload(id: string | null): void {
+    if (this.singleLayer) return;
     if (!id || !this.manifest) return;
     if (this.nextPreloadedId === id) return;
     const node = this.manifest.nodes[id];
@@ -289,7 +385,9 @@ export class VideoStoryPlayer {
       video.removeAttribute('poster');
     }
     video.preload = preload;
-    const playbackRate = node.playbackRate ?? this.manifest?.defaults.playbackRate ?? 1;
+    const playbackRate = this.rateLocked
+      ? 1
+      : node.playbackRate ?? this.manifest?.defaults.playbackRate ?? 1;
     video.defaultPlaybackRate = playbackRate;
     video.playbackRate = playbackRate;
     video.load();

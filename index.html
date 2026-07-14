@@ -165,6 +165,17 @@
   body.cinematic-lock #sound-toggle,
   body.cinematic-lock #calibrate,
   body.cinematic-lock #status-line { opacity: 0; pointer-events: none; }
+  #video-diag {
+    position: fixed;
+    right: 0.75rem;
+    bottom: 0.5rem;
+    z-index: 30;
+    display: none;
+    font: 0.62rem/1.4 monospace;
+    color: #5a504c;
+    text-shadow: 0 1px 4px #000;
+  }
+  body.video-story-mode #video-diag { display: block; }
   #calibration-layer { position: fixed; inset: 0; z-index: 30; display: none; }
   #calibration-layer.active { display: block; }
   .calibration-line {
@@ -867,4 +878,5 @@
   <button id="experience-start" type="button">開始體驗</button>
 </div>
 <p id="status-line"></p>
+<p id="video-diag" aria-hidden="true"></p>
 <script type="module" src="/src/host/main.ts"></script>
