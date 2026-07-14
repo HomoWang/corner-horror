@@ -66,6 +66,12 @@ function connect(): void {
       // 來電畫面本身也觸發鈴聲；即使獨立 cue 在網路切換時遺失，電話仍一定會響。
       if (msg.screen === 'incoming-407') audio.play('ring');
     }
+    if (msg?.type === 'fmv-cue') {
+      if (msg.audio) audio.play(msg.audio);
+      if (msg.narration && msg.role) narration.playText(msg.narration, msg.role);
+      if (msg.haptic === 'long') navigator.vibrate?.(620);
+      if (msg.haptic === 'double-short') navigator.vibrate?.([120, 90, 120]);
+    }
   });
 
   ws.addEventListener('close', () => {

@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "status": "in-production",
+  "defaults": {
+    "aspectRatio": "16:9",
+    "fps": 24,
+    "preload": "auto"
+  },
+  "entry": "incoming_call",
+  "nodes": {
+    "incoming_call": {
+      "status": "ready",
+      "video": "p01-incoming-call.mp4",
+      "durationHintSeconds": 8,
+      "next": "approach_phone",
+      "cues": [
+        { "at": 2.2, "audio": "ring" },
+        { "at": 4.8, "audio": "ring" }
+      ]
+    },
+    "approach_phone": {
+      "status": "ready",
+      "firstFrame": "p01-last-frame.png",
+      "video": "p02-approach-phone.mp4",
+      "durationHintSeconds": 8,
+      "next": "door_threshold",
+      "cues": [
+        { "at": 0.8, "audio": "ring-stop" },
+        { "at": 5.6, "narration": "別看門。" }
+      ]
+    },
+    "door_threshold": {
+      "status": "ready",
+      "firstFrame": "p02-last-frame.png",
+      "video": "p03-door-threshold.mp4",
+      "durationHintSeconds": 8,
+      "choice": {
+        "timeoutSeconds": 8,
+        "input": "aim-and-central-button",
+        "options": [
+          {
+            "id": "retreat",
+            "screenSide": "left",
+            "label": "立刻甩門",
+            "next": "slam_door_1"
+          },
+          {
+            "id": "open",
+            "screenSide": "right",
+            "label": "僵住不動",
+            "next": "freeze_1"
+          }
+        ]
+      },
+      "cues": [
+        { "at": 4.1, "audio": "scratch" },
+        { "at": 6.85, "audio": "impact", "haptic": "double-short" }
+      ]
+    },
+    "slam_door_1": {
+      "status": "ready",
+      "firstFrame": "p03-last-frame.png",
+      "video": "p04a-slam-1.mp4",
+      "durationHintSeconds": 8,
+      "next": "slam_door_2",
+      "cues": [
+        { "at": 1.35, "audio": "impact", "haptic": "long" },
+        { "at": 3.1, "audio": "scratch" }
+      ]
+    },
+    "slam_door_2": {
+      "status": "ready",
+      "firstFrame": "p04a-slam-1-last-frame.png",
+      "video": "p04a-slam-2.mp4",
+      "durationHintSeconds": 8,
+      "ending": "caught",
+      "cues": [
+        { "at": 1.2, "audio": "ring" },
+        { "at": 5.2, "narration": "你關錯邊了。" },
+        { "at": 7.1, "audio": "jumpscare", "haptic": "long" }
+      ]
+    },
+    "freeze_1": {
+      "status": "awaiting-generation",
+      "firstFrame": "p03-last-frame.png",
+      "video": "p04b-freeze-1.mp4",
+      "durationHintSeconds": 8,
+      "next": "freeze_2",
+      "cues": [
+        { "at": 3.8, "audio": "breath" },
+        { "at": 6.2, "narration": "很好。不要眨眼。" }
+      ]
+    },
+    "freeze_2": {
+      "status": "awaiting-generation",
+      "video": "p04b-freeze-2.mp4",
+      "durationHintSeconds": 8,
+      "ending": "marked",
+      "cues": [
+        { "at": 2.1, "audio": "ring" },
+        { "at": 5.3, "narration": "現在，換我看著你。" },
+        { "at": 7.4, "audio": "breath", "haptic": "double-short" }
+      ]
+    }
+  }
+}

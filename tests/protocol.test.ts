@@ -96,6 +96,29 @@ describe('parseMessage', () => {
     ).toBeNull();
   });
 
+  it('解析影片時間軸 cue，並限制自由台詞與震動格式', () => {
+    expect(
+      parseMessage(
+        JSON.stringify({
+          type: 'fmv-cue',
+          audio: 'whisper',
+          narration: '別看門。',
+          role: 'entity',
+          haptic: 'double-short',
+        }),
+      ),
+    ).toEqual({
+      type: 'fmv-cue',
+      audio: 'whisper',
+      narration: '別看門。',
+      role: 'entity',
+      haptic: 'double-short',
+    });
+    expect(parseMessage(JSON.stringify({ type: 'fmv-cue', narration: '' }))).toBeNull();
+    expect(parseMessage(JSON.stringify({ type: 'fmv-cue', role: 'ghost' }))).toBeNull();
+    expect(parseMessage(JSON.stringify({ type: 'fmv-cue', haptic: 'forever' }))).toBeNull();
+  });
+
   it('拒絕非字串、壞 JSON、未知 type', () => {
     expect(parseMessage(42)).toBeNull();
     expect(parseMessage(new ArrayBuffer(4))).toBeNull();

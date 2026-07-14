@@ -43,20 +43,28 @@ export class NarrationEngine {
   }
 
   play(screen: StoryScreenId): void {
-    this.stop();
     const cue = NARRATION_CUES[screen];
-    if (!cue || !this.unlocked) return;
+    if (!cue) {
+      this.stop();
+      return;
+    }
+    this.playText(cue.text, cue.role, cue.delayMs ?? 0);
+  }
+
+  playText(text: string, role: NarrationRole, delayMs = 0): void {
+    this.stop();
+    if (!this.unlocked) return;
     const token = ++this.playToken;
     this.pendingTimer = setTimeout(() => {
       this.pendingTimer = null;
       if (token !== this.playToken) return;
-      const utterance = new SpeechSynthesisUtterance(cue.text);
-      const settings = voiceSettings(cue.role);
+      const utterance = new SpeechSynthesisUtterance(text);
+      const settings = voiceSettings(role);
       utterance.lang = 'zh-TW';
       utterance.rate = settings.rate;
       utterance.pitch = settings.pitch;
       utterance.volume = settings.volume;
-      utterance.voice = preferredVoice(window.speechSynthesis.getVoices(), cue.role);
+      utterance.voice = preferredVoice(window.speechSynthesis.getVoices(), role);
       utterance.onstart = () => this.onVoiceDucking(true);
       const release = () => this.onVoiceDucking(false);
       utterance.onend = release;
@@ -66,7 +74,7 @@ export class NarrationEngine {
       } catch {
         release();
       }
-    }, cue.delayMs ?? 0);
+    }, Math.max(0, delayMs));
   }
 
   stop(): void {

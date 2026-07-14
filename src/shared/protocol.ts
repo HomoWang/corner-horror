@@ -2,6 +2,7 @@
 // 兩端與伺服器共用本模組，型別即文件。
 
 import type { StoryActionId, StoryScreenId } from './story';
+import type { NarrationRole } from './narration';
 
 export type Role = 'host' | 'controller';
 
@@ -52,6 +53,17 @@ export interface CueMsg {
   id: ControllerCueId;
 }
 
+export type FmvHapticId = 'long' | 'double-short';
+
+/** 精確對齊影片時間軸的手機音效、自由台詞與震動。 */
+export interface FmvCueMsg {
+  type: 'fmv-cue';
+  audio?: ControllerCueId;
+  narration?: string;
+  role?: NarrationRole;
+  haptic?: FmvHapticId;
+}
+
 export interface StoryMsg {
   type: 'story';
   screen: StoryScreenId;
@@ -71,6 +83,7 @@ export type Msg =
   | StatusMsg
   | KickMsg
   | CueMsg
+  | FmvCueMsg
   | StoryMsg
   | StoryActionMsg;
 
@@ -107,6 +120,23 @@ const STORY_ACTION_IDS = new Set<StoryActionId>([
   'submit-code',
   'choose-open',
   'choose-seal',
+]);
+
+const CONTROLLER_CUE_IDS = new Set<ControllerCueId>([
+  'ambience-start',
+  'ambience-stop',
+  'ring',
+  'whisper',
+  'impact',
+  'jumpscare',
+]);
+
+const NARRATION_ROLES = new Set<NarrationRole>([
+  'manager',
+  'xiaoyu',
+  'mother',
+  'whisper',
+  'entity',
 ]);
 
 function isQuaternion(q: unknown): q is [number, number, number, number] {
@@ -151,14 +181,32 @@ export function parseMessage(raw: unknown): Msg | null {
     case 'kick':
       return { type: 'kick' };
     case 'cue':
-      return m.id === 'ambience-start' ||
-        m.id === 'ambience-stop' ||
-        m.id === 'ring' ||
-        m.id === 'whisper' ||
-        m.id === 'impact' ||
-        m.id === 'jumpscare'
-        ? { type: 'cue', id: m.id }
+      return typeof m.id === 'string' && CONTROLLER_CUE_IDS.has(m.id as ControllerCueId)
+        ? { type: 'cue', id: m.id as ControllerCueId }
         : null;
+    case 'fmv-cue': {
+      const audio = typeof m.audio === 'string' && CONTROLLER_CUE_IDS.has(m.audio as ControllerCueId)
+        ? (m.audio as ControllerCueId)
+        : undefined;
+      const narration = typeof m.narration === 'string' && m.narration.trim().length > 0 && m.narration.length <= 120
+        ? m.narration
+        : undefined;
+      const role = typeof m.role === 'string' && NARRATION_ROLES.has(m.role as NarrationRole)
+        ? (m.role as NarrationRole)
+        : undefined;
+      const haptic = m.haptic === 'long' || m.haptic === 'double-short' ? m.haptic : undefined;
+      if (!audio && !narration && !haptic) return null;
+      if (m.audio !== undefined && !audio) return null;
+      if (m.narration !== undefined && !narration) return null;
+      if (m.role !== undefined && !role) return null;
+      if (m.haptic !== undefined && !haptic) return null;
+      return {
+        type: 'fmv-cue',
+        ...(audio ? { audio } : {}),
+        ...(narration ? { narration, role: role ?? 'entity' } : {}),
+        ...(haptic ? { haptic } : {}),
+      };
+    }
     case 'story':
       return typeof m.screen === 'string' && STORY_SCREEN_IDS.has(m.screen as StoryScreenId)
         ? { type: 'story', screen: m.screen as StoryScreenId }

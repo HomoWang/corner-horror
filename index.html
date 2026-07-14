@@ -6,6 +6,58 @@
   html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
   body { font-family: system-ui, sans-serif; }
   #stage { display: block; width: 100vw; height: 100vh; }
+  #video-story {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    background: #000;
+  }
+  #video-story[hidden] { display: none; }
+  .video-story-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+  }
+  .video-story-layer[hidden] { display: none; }
+  body.video-story-mode #stage,
+  body.video-story-mode #story-visuals,
+  body.video-story-mode #photo-inspection,
+  body.video-story-mode #tape-playback,
+  body.video-story-mode #door-listening,
+  body.video-story-mode #story-hud,
+  body.video-story-mode #host-choices,
+  body.video-story-mode #interaction-prompt { visibility: hidden; }
+  #video-story-choices {
+    position: fixed;
+    inset: auto clamp(2rem, 8vw, 9rem) 9vh;
+    z-index: 8;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(1rem, 8vw, 9rem);
+    pointer-events: none;
+  }
+  #video-story-choices[hidden] { display: none; }
+  .video-story-choice {
+    padding: 1.1rem 1.4rem;
+    border: 1px solid rgba(169, 125, 116, .4);
+    background: linear-gradient(90deg, rgba(9, 5, 5, .9), rgba(31, 12, 11, .76));
+    color: #b9a4a0;
+    font: 400 clamp(.82rem, 1.35vw, 1.1rem)/1.35 Georgia, serif;
+    letter-spacing: .12em;
+    text-align: center;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, color .16s ease;
+  }
+  #video-story-choices[data-focus='left'] [data-side='left'],
+  #video-story-choices[data-focus='right'] [data-side='right'] {
+    transform: scale(1.055);
+    border-color: #c26d61;
+    color: #f1d2ca;
+    box-shadow: 0 0 3rem rgba(145, 35, 25, .38), inset 0 0 1.8rem rgba(91, 18, 14, .3);
+  }
   #overlay {
     position: fixed;
     inset: 0;
@@ -686,6 +738,11 @@
   }
 </style>
 <canvas id="stage"></canvas>
+<div id="video-story" hidden></div>
+<div id="video-story-choices" data-focus="" hidden>
+  <div class="video-story-choice" data-side="left"></div>
+  <div class="video-story-choice" data-side="right"></div>
+</div>
 <div id="story-visuals" data-window="hidden" data-door="normal" data-footsteps="false">
   <div id="story-window">
     <div id="red-thread"></div>

@@ -19,6 +19,8 @@ import {
 import { createScene, VIEWPOINT } from './scene';
 import { STORY_SCREENS, type StoryScreenId } from '../shared/story';
 import { NARRATION_CUES } from '../shared/narration';
+import { VideoStoryPlayer } from './video-story-player';
+import type { ControllerCueId } from '../shared/protocol';
 
 const stageCanvas = document.querySelector<HTMLCanvasElement>('#stage')!;
 const overlayEl = document.querySelector<HTMLDivElement>('#overlay')!;
@@ -49,6 +51,11 @@ const storyNotice = document.querySelector<HTMLDivElement>('#story-notice')!;
 const voiceCaption = document.querySelector<HTMLDivElement>('#voice-caption')!;
 const voiceSpeaker = document.querySelector<HTMLSpanElement>('#voice-speaker')!;
 const voiceLine = document.querySelector<HTMLSpanElement>('#voice-line')!;
+const videoStoryContainer = document.querySelector<HTMLDivElement>('#video-story')!;
+const videoStoryChoices = document.querySelector<HTMLDivElement>('#video-story-choices')!;
+const videoStoryLeft = videoStoryChoices.querySelector<HTMLDivElement>("[data-side='left']")!;
+const videoStoryRight = videoStoryChoices.querySelector<HTMLDivElement>("[data-side='right']")!;
+const videoPilotMode = new URLSearchParams(location.search).get('mode') === 'video';
 const roomCode =
   normalizeRoomCode(new URLSearchParams(location.search).get('room')) ??
   normalizeRoomCode(sessionStorage.getItem('corner-horror-room')) ??
@@ -101,6 +108,29 @@ function setVoiceCaption(screenId: StoryScreenId): void {
     voiceCaptionTimer = null;
     voiceCaption.classList.add('active');
   }, cue.delayMs ?? 0);
+}
+
+function showVideoCaption(text: string): void {
+  if (voiceCaptionTimer !== null) clearTimeout(voiceCaptionTimer);
+  voiceCaptionTimer = null;
+  voiceCaption.classList.remove('active');
+  voiceCaption.dataset.role = 'entity';
+  voiceSpeaker.textContent = '407 房內線｜';
+  voiceLine.textContent = `「${text}」`;
+  void voiceCaption.offsetWidth;
+  voiceCaption.classList.add('active');
+  voiceCaptionTimer = setTimeout(() => {
+    voiceCaptionTimer = null;
+    voiceCaption.classList.remove('active');
+  }, Math.max(2200, Math.min(5200, text.length * 260)));
+}
+
+function controllerCueForVideo(id: string): ControllerCueId | null {
+  if (id === 'ring') return 'ring';
+  if (id === 'jumpscare') return 'jumpscare';
+  if (id === 'impact') return 'impact';
+  if (id === 'scratch' || id === 'breath') return 'whisper';
+  return null;
 }
 
 function setCodeDigits(value: string): void {
@@ -206,6 +236,55 @@ const director = new StoryDirector(
   },
 );
 
+const videoPlayer = new VideoStoryPlayer(videoStoryContainer, {
+  onNodeChange: (id) => {
+    videoStoryContainer.hidden = false;
+    videoStoryChoices.hidden = true;
+    videoStoryChoices.dataset.focus = '';
+    showStoryNotice('');
+    setStatus(`互動影片：${id}`);
+  },
+  onCue: (cue) => {
+    const controllerAudio = cue.audio ? controllerCueForVideo(cue.audio) : null;
+    if (cue.audio === 'scratch') audio.playDoor();
+    if (cue.audio === 'impact') audio.playSting(0.8);
+    if (cue.audio === 'jumpscare') audio.playJumpscare();
+    if (cue.narration) showVideoCaption(cue.narration);
+    if (controllerAudio || cue.narration || cue.haptic) {
+      sendToController({
+        type: 'fmv-cue',
+        ...(controllerAudio ? { audio: controllerAudio } : {}),
+        ...(cue.narration ? { narration: cue.narration, role: 'entity' } : {}),
+        ...(cue.haptic === 'long' || cue.haptic === 'double-short' ? { haptic: cue.haptic } : {}),
+      });
+    }
+  },
+  onChoice: (choice) => {
+    const left = choice.options.find((option) => option.screenSide === 'left');
+    const right = choice.options.find((option) => option.screenSide === 'right');
+    videoStoryLeft.textContent = left?.label ?? '';
+    videoStoryRight.textContent = right?.label ?? '';
+    videoStoryChoices.hidden = false;
+    showVideoCaption('選一個。不要低頭。');
+  },
+  onChoiceFocus: (side) => {
+    videoStoryChoices.dataset.focus = side ?? '';
+  },
+  onEnding: (ending) => {
+    setStatus(`互動影片結局：${ending}；按手機中央鍵重新開始`);
+    showStoryNotice('試片結束。按手機中央鍵，從來電重新開始。');
+  },
+  onIncomplete: (id) => {
+    videoStoryChoices.hidden = true;
+    setStatus(`試片已播放至 ${id}；下一段影片仍在製作`);
+    showStoryNotice('下一段影像正在生成；目前停在可銜接的最後一格。');
+  },
+  onError: (error) => setStatus(`互動影片無法播放：${error.message}`),
+});
+const videoStoryReady = videoPilotMode
+  ? videoPlayer.load(publicUrl('assets/video-pilot/story-graph.json'))
+  : Promise.resolve(null);
+
 let kicked = false;
 
 soundButton.addEventListener('click', () => {
@@ -228,8 +307,10 @@ function hideExperienceOverlay(): void {
 }
 
 function showExperienceStart(): void {
-  experienceTitle.textContent = '407 號房：最後點交';
-  experienceCopy.textContent = '把手機音量開大；中央鍵直接開始，角色語音由手機播放。主機聲音可選擇同步';
+  experienceTitle.textContent = videoPilotMode ? '407 號房：互動試片' : '407 號房：最後點交';
+  experienceCopy.textContent = videoPilotMode
+    ? '手機只需中央鍵；選擇會顯示在大螢幕，角色語音與震動由手機同步'
+    : '把手機音量開大；中央鍵直接開始，角色語音由手機播放。主機聲音可選擇同步';
   experienceButton.textContent = '主機聲音＋開始';
   experienceOverlay.hidden = false;
 }
@@ -241,7 +322,17 @@ function startExperience(useHostGesture = false): void {
   // 手機可以直接開始影像與手機音效；若由主機 click 進入，桌面音效也能同步解鎖。
   const soundStart = audio.start();
   hideExperienceOverlay();
-  director.start();
+  if (videoPilotMode) {
+    document.body.classList.add('video-story-mode', 'cinematic-lock');
+    audio.startScore();
+    audio.setTension(0.26);
+    sendToController({ type: 'cue', id: 'ambience-start' });
+    void videoStoryReady
+      .then(() => videoPlayer.start())
+      .catch((error) => setStatus(`互動影片載入失敗：${String(error)}`));
+  } else {
+    director.start();
+  }
   setStatus(useHostGesture ? '體驗開始；主機聲音已請求啟動' : '體驗開始；聲音由手機播放');
   experienceStarting = false;
 
@@ -279,6 +370,10 @@ function setControllerConnected(connected: boolean): void {
     actionPulse = false;
     flashlight.setConnected(false);
     director.reset();
+    videoPlayer.reset();
+    videoStoryContainer.hidden = true;
+    videoStoryChoices.hidden = true;
+    document.body.classList.remove('video-story-mode');
     hideExperienceOverlay();
     overlayEl.classList.remove('hidden');
     setStatus('等待控制器（滑鼠可控光錐）');
@@ -290,6 +385,10 @@ function setControllerConnected(connected: boolean): void {
   actionPulse = false;
   flashlight.setConnected(false);
   director.reset();
+  videoPlayer.reset();
+  videoStoryContainer.hidden = true;
+  videoStoryChoices.hidden = true;
+  document.body.classList.remove('video-story-mode');
   hideExperienceOverlay();
   overlayEl.classList.remove('hidden');
   setStatus('控制器已連線，請在手機按「開始」');
@@ -379,7 +478,11 @@ function frame(): void {
   const direction = hasDirection
     ? ([flashlightDirection.x, flashlightDirection.y, flashlightDirection.z] as [number, number, number])
     : null;
-  director.update(delta, direction, actionPressed || actionPulse);
+  if (videoPilotMode && document.body.classList.contains('video-story-mode')) {
+    videoPlayer.update(actionPressed || actionPulse, hasDirection ? flashlightDirection.x : null);
+  } else {
+    director.update(delta, direction, actionPressed || actionPulse);
+  }
   actionPulse = false;
   handles.cinematic.update(delta, hasDirection ? flashlightDirection : null);
   handles.jumpscare.update(delta);
