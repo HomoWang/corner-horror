@@ -265,12 +265,6 @@ export class RaidGame {
     const grid = new THREE.GridHelper(22, 22, 0x1b8cff, 0x102747);
     grid.position.set(0, 0, -8);
     arena.add(grid);
-    const gate = new THREE.Mesh(
-      new THREE.TorusGeometry(3.1, 0.08, 10, 64),
-      new THREE.MeshBasicMaterial({ color: 0x164a79, transparent: true, opacity: 0.65 }),
-    );
-    gate.position.set(0, 2.2, -10.5);
-    arena.add(gate);
     return arena;
   }
 
