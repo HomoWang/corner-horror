@@ -59,7 +59,6 @@ export class RaidGame {
     private readonly callbacks: RaidCallbacks,
   ) {
     this.root.visible = false;
-    this.root.add(this.createArena());
     scene.add(this.root);
   }
 
@@ -258,14 +257,6 @@ export class RaidGame {
 
   private findDamage(object: THREE.Object3D): number {
     return typeof object.userData.damage === 'number' ? object.userData.damage : 1;
-  }
-
-  private createArena(): THREE.Group {
-    const arena = new THREE.Group();
-    const grid = new THREE.GridHelper(22, 22, 0x1b8cff, 0x102747);
-    grid.position.set(0, 0, -8);
-    arena.add(grid);
-    return arena;
   }
 
   private spawnTracer(end: THREE.Vector3, hit: boolean): void {
