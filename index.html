@@ -877,9 +877,10 @@
   #raid-boss strong { display: block; margin-bottom: .35rem; color: #ff6686; font-size: .7rem; letter-spacing: .35em; }
   #raid-boss .raid-meter { border-color: rgba(255, 75, 112, .8); }
   #raid-boss .raid-meter > i { background: linear-gradient(90deg, #ff174f, #ff845c); box-shadow: 0 0 1rem #ff174f; }
-  body.raid-mode #raid-crosshair {
+  body.raid-mode #raid-crosshair,
+  body.raid-controller-ui #raid-crosshair {
     position: fixed;
-    z-index: 9;
+    z-index: 30;
     display: block;
     width: 1.75rem;
     height: 1.75rem;
@@ -889,6 +890,11 @@
     box-shadow: 0 0 .8rem rgba(37, 198, 255, .9), inset 0 0 .7rem rgba(37, 198, 255, .35);
     pointer-events: none;
     transition: width .05s, height .05s, border-color .05s;
+  }
+  body.raid-controller-ui #experience-start:not(:disabled) {
+    border-color: #7eeaff;
+    box-shadow: 0 0 2.5rem rgba(21, 197, 255, .48), inset 0 0 1rem rgba(62, 204, 255, .12);
+    animation: raid-controller-ready 1.2s ease-in-out infinite alternate;
   }
   #raid-crosshair::before,
   #raid-crosshair::after { content: ''; position: absolute; left: 50%; top: 50%; background: #a9edff; transform: translate(-50%, -50%); box-shadow: 0 0 .5rem #35cfff; }
@@ -928,6 +934,7 @@
   body.raid-briefing #raid-hud { opacity: .15; }
   @keyframes raid-message { 12%, 72% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -.5rem); } }
   @keyframes raid-damage { 18% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes raid-controller-ready { to { filter: brightness(1.28); transform: scale(1.025); } }
   @keyframes room-blackout { 0%{opacity:0} 18%,72%{opacity:1} 100%{opacity:0} }
   @media (max-width: 720px) {
     #tape-console { grid-template-columns: 1fr; gap: 1rem; }

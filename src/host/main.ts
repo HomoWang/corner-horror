@@ -189,11 +189,14 @@ function showRaidResult(result: RaidResult): void {
   raidResultPanel.hidden = false;
   raidResultPanel.style.display = 'block';
   experienceTitle.textContent = '戰鬥報告';
-  experienceCopy.textContent = result.victory ? '泰坦訊號已消失，東區撤離路線重新開放。' : '作戰資料已保存，調整瞄準後再次出擊。';
-  experienceButton.textContent = '再次部署';
+  experienceCopy.textContent = result.victory
+    ? '泰坦訊號已消失｜按手機扳機再次部署'
+    : '作戰資料已保存｜調整瞄準後按手機扳機再次出擊';
+  experienceButton.textContent = '再次部署｜手機扳機確認';
   experienceButton.disabled = false;
   window.setTimeout(() => {
     experienceOverlay.hidden = false;
+    document.body.classList.add('raid-controller-ui');
   }, 900);
 }
 
@@ -510,6 +513,7 @@ function setStatus(text: string): void {
 
 function hideExperienceOverlay(): void {
   experienceOverlay.hidden = true;
+  document.body.classList.remove('raid-controller-ui');
 }
 
 function showExperienceStart(): void {
@@ -525,9 +529,17 @@ function showExperienceStart(): void {
         ? '已啟用網路降級場景；完整戰鬥與電腦端音效仍可使用。'
         : 'MISSION 01 已就緒｜所有聲音由電腦播放'
       : '必要資產完成前不會啟動關卡，避免背景未載完造成卡頓。';
-    experienceButton.textContent = '部署 MISSION 01';
+    if (raidAssetsReady) {
+      experienceCopy.textContent += audio.started
+        ? '｜按手機扳機確認選取'
+        : '｜首次請在電腦按一次以啟用音效';
+    }
+    experienceButton.textContent = raidAssetsReady && !audio.started
+      ? '啟用電腦音效'
+      : '部署 MISSION 01｜手機扳機確認';
     experienceButton.disabled = !raidAssetsReady;
     experienceOverlay.hidden = false;
+    document.body.classList.toggle('raid-controller-ui', raidAssetsReady && audio.started);
     return;
   }
   experienceTitle.textContent = raidMode
@@ -547,23 +559,46 @@ function showExperienceStart(): void {
 function startExperience(useHostGesture = false): void {
   if (!controllerReady || experienceStarting || experienceOverlay.hidden) return;
   if (raidMode) {
-    if (!useHostGesture) {
-      setStatus('請在電腦畫面按「部署」，以啟動電腦端完整音效');
+    if (!raidAssetsReady) return;
+    if (!audio.started) {
+      if (!useHostGesture) {
+        experienceTitle.textContent = '需要一次電腦端確認';
+        experienceCopy.textContent = '瀏覽器安全限制：請在電腦按一次「啟用電腦音效」；之後選關與重玩都由手機控制。';
+        experienceButton.textContent = '啟用電腦音效';
+        setStatus('等待電腦端一次性音效授權');
+        return;
+      }
+      experienceStarting = true;
+      experienceButton.disabled = true;
+      void audio.start().then((soundStarted) => {
+        experienceStarting = false;
+        experienceButton.disabled = false;
+        if (!soundStarted) {
+          experienceCopy.textContent = '此瀏覽器未能啟用音效，請確認分頁未被靜音後再按一次。';
+          setStatus('電腦端音效啟用失敗');
+          return;
+        }
+        audio.playRaidUi(true);
+        experienceTitle.textContent = '電腦音效已啟用';
+        experienceCopy.textContent = '手機控制已接管｜按手機扳機部署 MISSION 01';
+        experienceButton.textContent = '部署 MISSION 01｜手機扳機確認';
+        document.body.classList.add('raid-controller-ui');
+        sendToController({ type: 'fmv-cue', haptic: 'double-short' });
+        setStatus('音效已啟用；現在可用手機控制選單');
+      });
       return;
     }
-    if (!raidAssetsReady) return;
     experienceStarting = true;
     experienceButton.disabled = true;
-    void audio.start().then((soundStarted) => {
-      hideExperienceOverlay();
-      document.body.classList.add('raid-mode');
-      audio.startRaidAmbience();
-      audio.playRaidUi(true);
-      raid.start();
-      soundButton.hidden = true;
-      setStatus(soundStarted ? 'MISSION 01 作戰開始｜音效由電腦播放' : '作戰開始｜此瀏覽器未能啟動音效');
-      experienceStarting = false;
-    });
+    hideExperienceOverlay();
+    document.body.classList.add('raid-mode');
+    audio.startRaidAmbience();
+    audio.playRaidUi(true);
+    raid.start();
+    soundButton.hidden = true;
+    sendToController({ type: 'fmv-cue', haptic: 'double-short' });
+    setStatus('MISSION 01 作戰開始｜音效由電腦播放');
+    experienceStarting = false;
     return;
   }
   experienceStarting = true;
@@ -633,7 +668,7 @@ function setControllerConnected(connected: boolean): void {
     videoStoryContainer.hidden = true;
     videoStoryAction.hidden = true;
     videoStoryChoices.hidden = true;
-    document.body.classList.remove('video-story-mode', 'raid-mode', 'raid-briefing');
+    document.body.classList.remove('video-story-mode', 'raid-mode', 'raid-briefing', 'raid-controller-ui');
     hideExperienceOverlay();
     overlayEl.classList.remove('hidden');
     setStatus('等待控制器（滑鼠可控光錐）');
@@ -651,7 +686,7 @@ function setControllerConnected(connected: boolean): void {
   videoStoryContainer.hidden = true;
   videoStoryAction.hidden = true;
   videoStoryChoices.hidden = true;
-  document.body.classList.remove('video-story-mode', 'raid-mode', 'raid-briefing');
+  document.body.classList.remove('video-story-mode', 'raid-mode', 'raid-briefing', 'raid-controller-ui');
   hideExperienceOverlay();
   overlayEl.classList.remove('hidden');
   setStatus('控制器已連線，請在手機按「開始」');
@@ -748,8 +783,9 @@ function frame(): void {
     videoPlayer.update(actionPressed || actionPulse, hasDirection ? flashlightDirection.x : null);
   } else if (raidMode) {
     const raidInputActive = document.body.classList.contains('raid-mode');
+    const raidControllerUiActive = document.body.classList.contains('raid-controller-ui');
     raid.update(delta, hasDirection ? flashlightDirection : null, raidInputActive && (actionPressed || actionPulse));
-    if (raidInputActive && hasDirection) {
+    if ((raidInputActive || raidControllerUiActive) && hasDirection) {
       const projected = handles.camera.position.clone().addScaledVector(flashlightDirection, 5).project(handles.camera);
       const aimX = MathUtils.clamp(projected.x * 0.5 + 0.5, 0.02, 0.98) * 100;
       const aimY = MathUtils.clamp(-projected.y * 0.5 + 0.5, 0.02, 0.98) * 100;
