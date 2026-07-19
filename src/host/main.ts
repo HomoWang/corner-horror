@@ -21,8 +21,14 @@ import { STORY_SCREENS, type StoryScreenId } from '../shared/story';
 import { NARRATION_CUES } from '../shared/narration';
 import { VideoStoryPlayer } from './video-story-player';
 import type { ControllerCueId } from '../shared/protocol';
-import { RaidGame } from './raid-game';
+import { RaidGame, type RaidFlowPhase, type RaidResult } from './raid-game';
 import type { RaidSnapshot } from '../shared/raid-engine';
+import {
+  initialRaidQuality,
+  nextRaidQuality,
+  raidPixelRatio,
+  type RaidQuality,
+} from '../shared/raid-performance';
 
 const stageCanvas = document.querySelector<HTMLCanvasElement>('#stage')!;
 const overlayEl = document.querySelector<HTMLDivElement>('#overlay')!;
@@ -69,9 +75,22 @@ const raidBossFill = document.querySelector<HTMLElement>('#raid-boss-fill')!;
 const raidMessage = document.querySelector<HTMLElement>('#raid-message')!;
 const raidCrosshair = document.querySelector<HTMLElement>('#raid-crosshair')!;
 const raidDamage = document.querySelector<HTMLElement>('#raid-damage')!;
+const raidBlackout = document.querySelector<HTMLElement>('#raid-blackout')!;
+const raidLoadPanel = document.querySelector<HTMLElement>('#raid-load-panel')!;
+const raidLoadFill = document.querySelector<HTMLElement>('#raid-load-fill')!;
+const raidLoadCopy = document.querySelector<HTMLElement>('#raid-load-copy')!;
+const raidLevelSelect = document.querySelector<HTMLElement>('#raid-level-select')!;
+const raidResultPanel = document.querySelector<HTMLElement>('#raid-result-panel')!;
+const raidResultGrade = document.querySelector<HTMLElement>('#raid-result-grade')!;
+const raidResultTitle = document.querySelector<HTMLElement>('#raid-result-title')!;
+const raidResultScore = document.querySelector<HTMLElement>('#raid-result-score')!;
+const raidResultAccuracy = document.querySelector<HTMLElement>('#raid-result-accuracy')!;
+const raidResultKills = document.querySelector<HTMLElement>('#raid-result-kills')!;
+const raidResultTime = document.querySelector<HTMLElement>('#raid-result-time')!;
 const pageMode = new URLSearchParams(location.search).get('mode');
 const videoPilotMode = pageMode === 'video';
 const raidMode = pageMode === 'raid';
+document.body.classList.toggle('raid-page', raidMode);
 const modeSwitchUrl = new URL(location.href);
 modeSwitchUrl.searchParams.delete('room');
 if (raidMode) modeSwitchUrl.searchParams.delete('mode');
@@ -84,10 +103,10 @@ const roomCode =
   createRoomCode();
 sessionStorage.setItem('corner-horror-room', roomCode);
 
-const handles = createScene(stageCanvas);
+const handles = createScene(stageCanvas, raidMode ? 'raid' : 'story');
 const flashlight = new Flashlight(handles.spotlight, handles.lightTarget, VIEWPOINT);
 createCalibrationUi(handles.setProjectionCorners);
-const audio = new HostAudioEngine();
+const audio = new HostAudioEngine(!raidMode);
 
 let hostWs: WebSocket | null = null;
 let controllerReady = false;
@@ -97,6 +116,12 @@ let experienceStarting = false;
 let voiceCaptionTimer: ReturnType<typeof setTimeout> | null = null;
 let raidFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
 let raidMessageTimer: ReturnType<typeof setTimeout> | null = null;
+let raidAssetsReady = false;
+let raidFallbackMode = false;
+let raidFlow: RaidFlowPhase = 'menu';
+let raidQuality: RaidQuality = 'high';
+let raidPerfElapsed = 0;
+let raidPerfFrames = 0;
 function sendToController(payload: unknown): void {
   if (hostWs?.readyState === WebSocket.OPEN) hostWs.send(JSON.stringify(payload));
 }
@@ -121,11 +146,13 @@ function showRaidMessage(message: string): void {
   raidMessageTimer = setTimeout(() => raidMessage.classList.remove('show'), 2600);
 }
 
-function showRaidShot(result: 'hit' | 'miss' | 'kill'): void {
+function showRaidShot(result: 'hit' | 'miss' | 'kill', weakPoint = false): void {
   if (raidFeedbackTimer !== null) clearTimeout(raidFeedbackTimer);
   raidCrosshair.dataset.feedback = result;
+  raidCrosshair.classList.toggle('weak', weakPoint);
   raidFeedbackTimer = setTimeout(() => {
     raidCrosshair.dataset.feedback = '';
+    raidCrosshair.classList.remove('weak');
   }, result === 'kill' ? 180 : 90);
 }
 
@@ -133,19 +160,84 @@ function showRaidDamage(): void {
   raidDamage.classList.remove('flash');
   void raidDamage.offsetWidth;
   raidDamage.classList.add('flash');
-  sendToController({ type: 'fmv-cue', audio: 'impact', haptic: 'long' });
+  audio.playRaidPlayerHit();
+  sendToController({ type: 'fmv-cue', haptic: 'long' });
 }
 
-const raid = new RaidGame(handles.scene, VIEWPOINT, {
+function setRaidFlow(phase: RaidFlowPhase): void {
+  raidFlow = phase;
+  document.body.classList.toggle('raid-briefing', phase === 'briefing');
+  if (phase === 'combat') {
+    raidPerfElapsed = 0;
+    raidPerfFrames = 0;
+  }
+}
+
+function showRaidResult(result: RaidResult): void {
+  audio.stopRaidAmbience();
+  document.body.classList.remove('raid-mode', 'raid-briefing');
+  if (result.victory) audio.playRaidVictory();
+  else audio.playRaidUi(false);
+  raidResultGrade.textContent = result.grade;
+  raidResultTitle.textContent = result.victory ? '任務完成' : '防線失守';
+  raidResultScore.textContent = result.score.toString();
+  raidResultAccuracy.textContent = `${result.accuracy}%`;
+  raidResultKills.textContent = result.kills.toString();
+  raidResultTime.textContent = `${result.durationSeconds}s`;
+  raidLoadPanel.style.display = 'none';
+  raidLevelSelect.style.display = 'none';
+  raidResultPanel.hidden = false;
+  raidResultPanel.style.display = 'block';
+  experienceTitle.textContent = '戰鬥報告';
+  experienceCopy.textContent = result.victory ? '泰坦訊號已消失，東區撤離路線重新開放。' : '作戰資料已保存，調整瞄準後再次出擊。';
+  experienceButton.textContent = '再次部署';
+  experienceButton.disabled = false;
+  window.setTimeout(() => {
+    experienceOverlay.hidden = false;
+  }, 900);
+}
+
+const raid = new RaidGame(handles.scene, handles.camera, VIEWPOINT, publicUrl('assets/raid-city.webp'), {
   onSnapshot: setRaidSnapshot,
   onMessage: showRaidMessage,
-  onShot: showRaidShot,
-  onPlayerHit: showRaidDamage,
-  onImpact: () => {
-    audio.playSting(0.12);
-    sendToController({ type: 'fmv-cue', haptic: 'double-short' });
+  onShot: (result, weakPoint) => {
+    showRaidShot(result, weakPoint);
+    if (result === 'hit') audio.playRaidHit(weakPoint);
+    if (result === 'kill') audio.playRaidExplosion(weakPoint ? 1.2 : 0.85);
+    if (result !== 'miss') sendToController({ type: 'fmv-cue', haptic: 'double-short' });
   },
+  onFire: () => audio.playRaidGunshot(),
+  onPlayerHit: showRaidDamage,
+  onBossPhase: () => audio.playRaidRoar(),
+  onFlow: setRaidFlow,
+  onResult: showRaidResult,
 });
+
+function applyRaidQuality(quality: RaidQuality, announce = false): void {
+  raidQuality = quality;
+  raid.setQuality(quality);
+  handles.setPixelRatioLimit(raidPixelRatio(quality));
+  if (announce) showRaidMessage(`效能模式：${quality === 'low' ? '流暢' : '平衡'}`);
+}
+
+if (raidMode) {
+  const navigatorWithMemory = navigator as Navigator & { deviceMemory?: number };
+  applyRaidQuality(initialRaidQuality(
+    navigator.hardwareConcurrency ?? 8,
+    navigatorWithMemory.deviceMemory ?? 8,
+  ));
+  void raid.preload((progress) => {
+    const percent = Math.round(progress * 100);
+    raidLoadFill.style.width = `${percent}%`;
+    raidLoadCopy.textContent = `驗證必要資產 ${percent}%`;
+  }).then((loaded) => {
+    raidAssetsReady = true;
+    raidFallbackMode = !loaded;
+    raidLoadCopy.textContent = loaded ? '必要資產已就緒' : '網路逾時｜已切換流暢降級場景';
+    raid.showMenu();
+    if (controllerReady) showExperienceStart();
+  });
+}
 
 function setStoryScreen(screenId: StoryScreenId): void {
   const screen = STORY_SCREENS[screenId];
@@ -421,6 +513,23 @@ function hideExperienceOverlay(): void {
 }
 
 function showExperienceStart(): void {
+  if (raidMode) {
+    raid.showMenu();
+    raidResultPanel.hidden = true;
+    raidResultPanel.style.display = 'none';
+    raidLoadPanel.style.display = raidAssetsReady ? 'none' : 'block';
+    raidLevelSelect.style.display = raidAssetsReady ? 'grid' : 'none';
+    experienceTitle.textContent = raidAssetsReady ? '選擇作戰區域' : '戰區資料載入中';
+    experienceCopy.textContent = raidAssetsReady
+      ? raidFallbackMode
+        ? '已啟用網路降級場景；完整戰鬥與電腦端音效仍可使用。'
+        : 'MISSION 01 已就緒｜所有聲音由電腦播放'
+      : '必要資產完成前不會啟動關卡，避免背景未載完造成卡頓。';
+    experienceButton.textContent = '部署 MISSION 01';
+    experienceButton.disabled = !raidAssetsReady;
+    experienceOverlay.hidden = false;
+    return;
+  }
   experienceTitle.textContent = raidMode
     ? '異變防線：即時出擊'
     : videoPilotMode
@@ -437,20 +546,33 @@ function showExperienceStart(): void {
 
 function startExperience(useHostGesture = false): void {
   if (!controllerReady || experienceStarting || experienceOverlay.hidden) return;
+  if (raidMode) {
+    if (!useHostGesture) {
+      setStatus('請在電腦畫面按「部署」，以啟動電腦端完整音效');
+      return;
+    }
+    if (!raidAssetsReady) return;
+    experienceStarting = true;
+    experienceButton.disabled = true;
+    void audio.start().then((soundStarted) => {
+      hideExperienceOverlay();
+      document.body.classList.add('raid-mode');
+      audio.startRaidAmbience();
+      audio.playRaidUi(true);
+      raid.start();
+      soundButton.hidden = true;
+      setStatus(soundStarted ? 'MISSION 01 作戰開始｜音效由電腦播放' : '作戰開始｜此瀏覽器未能啟動音效');
+      experienceStarting = false;
+    });
+    return;
+  }
   experienceStarting = true;
 
   // 瀏覽器只接受「本頁」的真實點擊來解鎖 Web Audio。手機透過 WebSocket 啟動時
   // 不建立主機 AudioContext，避免 Chrome 反覆拋出 autoplay 警告；聲音改由手機播放。
   const soundStart = useHostGesture ? audio.start() : Promise.resolve(false);
   hideExperienceOverlay();
-  if (raidMode) {
-    document.body.classList.add('raid-mode');
-    handles.cinematic.setFrame(2);
-    audio.startScore();
-    audio.setTension(0.74);
-    sendToController({ type: 'cue', id: 'ambience-start' });
-    raid.start();
-  } else if (videoPilotMode) {
+  if (videoPilotMode) {
     document.body.classList.add('video-story-mode', 'cinematic-lock');
     // 電視按鈕啟動時趁真實點擊手勢先解鎖兩層 video；手機遠端啟動沒有本頁手勢可用，
     // play() 若被擋會走 onAutoplayBlocked 的遙控器恢復流程。
@@ -507,10 +629,11 @@ function setControllerConnected(connected: boolean): void {
     director.reset();
     videoPlayer.reset();
     raid.reset();
+    audio.stopRaidAmbience();
     videoStoryContainer.hidden = true;
     videoStoryAction.hidden = true;
     videoStoryChoices.hidden = true;
-    document.body.classList.remove('video-story-mode', 'raid-mode');
+    document.body.classList.remove('video-story-mode', 'raid-mode', 'raid-briefing');
     hideExperienceOverlay();
     overlayEl.classList.remove('hidden');
     setStatus('等待控制器（滑鼠可控光錐）');
@@ -524,10 +647,11 @@ function setControllerConnected(connected: boolean): void {
   director.reset();
   videoPlayer.reset();
   raid.reset();
+  audio.stopRaidAmbience();
   videoStoryContainer.hidden = true;
   videoStoryAction.hidden = true;
   videoStoryChoices.hidden = true;
-  document.body.classList.remove('video-story-mode', 'raid-mode');
+  document.body.classList.remove('video-story-mode', 'raid-mode', 'raid-briefing');
   hideExperienceOverlay();
   overlayEl.classList.remove('hidden');
   setStatus('控制器已連線，請在手機按「開始」');
@@ -606,7 +730,10 @@ window.addEventListener('mousemove', (ev) => {
   flashlight.pointAt(ndcX, ndcY, handles.camera);
 });
 
-window.addEventListener('resize', handles.resize);
+window.addEventListener('resize', () => {
+  handles.resize();
+  raid.resize(innerWidth, innerHeight);
+});
 
 const clock = new Clock();
 const flashlightDirection = new Vector3();
@@ -619,12 +746,28 @@ function frame(): void {
     : null;
   if (videoPilotMode && document.body.classList.contains('video-story-mode')) {
     videoPlayer.update(actionPressed || actionPulse, hasDirection ? flashlightDirection.x : null);
-  } else if (raidMode && document.body.classList.contains('raid-mode')) {
-    raid.update(delta, hasDirection ? flashlightDirection : null, actionPressed || actionPulse);
-    if (hasDirection) {
+  } else if (raidMode) {
+    const raidInputActive = document.body.classList.contains('raid-mode');
+    raid.update(delta, hasDirection ? flashlightDirection : null, raidInputActive && (actionPressed || actionPulse));
+    if (raidInputActive && hasDirection) {
       const projected = handles.camera.position.clone().addScaledVector(flashlightDirection, 5).project(handles.camera);
-      raidCrosshair.style.left = `${MathUtils.clamp(projected.x * 0.5 + 0.5, 0.02, 0.98) * 100}%`;
-      raidCrosshair.style.top = `${MathUtils.clamp(-projected.y * 0.5 + 0.5, 0.02, 0.98) * 100}%`;
+      const aimX = MathUtils.clamp(projected.x * 0.5 + 0.5, 0.02, 0.98) * 100;
+      const aimY = MathUtils.clamp(-projected.y * 0.5 + 0.5, 0.02, 0.98) * 100;
+      raidCrosshair.style.left = `${aimX}%`;
+      raidCrosshair.style.top = `${aimY}%`;
+      raidBlackout.style.setProperty('--aim-x', `${aimX}%`);
+      raidBlackout.style.setProperty('--aim-y', `${aimY}%`);
+    }
+    if (raidFlow === 'combat') {
+      raidPerfElapsed += delta;
+      raidPerfFrames += 1;
+      if (raidPerfElapsed >= 4) {
+        const fps = raidPerfFrames / raidPerfElapsed;
+        const nextQuality = nextRaidQuality(raidQuality, fps);
+        if (nextQuality !== raidQuality) applyRaidQuality(nextQuality, true);
+        raidPerfElapsed = 0;
+        raidPerfFrames = 0;
+      }
     }
   } else {
     director.update(delta, direction, actionPressed || actionPulse);

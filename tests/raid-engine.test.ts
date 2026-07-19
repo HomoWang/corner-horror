@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RaidEngine, type RaidWave } from '../src/shared/raid-engine';
+import { RaidEngine, raidGrade, type RaidWave } from '../src/shared/raid-engine';
 
 const waves: readonly RaidWave[] = [
   { enemies: [{ kind: 'crawler', hp: 1, score: 100, contactDamage: 10 }] },
@@ -7,6 +7,13 @@ const waves: readonly RaidWave[] = [
 ];
 
 describe('RaidEngine', () => {
+  it('grades completed missions by accuracy and never rewards defeat', () => {
+    expect(raidGrade(true, 80)).toBe('S');
+    expect(raidGrade(true, 60)).toBe('A');
+    expect(raidGrade(true, 59)).toBe('B');
+    expect(raidGrade(false, 100)).toBe('C');
+  });
+
   it('advances waves and awards combo score', () => {
     const engine = new RaidEngine(waves);
     const start = engine.start();

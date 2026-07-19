@@ -18,6 +18,14 @@ export interface RaidWave {
 }
 
 export type RaidPhase = 'idle' | 'running' | 'victory' | 'defeat';
+export type RaidGrade = 'S' | 'A' | 'B' | 'C';
+
+export function raidGrade(victory: boolean, accuracy: number): RaidGrade {
+  if (!victory) return 'C';
+  if (accuracy >= 80) return 'S';
+  if (accuracy >= 60) return 'A';
+  return 'B';
+}
 
 export interface RaidSnapshot {
   phase: RaidPhase;

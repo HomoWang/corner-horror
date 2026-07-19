@@ -20,6 +20,12 @@ export class HostAudioEngine {
   private scoreGain: GainNode | null = null;
   private scoreSources: AudioBufferSourceNode[] = [];
   private scoreRequested = false;
+  private raidGain: GainNode | null = null;
+  private raidSources: AudioScheduledSourceNode[] = [];
+  private raidGunNoise: AudioBuffer | null = null;
+  private raidExplosionNoise: AudioBuffer | null = null;
+
+  constructor(private readonly loadBundledSamples = true) {}
 
   get started(): boolean {
     return this.context?.state === 'running';
@@ -41,10 +47,10 @@ export class HostAudioEngine {
         master.gain.value = 0.9;
         master.connect(compressor).connect(this.context.destination);
         this.masterGain = master;
-        this.createAmbience(this.context, master);
+        if (this.loadBundledSamples) this.createAmbience(this.context, master);
       }
       if (this.context.state === 'suspended') await this.context.resume();
-      void this.loadSamples();
+      if (this.loadBundledSamples) void this.loadSamples();
       if (this.scoreRequested) this.startSampleScore();
       return this.context.state === 'running';
     } catch {
@@ -56,7 +62,7 @@ export class HostAudioEngine {
     this.scoreRequested = true;
     if (!this.context || this.context.state !== 'running') return;
     this.startSampleScore();
-    void this.loadSamples();
+    if (this.loadBundledSamples) void this.loadSamples();
   }
 
   stopScore(): void {
@@ -228,6 +234,203 @@ export class HostAudioEngine {
     noise.start(now);
   }
 
+  startRaidAmbience(): void {
+    if (!this.context || this.context.state !== 'running' || this.raidGain) return;
+    const context = this.context;
+    const output = this.masterGain ?? context.destination;
+    const raid = context.createGain();
+    raid.gain.setValueAtTime(0.0001, context.currentTime);
+    raid.gain.exponentialRampToValueAtTime(0.42, context.currentTime + 1.8);
+    raid.connect(output);
+    this.raidGain = raid;
+
+    for (const [frequency, level, type] of [
+      [38, 0.24, 'sine'],
+      [57, 0.08, 'triangle'],
+      [76, 0.035, 'sawtooth'],
+    ] as const) {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = type;
+      oscillator.frequency.value = frequency;
+      gain.gain.value = level;
+      oscillator.connect(gain).connect(raid);
+      oscillator.start();
+      this.raidSources.push(oscillator);
+    }
+
+    const noise = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const noiseGain = context.createGain();
+    noise.buffer = this.createNoiseBuffer(3.5);
+    noise.loop = true;
+    filter.type = 'bandpass';
+    filter.frequency.value = 410;
+    filter.Q.value = 0.55;
+    noiseGain.gain.value = 0.055;
+    noise.connect(filter).connect(noiseGain).connect(raid);
+    noise.start();
+    this.raidSources.push(noise);
+
+    const siren = context.createOscillator();
+    const sirenGain = context.createGain();
+    const sirenLfo = context.createOscillator();
+    const sirenDepth = context.createGain();
+    siren.type = 'sine';
+    siren.frequency.value = 185;
+    sirenGain.gain.value = 0.018;
+    sirenLfo.frequency.value = 0.16;
+    sirenDepth.gain.value = 42;
+    sirenLfo.connect(sirenDepth).connect(siren.frequency);
+    siren.connect(sirenGain).connect(raid);
+    siren.start();
+    sirenLfo.start();
+    this.raidSources.push(siren, sirenLfo);
+  }
+
+  stopRaidAmbience(): void {
+    if (!this.context || !this.raidGain) return;
+    const now = this.context.currentTime;
+    this.raidGain.gain.cancelScheduledValues(now);
+    this.raidGain.gain.setTargetAtTime(0.0001, now, 0.2);
+    for (const source of this.raidSources) {
+      try {
+        source.stop(now + 0.8);
+      } catch {
+        // 已停止的節點不需要再次處理。
+      }
+    }
+    this.raidGain = null;
+    this.raidSources = [];
+  }
+
+  playRaidGunshot(): void {
+    if (!this.context || this.context.state !== 'running') return;
+    const context = this.context;
+    const output = this.masterGain ?? context.destination;
+    const now = context.currentTime;
+    const noise = context.createBufferSource();
+    const highpass = context.createBiquadFilter();
+    const gain = context.createGain();
+    this.raidGunNoise ??= this.createNoiseBuffer(0.105);
+    noise.buffer = this.raidGunNoise;
+    highpass.type = 'highpass';
+    highpass.frequency.value = 520;
+    gain.gain.setValueAtTime(0.34, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.095);
+    noise.connect(highpass).connect(gain).connect(output);
+    noise.start(now);
+
+    const body = context.createOscillator();
+    const bodyGain = context.createGain();
+    body.type = 'square';
+    body.frequency.setValueAtTime(155, now);
+    body.frequency.exponentialRampToValueAtTime(58, now + 0.08);
+    bodyGain.gain.setValueAtTime(0.11, now);
+    bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+    body.connect(bodyGain).connect(output);
+    body.start(now);
+    body.stop(now + 0.1);
+  }
+
+  playRaidHit(weak = false): void {
+    if (!this.context || this.context.state !== 'running') return;
+    const context = this.context;
+    const output = this.masterGain ?? context.destination;
+    const now = context.currentTime;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = weak ? 'sine' : 'triangle';
+    oscillator.frequency.setValueAtTime(weak ? 980 : 420, now);
+    oscillator.frequency.exponentialRampToValueAtTime(weak ? 420 : 155, now + 0.08);
+    gain.gain.setValueAtTime(weak ? 0.18 : 0.1, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+    oscillator.connect(gain).connect(output);
+    oscillator.start(now);
+    oscillator.stop(now + 0.11);
+  }
+
+  playRaidExplosion(intensity = 1): void {
+    if (!this.context || this.context.state !== 'running') return;
+    const context = this.context;
+    const output = this.masterGain ?? context.destination;
+    const now = context.currentTime;
+    const noise = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    this.raidExplosionNoise ??= this.createNoiseBuffer(0.72);
+    noise.buffer = this.raidExplosionNoise;
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1100, now);
+    filter.frequency.exponentialRampToValueAtTime(75, now + 0.7);
+    gain.gain.setValueAtTime(0.3 * Math.min(1.5, intensity), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.72);
+    noise.connect(filter).connect(gain).connect(output);
+    noise.start(now);
+  }
+
+  playRaidRoar(): void {
+    if (!this.context || this.context.state !== 'running') return;
+    const context = this.context;
+    const output = this.masterGain ?? context.destination;
+    const now = context.currentTime;
+    for (const [frequency, level] of [[54, 0.24], [73, 0.13], [111, 0.055]] as const) {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(frequency, now);
+      oscillator.frequency.linearRampToValueAtTime(frequency * 0.72, now + 1.15);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(level, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+      oscillator.connect(gain).connect(output);
+      oscillator.start(now);
+      oscillator.stop(now + 1.25);
+    }
+  }
+
+  playRaidPlayerHit(): void {
+    this.playRaidExplosion(1.25);
+    this.playRaidUi(false);
+  }
+
+  playRaidUi(positive = true): void {
+    if (!this.context || this.context.state !== 'running') return;
+    const context = this.context;
+    const output = this.masterGain ?? context.destination;
+    const now = context.currentTime;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(positive ? 520 : 180, now);
+    oscillator.frequency.exponentialRampToValueAtTime(positive ? 880 : 92, now + 0.16);
+    gain.gain.setValueAtTime(0.09, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+    oscillator.connect(gain).connect(output);
+    oscillator.start(now);
+    oscillator.stop(now + 0.2);
+  }
+
+  playRaidVictory(): void {
+    if (!this.context || this.context.state !== 'running') return;
+    const context = this.context;
+    const output = this.masterGain ?? context.destination;
+    const start = context.currentTime;
+    [220, 277.18, 329.63, 440].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const at = start + index * 0.14;
+      oscillator.type = 'triangle';
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.13, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.55);
+      oscillator.connect(gain).connect(output);
+      oscillator.start(at);
+      oscillator.stop(at + 0.6);
+    });
+  }
+
   private loadSamples(): Promise<void> {
     if (!this.context) return Promise.resolve();
     if (!this.sampleLoadPromise) {
@@ -315,5 +518,13 @@ export class HostAudioEngine {
     pulseDepth.gain.value = 0.025;
     pulse.connect(pulseDepth).connect(ambience.gain);
     pulse.start();
+  }
+
+  private createNoiseBuffer(duration: number): AudioBuffer {
+    const context = this.context!;
+    const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let index = 0; index < channel.length; index += 1) channel[index] = Math.random() * 2 - 1;
+    return buffer;
   }
 }

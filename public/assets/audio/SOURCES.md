@@ -23,3 +23,10 @@ spoken at runtime by the player's own device through the Web Speech API after th
 controller start button. This avoids redistributing output from a proprietary desktop TTS voice or
 a Chinese open-source model whose training-data license is unclear. The host displays the same authored
 line as a synchronized subtitle when speech synthesis is unavailable.
+
+## Raid mode
+
+Raid mode does not download or play the files listed above and never plays audio on the phone.
+Its computer-side ambience, warning siren, weapon report, hit confirmation, explosions, creature
+roars, damage alarm, interface cues, and victory sting are synthesized at runtime with the Web Audio
+API in `src/host/audio.ts`. The phone remains an orientation, trigger, and haptics controller only.

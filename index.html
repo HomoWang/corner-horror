@@ -139,6 +139,7 @@
     color: #b28c84;
     letter-spacing: 0.18em;
   }
+  #experience-start:disabled { opacity: .45; cursor: wait; }
   #status-line {
     position: fixed;
     left: 0.75rem;
@@ -778,7 +779,52 @@
   #raid-hud,
   #raid-crosshair,
   #raid-message,
-  #raid-damage { display: none; }
+  #raid-damage,
+  #raid-blackout { display: none; }
+  .raid-panel { display: none; }
+  body.raid-page #sound-toggle { display: none; }
+  body.raid-page #experience-overlay {
+    background: linear-gradient(90deg, rgba(0, 7, 13, .94), rgba(0, 8, 14, .58) 50%, rgba(0, 7, 13, .86));
+    color: #bdeeff;
+  }
+  body.raid-page #experience-title {
+    color: #d9f7ff;
+    font: 700 clamp(1.25rem, 2.5vw, 2rem)/1.2 ui-monospace, monospace;
+    letter-spacing: .2em;
+    text-shadow: 0 0 1.5rem rgba(36, 195, 255, .65);
+  }
+  body.raid-page #experience-copy { color: #7fb4c4; font: .78rem/1.6 ui-monospace, monospace; }
+  body.raid-page #experience-start {
+    border-color: #3188a5;
+    background: linear-gradient(135deg, rgba(8, 75, 100, .95), rgba(2, 27, 39, .96));
+    color: #d9faff;
+    box-shadow: 0 0 2rem rgba(21, 171, 224, .24);
+  }
+  body.raid-page .raid-panel { width: min(58rem, 88vw); }
+  #raid-load-panel { text-align: center; }
+  #raid-load-track { height: .38rem; margin: .8rem auto; overflow: hidden; border: 1px solid rgba(80, 196, 232, .45); background: rgba(0, 15, 24, .8); }
+  #raid-load-fill { display: block; width: 0; height: 100%; background: linear-gradient(90deg, #08aede, #9af5ff); transition: width .18s ease; }
+  #raid-load-copy { color: #6aa4b7; font: .7rem/1.4 ui-monospace, monospace; letter-spacing: .12em; }
+  #raid-level-select { grid-template-columns: repeat(3, 1fr); gap: .8rem; }
+  .raid-level {
+    min-height: 8rem;
+    padding: 1rem;
+    border: 1px solid rgba(75, 160, 189, .32);
+    background: linear-gradient(155deg, rgba(2, 24, 34, .92), rgba(0, 8, 14, .9));
+    text-align: left;
+    box-sizing: border-box;
+  }
+  .raid-level.selected { border-color: #5bdfff; box-shadow: 0 0 1.5rem rgba(45, 204, 255, .18), inset 0 0 1.8rem rgba(25, 125, 158, .12); }
+  .raid-level.locked { opacity: .38; filter: grayscale(.8); }
+  .raid-level small { display: block; color: #4c8799; font: .58rem/1.3 ui-monospace, monospace; letter-spacing: .17em; }
+  .raid-level strong { display: block; margin: .65rem 0 .35rem; color: #d7f8ff; font: 700 .95rem/1.3 ui-monospace, monospace; }
+  .raid-level span { color: #6c9eae; font: .68rem/1.5 system-ui, sans-serif; }
+  #raid-result-panel { padding: 1.25rem; border: 1px solid rgba(76, 189, 226, .46); background: rgba(0, 12, 20, .86); text-align: center; }
+  #raid-result-grade { color: #ffe76a; font: 800 clamp(3rem, 8vw, 6rem)/1 ui-monospace, monospace; text-shadow: 0 0 2rem rgba(255, 211, 55, .45); }
+  #raid-result-title { margin: .5rem 0 1rem; color: #d8f8ff; letter-spacing: .18em; }
+  #raid-result-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .6rem; }
+  #raid-result-stats div { padding: .6rem; background: rgba(10, 49, 64, .5); color: #69a7ba; font: .62rem/1.5 ui-monospace, monospace; }
+  #raid-result-stats b { display: block; color: #e5fbff; font-size: 1rem; }
   body.raid-mode #story-visuals,
   body.raid-mode #photo-inspection,
   body.raid-mode #tape-playback,
@@ -868,6 +914,18 @@
   #raid-message.show { animation: raid-message 2.6s both; }
   body.raid-mode #raid-damage { position: fixed; inset: 0; z-index: 6; display: block; pointer-events: none; opacity: 0; background: radial-gradient(circle, transparent 35%, rgba(255, 17, 58, .66)); }
   #raid-damage.flash { animation: raid-damage .42s both; }
+  body.raid-mode #raid-blackout {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: block;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle 12rem at var(--aim-x, 50%) var(--aim-y, 50%), transparent 0, rgba(0, 4, 7, .2) 42%, rgba(0, 2, 5, .96) 78%);
+    transition: opacity .8s ease;
+  }
+  body.raid-briefing #raid-blackout { opacity: .86; }
+  body.raid-briefing #raid-hud { opacity: .15; }
   @keyframes raid-message { 12%, 72% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -.5rem); } }
   @keyframes raid-damage { 18% { opacity: 1; } 100% { opacity: 0; } }
   @keyframes room-blackout { 0%{opacity:0} 18%,72%{opacity:1} 100%{opacity:0} }
@@ -875,6 +933,9 @@
     #tape-console { grid-template-columns: 1fr; gap: 1rem; }
     #tape-deck { width: min(52vw, 16rem); justify-self: center; }
     #tape-transcript { text-align: center; }
+    #raid-level-select { grid-template-columns: 1fr; }
+    #raid-level-select .locked { display: none; }
+    #raid-result-stats { grid-template-columns: repeat(2, 1fr); }
   }
 </style>
 <canvas id="stage"></canvas>
@@ -902,6 +963,7 @@
 <div id="raid-crosshair" data-feedback=""></div>
 <div id="raid-message"></div>
 <div id="raid-damage"></div>
+<div id="raid-blackout"></div>
 <div id="story-visuals" data-window="hidden" data-door="normal" data-footsteps="false">
   <div id="story-window">
     <div id="red-thread"></div>
@@ -996,6 +1058,25 @@
 <div id="experience-overlay" hidden>
   <h2 id="experience-title">THE CORNER</h2>
   <p id="experience-copy">戴上耳機並把手機指向畫面中央</p>
+  <div id="raid-load-panel" class="raid-panel">
+    <div id="raid-load-track"><i id="raid-load-fill"></i></div>
+    <div id="raid-load-copy">驗證必要資產 0%</div>
+  </div>
+  <div id="raid-level-select" class="raid-panel">
+    <article class="raid-level selected"><small>MISSION 01 / AVAILABLE</small><strong>東區崩壞</strong><span>穿越失守街區，摧毀泰坦核心。</span></article>
+    <article class="raid-level locked"><small>MISSION 02 / LOCKED</small><strong>地下巢穴</strong><span>完成東區崩壞後解鎖。</span></article>
+    <article class="raid-level locked"><small>MISSION 03 / LOCKED</small><strong>最後防線</strong><span>資料尚未開放。</span></article>
+  </div>
+  <div id="raid-result-panel" class="raid-panel" hidden>
+    <div id="raid-result-grade">A</div>
+    <div id="raid-result-title">任務完成</div>
+    <div id="raid-result-stats">
+      <div>SCORE<b id="raid-result-score">0</b></div>
+      <div>ACCURACY<b id="raid-result-accuracy">0%</b></div>
+      <div>KILLS<b id="raid-result-kills">0</b></div>
+      <div>TIME<b id="raid-result-time">0s</b></div>
+    </div>
+  </div>
   <button id="experience-start" type="button">開始體驗</button>
 </div>
 <p id="status-line"></p>

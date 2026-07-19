@@ -26,7 +26,7 @@ if (raidMode) {
   actionBtn.textContent = '射擊';
   actionBtn.setAttribute('aria-label', '射擊');
   startBtn.textContent = '出擊';
-  document.querySelector<HTMLElement>('#screen-cue')!.textContent = '手機對準畫面・按住射擊・發光核心傷害加倍';
+  document.querySelector<HTMLElement>('#screen-cue')!.textContent = '手機對準畫面・按住射擊・所有聲音由電腦播放';
 }
 
 const stream = new OrientationStream();
@@ -75,7 +75,7 @@ function connect(): void {
       setStatus('已被其他控制器取代（重新整理可搶回）');
       ws?.close();
     }
-    if (msg?.type === 'cue') {
+    if (msg?.type === 'cue' && !raidMode) {
       if (msg.id === 'jumpscare') narration.stop();
       audio.play(msg.id);
     }
@@ -86,8 +86,8 @@ function connect(): void {
       if (msg.screen === 'incoming-407') audio.play('ring');
     }
     if (msg?.type === 'fmv-cue') {
-      if (msg.audio) audio.play(msg.audio);
-      if (msg.narration && msg.role) narration.playText(msg.narration, msg.role);
+      if (!raidMode && msg.audio) audio.play(msg.audio);
+      if (!raidMode && msg.narration && msg.role) narration.playText(msg.narration, msg.role);
       if (msg.haptic === 'long') navigator.vibrate?.(620);
       if (msg.haptic === 'double-short') navigator.vibrate?.([120, 90, 120]);
     }
@@ -115,8 +115,8 @@ async function start(): Promise<void> {
   if (starting || document.body.classList.contains('started')) return;
   starting = true;
   // 兩個 API 都必須直接在 click 的使用者手勢內被呼叫。
-  void audio.unlock();
-  const narrationReady = narration.unlock();
+  if (!raidMode) void audio.unlock();
+  const narrationReady = raidMode || narration.unlock();
   const permissionRequest = requestOrientationPermission();
   // 音效解鎖在部分 WebView 可能長時間停在 suspended；不能讓它卡住故事 UI。
   const permission = await permissionRequest;
@@ -154,8 +154,10 @@ startBtn.addEventListener('click', () => void start());
 recenterBtn.addEventListener('click', () => stream.recenter());
 actionBtn.addEventListener('pointerdown', () => {
   // 每次真實觸碰都再嘗試恢復手機音效，避免行動瀏覽器把背景 AudioContext 暫停。
-  void audio.unlock();
-  narration.unlock();
+  if (!raidMode) {
+    void audio.unlock();
+    narration.unlock();
+  }
   actionBtn.classList.add('pressed');
   send({ type: 'btn', id: 'action', pressed: true });
 });

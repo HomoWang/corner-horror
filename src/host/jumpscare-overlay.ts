@@ -19,7 +19,7 @@ export class JumpscareOverlay {
   constructor(
     scene: THREE.Scene,
     private readonly camera: THREE.PerspectiveCamera,
-    assetUrl: string,
+    assetUrl: string | null,
   ) {
     const placeholder = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
     placeholder.needsUpdate = true;
@@ -39,13 +39,15 @@ export class JumpscareOverlay {
     this.mesh.visible = false;
     scene.add(this.mesh);
 
-    new THREE.TextureLoader().load(assetUrl, (texture) => {
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      this.material.map = texture;
-      this.material.needsUpdate = true;
-    });
+    if (assetUrl) {
+      new THREE.TextureLoader().load(assetUrl, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        this.material.map = texture;
+        this.material.needsUpdate = true;
+      });
+    }
   }
 
   trigger(): void {

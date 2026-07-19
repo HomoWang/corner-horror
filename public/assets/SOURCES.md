@@ -6,6 +6,7 @@ Recorded on 2026-07-14.
 | --- | --- | --- |
 | `room-sequence.png` | Original image generated with Codex image generation | Four-frame abandoned-room cinematic backdrop |
 | `jumpscare-face.png` | Original image generated with Codex image generation | Full-screen supernatural jump scare |
+| `raid-city.webp` | Original image generated with Codex image generation; locally resized and WebP-compressed | Animated raid-mode ruined-city background plate |
 | `video-pilot/room407-master.png` | Original image generated with Codex image generation | Live-action Room 407 environment reference for the branching-video pilot |
 | `video-pilot/woman-identity.png` | Original image generated with Codex image generation | Recurring antagonist identity and wardrobe reference |
 | `video-pilot/woman-reveal.png` | Original image generated with Codex image generation | Restrained doorway-reveal performance reference |
@@ -36,6 +37,13 @@ UI, watermarks, dividers, and additional people.
 
 `jumpscare-face.png` was generated as an original cinematic supernatural face lunging from a black
 background, with no gore, text, logo, watermark, recognizable person, or copyrighted character.
+
+`raid-city.webp` was generated as an original 16:9 street-level ruined-city scene with a distant
+bio-mechanical titan, a clear central combat lane, blue-black storm lighting, and restrained firelight.
+The prompt prohibited UI, crosshairs, grids, text, logos, watermarks, named franchises, and recognizable
+creature designs. The selected PNG was resized to 1920×1080 and encoded as quality-82 WebP, reducing it
+from 2.53 MB to 211 KB before deployment. Smoke, lightning, fire, embers, aiming parallax, enemies, and
+damage effects are generated at runtime rather than baked into a video.
 
 The four files under `video-pilot/` were generated as an original, internally consistent live-action
 horror production pack. The woman is synthetic and is not based on a named or recognizable real

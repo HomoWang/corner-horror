@@ -68,7 +68,7 @@ export class CinematicBackdrop {
   constructor(
     scene: THREE.Scene,
     private readonly camera: THREE.PerspectiveCamera,
-    assetUrl: string,
+    assetUrl: string | null,
     onLoaded: () => void,
   ) {
     const placeholder = new THREE.DataTexture(new Uint8Array([18, 16, 14, 255]), 1, 1);
@@ -96,21 +96,23 @@ export class CinematicBackdrop {
     scene.add(this.mesh);
     this.resize(innerWidth, innerHeight);
 
-    new THREE.TextureLoader().load(
-      assetUrl,
-      (texture) => {
-        texture.colorSpace = THREE.NoColorSpace;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.generateMipmaps = false;
-        this.material.uniforms.frames!.value = texture;
-        onLoaded();
-      },
-      undefined,
-      () => {
-        // 程序化房間 fallback 會繼續顯示。
-      },
-    );
+    if (assetUrl) {
+      new THREE.TextureLoader().load(
+        assetUrl,
+        (texture) => {
+          texture.colorSpace = THREE.NoColorSpace;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.generateMipmaps = false;
+          this.material.uniforms.frames!.value = texture;
+          onLoaded();
+        },
+        undefined,
+        () => {
+          // 程序化房間 fallback 會繼續顯示。
+        },
+      );
+    }
   }
 
   setFrame(frame: number): void {
