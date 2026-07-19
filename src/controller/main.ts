@@ -19,6 +19,15 @@ const RECONNECT_BASE_MS = 500;
 const RECONNECT_MAX_MS = 5000;
 const NO_SENSOR_TIMEOUT_MS = 2000;
 const roomCode = normalizeRoomCode(new URLSearchParams(location.search).get('room'));
+const raidMode = new URLSearchParams(location.search).get('mode') === 'raid';
+
+if (raidMode) {
+  document.body.classList.add('raid-controller');
+  actionBtn.textContent = '射擊';
+  actionBtn.setAttribute('aria-label', '射擊');
+  startBtn.textContent = '出擊';
+  document.querySelector<HTMLElement>('#screen-cue')!.textContent = '手機對準畫面・按住射擊・發光核心傷害加倍';
+}
 
 const stream = new OrientationStream();
 // 手機端音訊診斷：顯示最近三筆人聲事件（received / decoded / playing），實機除錯用。

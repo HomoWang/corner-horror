@@ -103,6 +103,13 @@
   #qr { background: #fff; padding: 8px; border-radius: 4px; }
   #join-url { font-family: monospace; font-size: 0.85rem; color: #777; margin: 0; }
   #overlay .hint { font-size: 0.75rem; color: #555; margin: 0; }
+  #mode-switch {
+    color: #6aa9bc;
+    font: .72rem/1.3 ui-monospace, monospace;
+    letter-spacing: .12em;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(106, 169, 188, .35);
+  }
   #experience-overlay {
     position: fixed;
     inset: 0;
@@ -768,6 +775,101 @@
   @keyframes peripheral-left { 0%{left:-13%;opacity:0} 22%{opacity:.75} 62%{opacity:.54} 100%{left:13%;opacity:0} }
   @keyframes peripheral-right { 0%{right:-13%;opacity:0} 22%{opacity:.75} 62%{opacity:.54} 100%{right:13%;opacity:0} }
   @keyframes room-flicker { 0%,17%,36%,58%,100%{opacity:0} 9%{opacity:.92} 25%{opacity:.64} 48%{opacity:.84} }
+  #raid-hud,
+  #raid-crosshair,
+  #raid-message,
+  #raid-damage { display: none; }
+  body.raid-mode #story-visuals,
+  body.raid-mode #photo-inspection,
+  body.raid-mode #tape-playback,
+  body.raid-mode #door-listening,
+  body.raid-mode #story-hud,
+  body.raid-mode #host-choices,
+  body.raid-mode #interaction-prompt,
+  body.raid-mode #voice-caption { visibility: hidden; }
+  body.raid-mode #raid-hud {
+    position: fixed;
+    inset: 0;
+    z-index: 7;
+    display: block;
+    pointer-events: none;
+    color: #d7f4ff;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    text-shadow: 0 0 .8rem rgba(46, 184, 255, .8);
+  }
+  #raid-topline {
+    position: absolute;
+    top: clamp(1rem, 3vh, 2.4rem);
+    left: clamp(1rem, 4vw, 4rem);
+    right: clamp(1rem, 4vw, 4rem);
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: start;
+    gap: 1.5rem;
+  }
+  #raid-wave { color: #75d8ff; font-size: clamp(.72rem, 1.3vw, 1rem); letter-spacing: .22em; }
+  #raid-score { color: #fff; font-size: clamp(1.15rem, 2.5vw, 2rem); letter-spacing: .12em; text-align: center; }
+  #raid-combo { color: #fff36a; font-size: clamp(.8rem, 1.5vw, 1.15rem); text-align: right; }
+  #raid-health {
+    position: absolute;
+    left: clamp(1rem, 4vw, 4rem);
+    bottom: clamp(1rem, 4vh, 3rem);
+    width: min(23rem, 42vw);
+  }
+  #raid-health-label { margin-bottom: .35rem; color: #8acbe1; font-size: .64rem; letter-spacing: .2em; }
+  .raid-meter { height: .65rem; overflow: hidden; border: 1px solid rgba(111, 215, 255, .65); background: rgba(0, 12, 24, .8); transform: skewX(-12deg); }
+  .raid-meter > i { display: block; width: 100%; height: 100%; background: linear-gradient(90deg, #0ad7ff, #8fffe1); box-shadow: 0 0 1rem #1acfff; transition: width .15s ease; }
+  #raid-boss {
+    position: absolute;
+    left: 50%;
+    top: clamp(5rem, 12vh, 8rem);
+    width: min(38rem, 66vw);
+    transform: translateX(-50%);
+    text-align: center;
+  }
+  #raid-boss[hidden] { display: none; }
+  #raid-boss strong { display: block; margin-bottom: .35rem; color: #ff6686; font-size: .7rem; letter-spacing: .35em; }
+  #raid-boss .raid-meter { border-color: rgba(255, 75, 112, .8); }
+  #raid-boss .raid-meter > i { background: linear-gradient(90deg, #ff174f, #ff845c); box-shadow: 0 0 1rem #ff174f; }
+  body.raid-mode #raid-crosshair {
+    position: fixed;
+    z-index: 9;
+    display: block;
+    width: 2.4rem;
+    height: 2.4rem;
+    transform: translate(-50%, -50%);
+    border: 2px solid rgba(113, 225, 255, .9);
+    border-radius: 50%;
+    box-shadow: 0 0 .8rem rgba(37, 198, 255, .9), inset 0 0 .7rem rgba(37, 198, 255, .35);
+    pointer-events: none;
+    transition: width .05s, height .05s, border-color .05s;
+  }
+  #raid-crosshair::before,
+  #raid-crosshair::after { content: ''; position: absolute; left: 50%; top: 50%; background: #a9edff; transform: translate(-50%, -50%); box-shadow: 0 0 .5rem #35cfff; }
+  #raid-crosshair::before { width: 3.2rem; height: 1px; }
+  #raid-crosshair::after { width: 1px; height: 3.2rem; }
+  #raid-crosshair[data-feedback='hit'] { width: 1.65rem; height: 1.65rem; border-color: #fff; }
+  #raid-crosshair[data-feedback='kill'] { width: 3.2rem; height: 3.2rem; border-color: #fff45c; box-shadow: 0 0 1.6rem #ffce2e; }
+  #raid-crosshair[data-feedback='miss'] { border-color: rgba(113, 225, 255, .35); }
+  body.raid-mode #raid-message {
+    position: fixed;
+    left: 50%;
+    bottom: 13vh;
+    z-index: 8;
+    display: block;
+    transform: translate(-50%, .8rem);
+    color: #dff8ff;
+    font: 700 clamp(.8rem, 1.5vw, 1.1rem)/1.3 ui-monospace, monospace;
+    letter-spacing: .18em;
+    opacity: 0;
+    text-shadow: 0 0 1rem #19bdff;
+    pointer-events: none;
+  }
+  #raid-message.show { animation: raid-message 2.6s both; }
+  body.raid-mode #raid-damage { position: fixed; inset: 0; z-index: 6; display: block; pointer-events: none; opacity: 0; background: radial-gradient(circle, transparent 35%, rgba(255, 17, 58, .66)); }
+  #raid-damage.flash { animation: raid-damage .42s both; }
+  @keyframes raid-message { 12%, 72% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -.5rem); } }
+  @keyframes raid-damage { 18% { opacity: 1; } 100% { opacity: 0; } }
   @keyframes room-blackout { 0%{opacity:0} 18%,72%{opacity:1} 100%{opacity:0} }
   @media (max-width: 720px) {
     #tape-console { grid-template-columns: 1fr; gap: 1rem; }
@@ -782,6 +884,24 @@
   <div class="video-story-choice" data-side="left"></div>
   <div class="video-story-choice" data-side="right"></div>
 </div>
+<section id="raid-hud" data-phase="idle" aria-live="polite">
+  <div id="raid-topline">
+    <div id="raid-wave">WAVE 0/3</div>
+    <div id="raid-score">0000000</div>
+    <div id="raid-combo"></div>
+  </div>
+  <div id="raid-boss" hidden>
+    <strong>OMEGA CORE</strong>
+    <div class="raid-meter"><i id="raid-boss-fill"></i></div>
+  </div>
+  <div id="raid-health">
+    <div id="raid-health-label">DEFENSE INTEGRITY</div>
+    <div class="raid-meter"><i id="raid-hp-fill"></i></div>
+  </div>
+</section>
+<div id="raid-crosshair" data-feedback=""></div>
+<div id="raid-message"></div>
+<div id="raid-damage"></div>
 <div id="story-visuals" data-window="hidden" data-door="normal" data-footsteps="false">
   <div id="story-window">
     <div id="red-thread"></div>
@@ -868,6 +988,7 @@
 </div>
 <div id="overlay">
   <h1>CORNER HORROR</h1>
+  <a id="mode-switch" href="?mode=raid">進入即時出擊模式</a>
   <canvas id="qr"></canvas>
   <p id="join-url"></p>
   <p class="hint">手機掃碼後按「開始」，並允許動作與方向權限；未連線時可用滑鼠控制光錐</p>

@@ -31,6 +31,13 @@ npm run dev
 
 Vite serves the host, controller, LAN QR endpoint, and local WebSocket relay together over HTTPS.
 
+## 即時出擊原型
+
+主畫面網址加上 `?mode=raid`，或從等待掃碼畫面選擇「進入即時出擊模式」。手機掃描該模式的
+QR Code 後會變成體感光槍：移動手機即時瞄準、按住射擊，發光核心造成雙倍傷害。原型包含
+三波敵人、連擊計分、玩家生命、敵人即時反擊，以及具有三階段攻勢的 Boss；預設的 407
+號房故事模式不受影響。
+
 ## Verification
 
 ```bash

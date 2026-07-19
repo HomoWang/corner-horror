@@ -2,7 +2,7 @@
 // 未連控制器時顯示 QR 疊層並開放滑鼠 fallback；連上後淡出。
 
 import QRCode from 'qrcode';
-import { Clock, Vector3 } from 'three';
+import { Clock, MathUtils, Vector3 } from 'three';
 import { parseMessage } from '../shared/protocol';
 import { publicUrl } from '../shared/public-url';
 import { buildWebSocketUrl, createRoomCode, normalizeRoomCode } from '../shared/session';
@@ -21,11 +21,14 @@ import { STORY_SCREENS, type StoryScreenId } from '../shared/story';
 import { NARRATION_CUES } from '../shared/narration';
 import { VideoStoryPlayer } from './video-story-player';
 import type { ControllerCueId } from '../shared/protocol';
+import { RaidGame } from './raid-game';
+import type { RaidSnapshot } from '../shared/raid-engine';
 
 const stageCanvas = document.querySelector<HTMLCanvasElement>('#stage')!;
 const overlayEl = document.querySelector<HTMLDivElement>('#overlay')!;
 const qrCanvas = document.querySelector<HTMLCanvasElement>('#qr')!;
 const joinUrlEl = document.querySelector<HTMLParagraphElement>('#join-url')!;
+const modeSwitch = document.querySelector<HTMLAnchorElement>('#mode-switch')!;
 const statusLineEl = document.querySelector<HTMLParagraphElement>('#status-line')!;
 const soundButton = document.querySelector<HTMLButtonElement>('#sound-toggle')!;
 const experienceOverlay = document.querySelector<HTMLDivElement>('#experience-overlay')!;
@@ -56,7 +59,25 @@ const videoStoryAction = document.querySelector<HTMLDivElement>('#video-story-ac
 const videoStoryChoices = document.querySelector<HTMLDivElement>('#video-story-choices')!;
 const videoStoryLeft = videoStoryChoices.querySelector<HTMLDivElement>("[data-side='left']")!;
 const videoStoryRight = videoStoryChoices.querySelector<HTMLDivElement>("[data-side='right']")!;
-const videoPilotMode = new URLSearchParams(location.search).get('mode') === 'video';
+const raidHud = document.querySelector<HTMLElement>('#raid-hud')!;
+const raidWave = document.querySelector<HTMLElement>('#raid-wave')!;
+const raidScore = document.querySelector<HTMLElement>('#raid-score')!;
+const raidCombo = document.querySelector<HTMLElement>('#raid-combo')!;
+const raidHpFill = document.querySelector<HTMLElement>('#raid-hp-fill')!;
+const raidBoss = document.querySelector<HTMLElement>('#raid-boss')!;
+const raidBossFill = document.querySelector<HTMLElement>('#raid-boss-fill')!;
+const raidMessage = document.querySelector<HTMLElement>('#raid-message')!;
+const raidCrosshair = document.querySelector<HTMLElement>('#raid-crosshair')!;
+const raidDamage = document.querySelector<HTMLElement>('#raid-damage')!;
+const pageMode = new URLSearchParams(location.search).get('mode');
+const videoPilotMode = pageMode === 'video';
+const raidMode = pageMode === 'raid';
+const modeSwitchUrl = new URL(location.href);
+modeSwitchUrl.searchParams.delete('room');
+if (raidMode) modeSwitchUrl.searchParams.delete('mode');
+else modeSwitchUrl.searchParams.set('mode', 'raid');
+modeSwitch.href = modeSwitchUrl.toString();
+modeSwitch.textContent = raidMode ? '返回 407 號房故事模式' : '進入即時出擊模式';
 const roomCode =
   normalizeRoomCode(new URLSearchParams(location.search).get('room')) ??
   normalizeRoomCode(sessionStorage.getItem('corner-horror-room')) ??
@@ -74,9 +95,57 @@ let actionPressed = false;
 let actionPulse = false;
 let experienceStarting = false;
 let voiceCaptionTimer: ReturnType<typeof setTimeout> | null = null;
+let raidFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
+let raidMessageTimer: ReturnType<typeof setTimeout> | null = null;
 function sendToController(payload: unknown): void {
   if (hostWs?.readyState === WebSocket.OPEN) hostWs.send(JSON.stringify(payload));
 }
+
+function setRaidSnapshot(snapshot: RaidSnapshot): void {
+  raidWave.textContent = `WAVE ${snapshot.wave}/${snapshot.totalWaves}`;
+  raidScore.textContent = snapshot.score.toString().padStart(7, '0');
+  raidCombo.textContent = snapshot.combo > 1 ? `×${snapshot.combo} COMBO` : '';
+  raidHpFill.style.width = `${(snapshot.hp / snapshot.maxHp) * 100}%`;
+  const boss = snapshot.enemies.find((enemy) => enemy.kind === 'boss');
+  raidBoss.hidden = !boss;
+  if (boss) raidBossFill.style.width = `${(boss.hp / boss.maxHp) * 100}%`;
+  raidHud.dataset.phase = snapshot.phase;
+}
+
+function showRaidMessage(message: string): void {
+  if (raidMessageTimer !== null) clearTimeout(raidMessageTimer);
+  raidMessage.textContent = message;
+  raidMessage.classList.remove('show');
+  void raidMessage.offsetWidth;
+  raidMessage.classList.add('show');
+  raidMessageTimer = setTimeout(() => raidMessage.classList.remove('show'), 2600);
+}
+
+function showRaidShot(result: 'hit' | 'miss' | 'kill'): void {
+  if (raidFeedbackTimer !== null) clearTimeout(raidFeedbackTimer);
+  raidCrosshair.dataset.feedback = result;
+  raidFeedbackTimer = setTimeout(() => {
+    raidCrosshair.dataset.feedback = '';
+  }, result === 'kill' ? 180 : 90);
+}
+
+function showRaidDamage(): void {
+  raidDamage.classList.remove('flash');
+  void raidDamage.offsetWidth;
+  raidDamage.classList.add('flash');
+  sendToController({ type: 'fmv-cue', audio: 'impact', haptic: 'long' });
+}
+
+const raid = new RaidGame(handles.scene, VIEWPOINT, {
+  onSnapshot: setRaidSnapshot,
+  onMessage: showRaidMessage,
+  onShot: showRaidShot,
+  onPlayerHit: showRaidDamage,
+  onImpact: () => {
+    audio.playSting(0.12);
+    sendToController({ type: 'fmv-cue', haptic: 'double-short' });
+  },
+});
 
 function setStoryScreen(screenId: StoryScreenId): void {
   const screen = STORY_SCREENS[screenId];
@@ -352,10 +421,16 @@ function hideExperienceOverlay(): void {
 }
 
 function showExperienceStart(): void {
-  experienceTitle.textContent = videoPilotMode ? '407 號房：互動試片' : '407 號房：最後點交';
-  experienceCopy.textContent = videoPilotMode
-    ? '手機只需中央鍵；選擇會顯示在大螢幕，角色語音與震動由手機同步'
-    : '把手機音量開大；中央鍵直接開始，角色語音由手機播放。主機聲音可選擇同步';
+  experienceTitle.textContent = raidMode
+    ? '異變防線：即時出擊'
+    : videoPilotMode
+      ? '407 號房：互動試片'
+      : '407 號房：最後點交';
+  experienceCopy.textContent = raidMode
+    ? '手機對準畫面；按住扳機連射，發光核心可造成雙倍傷害'
+    : videoPilotMode
+      ? '手機只需中央鍵；選擇會顯示在大螢幕，角色語音與震動由手機同步'
+      : '把手機音量開大；中央鍵直接開始，角色語音由手機播放。主機聲音可選擇同步';
   experienceButton.textContent = '主機聲音＋開始';
   experienceOverlay.hidden = false;
 }
@@ -368,7 +443,14 @@ function startExperience(useHostGesture = false): void {
   // 不建立主機 AudioContext，避免 Chrome 反覆拋出 autoplay 警告；聲音改由手機播放。
   const soundStart = useHostGesture ? audio.start() : Promise.resolve(false);
   hideExperienceOverlay();
-  if (videoPilotMode) {
+  if (raidMode) {
+    document.body.classList.add('raid-mode');
+    handles.cinematic.setFrame(2);
+    audio.startScore();
+    audio.setTension(0.74);
+    sendToController({ type: 'cue', id: 'ambience-start' });
+    raid.start();
+  } else if (videoPilotMode) {
     document.body.classList.add('video-story-mode', 'cinematic-lock');
     // 電視按鈕啟動時趁真實點擊手勢先解鎖兩層 video；手機遠端啟動沒有本頁手勢可用，
     // play() 若被擋會走 onAutoplayBlocked 的遙控器恢復流程。
@@ -408,6 +490,7 @@ async function showQr(): Promise<void> {
       url = new URL(`${location.protocol}//${ip ?? location.hostname}:${port}/controller.html`);
     }
     url.searchParams.set('room', roomCode);
+    if (raidMode) url.searchParams.set('mode', 'raid');
     await QRCode.toCanvas(qrCanvas, url.toString(), { width: 240, margin: 1 });
     joinUrlEl.textContent = url.toString();
   } catch (err) {
@@ -423,10 +506,11 @@ function setControllerConnected(connected: boolean): void {
     flashlight.setConnected(false);
     director.reset();
     videoPlayer.reset();
+    raid.reset();
     videoStoryContainer.hidden = true;
     videoStoryAction.hidden = true;
     videoStoryChoices.hidden = true;
-    document.body.classList.remove('video-story-mode');
+    document.body.classList.remove('video-story-mode', 'raid-mode');
     hideExperienceOverlay();
     overlayEl.classList.remove('hidden');
     setStatus('等待控制器（滑鼠可控光錐）');
@@ -439,10 +523,11 @@ function setControllerConnected(connected: boolean): void {
   flashlight.setConnected(false);
   director.reset();
   videoPlayer.reset();
+  raid.reset();
   videoStoryContainer.hidden = true;
   videoStoryAction.hidden = true;
   videoStoryChoices.hidden = true;
-  document.body.classList.remove('video-story-mode');
+  document.body.classList.remove('video-story-mode', 'raid-mode');
   hideExperienceOverlay();
   overlayEl.classList.remove('hidden');
   setStatus('控制器已連線，請在手機按「開始」');
@@ -534,6 +619,13 @@ function frame(): void {
     : null;
   if (videoPilotMode && document.body.classList.contains('video-story-mode')) {
     videoPlayer.update(actionPressed || actionPulse, hasDirection ? flashlightDirection.x : null);
+  } else if (raidMode && document.body.classList.contains('raid-mode')) {
+    raid.update(delta, hasDirection ? flashlightDirection : null, actionPressed || actionPulse);
+    if (hasDirection) {
+      const projected = handles.camera.position.clone().addScaledVector(flashlightDirection, 5).project(handles.camera);
+      raidCrosshair.style.left = `${MathUtils.clamp(projected.x * 0.5 + 0.5, 0.02, 0.98) * 100}%`;
+      raidCrosshair.style.top = `${MathUtils.clamp(-projected.y * 0.5 + 0.5, 0.02, 0.98) * 100}%`;
+    }
   } else {
     director.update(delta, direction, actionPressed || actionPulse);
   }
