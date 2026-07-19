@@ -91,14 +91,19 @@ export class RaidEngine {
   }
 
   start(): RaidEngineEvent[] {
+    this.prepare();
     this.phase = 'running';
+    return this.startNextWave();
+  }
+
+  prepare(): void {
+    this.phase = 'idle';
     this.waveIndex = -1;
     this.score = 0;
     this.combo = 0;
     this.hp = this.maxHp;
     this.enemies.clear();
     this.nextEnemyId = 1;
-    return this.startNextWave();
   }
 
   shoot(enemyId: string | null, damage = 1): RaidEngineEvent[] {
@@ -150,7 +155,7 @@ export class RaidEngine {
   snapshot(): RaidSnapshot {
     return {
       phase: this.phase,
-      wave: Math.max(0, this.waveIndex + 1),
+      wave: Math.min(this.waves.length, Math.max(0, this.waveIndex + 1)),
       totalWaves: this.waves.length,
       score: this.score,
       combo: this.combo,

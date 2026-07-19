@@ -30,6 +30,20 @@ describe('RaidEngine', () => {
     expect(engine.snapshot()).toMatchObject({ wave: 2, score: 125, combo: 1 });
   });
 
+  it('prepares a clean briefing state without spawning enemies', () => {
+    const engine = new RaidEngine(waves);
+    engine.start();
+    engine.prepare();
+    expect(engine.snapshot()).toMatchObject({
+      phase: 'idle',
+      wave: 0,
+      score: 0,
+      combo: 0,
+      hp: 100,
+      enemies: [],
+    });
+  });
+
   it('changes boss phases and reaches victory', () => {
     const engine = new RaidEngine([{ enemies: waves[1]!.enemies }]);
     engine.start();

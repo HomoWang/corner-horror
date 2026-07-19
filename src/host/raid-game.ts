@@ -124,6 +124,8 @@ export class RaidGame {
     this.shots = 0;
     this.hits = 0;
     this.kills = 0;
+    this.engine.prepare();
+    this.callbacks.onSnapshot(this.engine.snapshot());
     this.triggerWasPressed = false;
     this.fireCooldown = 0;
     this.callbacks.onFlow('briefing');
