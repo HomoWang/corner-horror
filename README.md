@@ -29,19 +29,25 @@ npm install
 npm run dev
 ```
 
+## Windows desktop development
+
+The desktop mode opens the host in a standalone Electron game window while the phone continues to
+use the hosted HTTPS controller shown by the QR code.
+
+```bash
+npm run desktop:dev
+```
+
+Create a self-contained Windows test build:
+
+```bash
+npm run desktop:package
+```
+
+The executable is written to `release/Room307-win32-x64/Room307.exe`. Press `F11` to toggle
+fullscreen and `Esc` to leave fullscreen.
+
 Vite serves the host, controller, LAN QR endpoint, and local WebSocket relay together over HTTPS.
-
-## 即時出擊原型
-
-主畫面網址加上 `?mode=raid`，或從等待掃碼畫面選擇「進入即時出擊模式」。手機掃描該模式的
-QR Code 後會變成體感光槍：移動手機即時瞄準、按住射擊，發光核心造成雙倍傷害。電腦端會先
-驗證必要資產，再開放關卡選擇與「部署」按鈕；該次電腦點擊同時解鎖所有主機音效，手機只負責
-瞄準、射擊與震動。
-
-目前的可玩垂直切片包含關卡選擇、五秒手電筒式任務簡報、三波敵人、連擊與生命、三階段 Boss、
-成績結算與重新挑戰。城市背景使用 211 KB WebP 底圖搭配 WebGL 即時煙塵、火光、閃電、火星與
-視差，不依賴背景影片；載入逾時會切換程序化降級場景。遊戲會依啟動裝置與實測 FPS 自動降低
-渲染比例與粒子數。預設的 407 號房故事模式不受影響。
 
 ## Verification
 

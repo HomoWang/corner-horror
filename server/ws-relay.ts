@@ -46,13 +46,24 @@ export class WsRelay {
         (msg.type === 'orient' ||
           msg.type === 'btn' ||
           msg.type === 'ready' ||
-          msg.type === 'story-action')
+          msg.type === 'story-action' ||
+          msg.type === 'proto-pointer' ||
+          msg.type === 'proto-move' ||
+          msg.type === 'proto-navigate' ||
+          msg.type === 'proto-interact' ||
+          msg.type === 'proto-use' ||
+          msg.type === 'proto-inventory' ||
+          msg.type === 'proto-item-action')
       ) {
         if (this.host) safeSend(this.host, JSON.stringify(msg));
       }
       if (
         role === 'host' &&
-        (msg.type === 'cue' || msg.type === 'story' || msg.type === 'fmv-cue')
+        (msg.type === 'cue' ||
+          msg.type === 'story' ||
+          msg.type === 'fmv-cue' ||
+          msg.type === 'proto-vibrate' ||
+          msg.type === 'proto-controller-state')
       ) {
         if (this.controller) safeSend(this.controller, JSON.stringify(msg));
       }

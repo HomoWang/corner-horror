@@ -127,6 +127,60 @@ describe('parseMessage', () => {
     expect(parseMessage(JSON.stringify({ type: 'fmv-cue', haptic: 'forever' }))).toBeNull();
   });
 
+  it('解析 prototype 道具操作與手機物品欄狀態', () => {
+    expect(
+      parseMessage(JSON.stringify({ type: 'proto-navigate', direction: 'left' })),
+    ).toEqual({ type: 'proto-navigate', direction: 'left' });
+    expect(
+      parseMessage(JSON.stringify({ type: 'proto-navigate', direction: 'back' })),
+    ).toEqual({ type: 'proto-navigate', direction: 'back' });
+    expect(
+      parseMessage(JSON.stringify({ type: 'proto-navigate', direction: 'diagonal' })),
+    ).toBeNull();
+    expect(
+      parseMessage(
+        JSON.stringify({ type: 'proto-item-action', item: 'receipt', action: 'inspect' }),
+      ),
+    ).toEqual({ type: 'proto-item-action', item: 'receipt', action: 'inspect' });
+    expect(
+      parseMessage(
+        JSON.stringify({ type: 'proto-item-action', item: 'pencil', action: 'use' }),
+      ),
+    ).toEqual({ type: 'proto-item-action', item: 'pencil', action: 'use' });
+    expect(
+      parseMessage(
+        JSON.stringify({ type: 'proto-item-action', item: 'tape', action: 'inspect' }),
+      ),
+    ).toEqual({ type: 'proto-item-action', item: 'tape', action: 'inspect' });
+    expect(
+      parseMessage(
+        JSON.stringify({
+          type: 'proto-controller-state',
+          inventoryOpen: true,
+          slots: ['receipt', 'pencil', null, null, null, null],
+          selectedItem: 'pencil',
+          detailItem: 'receipt',
+        }),
+      ),
+    ).toEqual({
+      type: 'proto-controller-state',
+      inventoryOpen: true,
+      slots: ['receipt', 'pencil', null, null, null, null],
+      selectedItem: 'pencil',
+      detailItem: 'receipt',
+    });
+    expect(
+      parseMessage(
+        JSON.stringify({ type: 'proto-item-action', item: 'key', action: 'use' }),
+      ),
+    ).toBeNull();
+    expect(
+      parseMessage(
+        JSON.stringify({ type: 'proto-controller-state', inventoryOpen: false }),
+      ),
+    ).toBeNull();
+  });
+
   it('拒絕非字串、壞 JSON、未知 type', () => {
     expect(parseMessage(42)).toBeNull();
     expect(parseMessage(new ArrayBuffer(4))).toBeNull();

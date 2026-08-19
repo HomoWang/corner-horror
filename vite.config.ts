@@ -12,16 +12,19 @@ function deploymentBase(): string {
 
 export default defineConfig({
   base: deploymentBase(),
-  plugins: [process.env.VITE_NO_SSL === 'true' ? null : basicSsl(), wsRelayPlugin()],
+  plugins: [process.env.VITE_SSL === 'true' ? basicSsl() : null, wsRelayPlugin()],
   server: {
     host: true, // 綁 0.0.0.0，區網手機才連得進來
     port: 5173,
+    allowedHosts: ['.ngrok-free.dev', '.trycloudflare.com'],
   },
   build: {
     rollupOptions: {
       input: {
         host: fileURLToPath(new URL('index.html', import.meta.url)),
         controller: fileURLToPath(new URL('controller.html', import.meta.url)),
+        prototype: fileURLToPath(new URL('prototype.html', import.meta.url)),
+        'controller-prototype': fileURLToPath(new URL('controller-prototype.html', import.meta.url)),
       },
     },
   },

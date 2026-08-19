@@ -78,6 +78,66 @@ export interface StoryActionMsg {
   value?: string;
 }
 
+export interface ProtoPointerMsg {
+  type: 'proto-pointer';
+  x: number;
+  y: number;
+  t: number;
+}
+
+export interface ProtoMoveMsg {
+  type: 'proto-move';
+  x: number;
+  y: number;
+}
+
+export interface ProtoNavigateMsg {
+  type: 'proto-navigate';
+  direction: 'left' | 'right' | 'forward' | 'back';
+}
+
+export interface ProtoInteractMsg {
+  type: 'proto-interact';
+}
+
+export interface ProtoUseMsg {
+  type: 'proto-use';
+  pressed: boolean;
+}
+
+export interface ProtoInventoryMsg {
+  type: 'proto-inventory';
+}
+
+export type ProtoItemId =
+  | 'receipt'
+  | 'pencil'
+  | 'tape'
+  | 'oldBattery'
+  | 'smallKey'
+  | 'pendant'
+  | 'photo';
+export type ProtoItemAction = 'use' | 'inspect';
+
+export interface ProtoItemActionMsg {
+  type: 'proto-item-action';
+  item: ProtoItemId;
+  action: ProtoItemAction;
+}
+
+export interface ProtoControllerStateMsg {
+  type: 'proto-controller-state';
+  slots: Array<ProtoItemId | null>;
+  selectedItem?: ProtoItemId;
+  detailItem?: ProtoItemId;
+  inventoryOpen: boolean;
+}
+
+export interface ProtoVibrateMsg {
+  type: 'proto-vibrate';
+  pattern: number | number[];
+}
+
 export type Msg =
   | HelloMsg
   | OrientMsg
@@ -88,7 +148,16 @@ export type Msg =
   | CueMsg
   | FmvCueMsg
   | StoryMsg
-  | StoryActionMsg;
+  | StoryActionMsg
+  | ProtoPointerMsg
+  | ProtoMoveMsg
+  | ProtoNavigateMsg
+  | ProtoInteractMsg
+  | ProtoUseMsg
+  | ProtoInventoryMsg
+  | ProtoItemActionMsg
+  | ProtoControllerStateMsg
+  | ProtoVibrateMsg;
 
 const STORY_SCREEN_IDS = new Set<StoryScreenId>([
   'standby',
@@ -137,6 +206,17 @@ const CONTROLLER_CUE_IDS = new Set<ControllerCueId>([
   'jumpscare',
 ]);
 
+const PROTO_ITEM_IDS = new Set<ProtoItemId>([
+  'receipt',
+  'pencil',
+  'tape',
+  'oldBattery',
+  'smallKey',
+  'pendant',
+  'photo',
+]);
+const PROTO_ITEM_ACTIONS = new Set<ProtoItemAction>(['use', 'inspect']);
+
 const NARRATION_ROLES = new Set<NarrationRole>([
   'manager',
   'xiaoyu',
@@ -150,6 +230,23 @@ function isQuaternion(q: unknown): q is [number, number, number, number] {
     Array.isArray(q) &&
     q.length === 4 &&
     q.every((n) => typeof n === 'number' && Number.isFinite(n))
+  );
+}
+
+function finiteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function clampUnit(value: number): number {
+  return Math.max(-1, Math.min(1, value));
+}
+
+function isVibrationPattern(value: unknown): value is number | number[] {
+  if (finiteNumber(value)) return value >= 0 && value <= 2000;
+  return (
+    Array.isArray(value) &&
+    value.length <= 16 &&
+    value.every((part) => finiteNumber(part) && part >= 0 && part <= 2000)
   );
 }
 
@@ -225,6 +322,66 @@ export function parseMessage(raw: unknown): Msg | null {
         ? { type: 'story-action', id: m.id as StoryActionId }
         : { type: 'story-action', id: m.id as StoryActionId, value: m.value };
     }
+    case 'proto-pointer':
+      return finiteNumber(m.x) && finiteNumber(m.y) && finiteNumber(m.t)
+        ? { type: 'proto-pointer', x: clampUnit(m.x), y: clampUnit(m.y), t: m.t }
+        : null;
+    case 'proto-move':
+      return finiteNumber(m.x) && finiteNumber(m.y)
+        ? { type: 'proto-move', x: clampUnit(m.x), y: clampUnit(m.y) }
+        : null;
+    case 'proto-navigate':
+      return m.direction === 'left' ||
+        m.direction === 'right' ||
+        m.direction === 'forward' ||
+        m.direction === 'back'
+        ? { type: 'proto-navigate', direction: m.direction }
+        : null;
+    case 'proto-interact':
+      return { type: 'proto-interact' };
+    case 'proto-use':
+      return typeof m.pressed === 'boolean' ? { type: 'proto-use', pressed: m.pressed } : null;
+    case 'proto-inventory':
+      return { type: 'proto-inventory' };
+    case 'proto-item-action':
+      return typeof m.item === 'string' &&
+        PROTO_ITEM_IDS.has(m.item as ProtoItemId) &&
+        typeof m.action === 'string' &&
+        PROTO_ITEM_ACTIONS.has(m.action as ProtoItemAction)
+        ? {
+            type: 'proto-item-action',
+            item: m.item as ProtoItemId,
+            action: m.action as ProtoItemAction,
+          }
+        : null;
+    case 'proto-controller-state':
+      return typeof m.inventoryOpen === 'boolean' &&
+        Array.isArray(m.slots) &&
+        m.slots.length === 6 &&
+        m.slots.every(
+          (item): item is ProtoItemId | null =>
+            item === null ||
+            (typeof item === 'string' && PROTO_ITEM_IDS.has(item as ProtoItemId)),
+        ) &&
+        (m.selectedItem === undefined ||
+          (typeof m.selectedItem === 'string' &&
+            PROTO_ITEM_IDS.has(m.selectedItem as ProtoItemId))) &&
+        (m.detailItem === undefined ||
+          (typeof m.detailItem === 'string' && PROTO_ITEM_IDS.has(m.detailItem as ProtoItemId)))
+        ? {
+            type: 'proto-controller-state',
+            inventoryOpen: m.inventoryOpen,
+            slots: m.slots,
+            ...(typeof m.selectedItem === 'string'
+              ? { selectedItem: m.selectedItem as ProtoItemId }
+              : {}),
+            ...(typeof m.detailItem === 'string'
+              ? { detailItem: m.detailItem as ProtoItemId }
+              : {}),
+          }
+        : null;
+    case 'proto-vibrate':
+      return isVibrationPattern(m.pattern) ? { type: 'proto-vibrate', pattern: m.pattern } : null;
     default:
       return null;
   }

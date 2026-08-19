@@ -29,7 +29,6 @@ export interface SceneHandles {
   cinematic: CinematicBackdrop;
   jumpscare: JumpscareOverlay;
   setProjectionCorners(corners: ProjectionCorners): void;
-  setPixelRatioLimit(limit: number): void;
   resize(): void;
   render(): void;
 }
@@ -54,10 +53,9 @@ function prop(
   return mesh;
 }
 
-export function createScene(canvas: HTMLCanvasElement, mode: 'story' | 'raid' = 'story'): SceneHandles {
+export function createScene(canvas: HTMLCanvasElement): SceneHandles {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  let pixelRatioLimit = 2;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, pixelRatioLimit));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const projectionWarp = new ProjectionWarp(renderer);
 
   const scene = new THREE.Scene();
@@ -89,21 +87,16 @@ export function createScene(canvas: HTMLCanvasElement, mode: 'story' | 'raid' = 
   fallbackGroup.add(silhouette);
   fallbackGroup.add(prop(new THREE.BoxGeometry(0.5, 0.9, 0.4), 0x3a3a35, [2.7, 0.45, -1.2], 0.5)); // 矮櫃
   scene.add(fallbackGroup);
-  if (mode === 'raid') fallbackGroup.visible = false;
 
   const cinematic = new CinematicBackdrop(
     scene,
     camera,
-    mode === 'raid' ? null : publicUrl('assets/room-sequence.png'),
+    publicUrl('assets/room-sequence.png'),
     () => {
       fallbackGroup.visible = false;
     },
   );
-  const jumpscare = new JumpscareOverlay(
-    scene,
-    camera,
-    mode === 'raid' ? null : publicUrl('assets/jumpscare-face.png'),
-  );
+  const jumpscare = new JumpscareOverlay(scene, camera, publicUrl('assets/jumpscare-face.png'));
 
   scene.add(new THREE.AmbientLight(0xffffff, AMBIENT_INTENSITY));
 
@@ -142,11 +135,6 @@ export function createScene(canvas: HTMLCanvasElement, mode: 'story' | 'raid' = 
     cinematic,
     jumpscare,
     setProjectionCorners: (corners) => projectionWarp.setCorners(corners),
-    setPixelRatioLimit: (limit) => {
-      pixelRatioLimit = Math.max(0.75, Math.min(2, limit));
-      renderer.setPixelRatio(Math.min(devicePixelRatio, pixelRatioLimit));
-      resize();
-    },
     resize,
     render: () => projectionWarp.render(scene, camera),
   };

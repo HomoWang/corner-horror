@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="screen-orientation" content="portrait" />
+    <meta name="x5-orientation" content="portrait" />
+    <title>407 Controller Prototype</title>
+    <style>
+      :root {
+        --controller-rotation: -90deg;
+        color-scheme: dark;
+        font-family: "Noto Sans TC", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        touch-action: none;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        min-height: 100dvh;
+        margin: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 28%, rgba(101, 31, 25, 0.18), transparent 32%),
+          #040303;
+        color: #c9b8ae;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-text-size-adjust: 100%;
+      }
+
+      body::after {
+        content: '';
+        position: fixed;
+        z-index: 100;
+        inset: 0;
+        background: rgba(146, 13, 8, 0.42);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      body.puzzle-error-feedback::after {
+        animation: puzzle-error-flash 0.78s ease-out;
+      }
+
+      body.puzzle-error-feedback #phone-inventory,
+      body.puzzle-error-feedback #joystick {
+        animation: puzzle-error-jolt 0.78s ease-out;
+      }
+
+      @keyframes puzzle-error-flash {
+        0%, 18%, 43%, 62%, 100% { opacity: 0; }
+        5% { opacity: 0.68; }
+        49% { opacity: 0.82; }
+      }
+
+      @keyframes puzzle-error-jolt {
+        0%, 18%, 43%, 62%, 100% { translate: 0 0; }
+        4% { translate: -7px 0; }
+        8% { translate: 7px 0; }
+        12% { translate: -4px 0; }
+        47% { translate: 8px 0; }
+        51% { translate: -8px 0; }
+        56% { translate: 5px 0; }
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      #app {
+        width: 100%;
+        height: 100dvh;
+        min-height: 100dvh;
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        gap: 0.65rem;
+        padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+      }
+
+      #top {
+        display: grid;
+        gap: 0.45rem;
+        justify-items: center;
+        text-align: center;
+      }
+
+      #status {
+        width: 100%;
+        min-height: 1rem;
+        margin: 0;
+        overflow: hidden;
+        color: #766964;
+        font-size: 0.78rem;
+        line-height: 1rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      #selected {
+        width: 100%;
+        min-height: 1.1rem;
+        margin: 0;
+        overflow: hidden;
+        color: #9d8a82;
+        font-size: 0.9rem;
+        line-height: 1.1rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      #sensor-status {
+        width: 100%;
+        min-height: 1rem;
+        margin: 0;
+        color: #9a756a;
+        font-size: 0.72rem;
+        line-height: 1rem;
+        text-align: center;
+      }
+
+      #sensor-status[data-state='active'] {
+        color: #8fa68b;
+      }
+
+      #sensor-status[data-state='error'] {
+        color: #cf806f;
+      }
+
+      #start {
+        grid-row: 3;
+        width: min(62vw, 15rem);
+        aspect-ratio: 1;
+        align-self: center;
+        justify-self: center;
+        border-radius: 50%;
+        border: 2px solid #6a3c35;
+        background: radial-gradient(circle, #421813, #100504 70%);
+        letter-spacing: 0.18em;
+      }
+
+      body.started #start {
+        display: none;
+      }
+
+      #controls {
+        grid-row: 3;
+        display: none;
+        min-height: 0;
+        height: 100%;
+        grid-template-rows: auto 1fr;
+        gap: 0.8rem;
+        align-items: center;
+      }
+
+      body.started #controls {
+        display: grid;
+      }
+
+      #joystick {
+        position: relative;
+        width: min(56vw, 14rem);
+        aspect-ratio: 1;
+        align-self: end;
+        justify-self: center;
+        border: 1px solid rgba(145, 92, 79, 0.42);
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(85, 30, 24, 0.28), rgba(8, 5, 5, 0.92));
+        box-shadow: inset 0 0 2rem rgba(0, 0, 0, 0.75);
+        touch-action: none;
+      }
+
+      #stick {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 38%;
+        aspect-ratio: 1;
+        transform: translate(-50%, -50%);
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: radial-gradient(circle, #b68d81, #4b1d18 62%, #160807);
+        box-shadow: 0 0 1.8rem rgba(139, 54, 42, 0.35);
+        pointer-events: none;
+      }
+
+      #joystick-haptic {
+        position: absolute;
+        z-index: 3;
+        top: 50%;
+        left: 50%;
+        width: 38%;
+        aspect-ratio: 1;
+        margin: 0;
+        transform: translate(-50%, -50%);
+        opacity: 0.001;
+        cursor: pointer;
+        pointer-events: none;
+      }
+
+      #stick-label {
+        color: rgba(255, 235, 226, 0.9);
+        font-size: 0.74rem;
+        pointer-events: none;
+      }
+
+      #inventory-area {
+        display: grid;
+        width: min(100%, 32rem);
+        justify-self: center;
+      }
+
+      #phone-inventory {
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 0.35rem;
+        contain: layout paint;
+      }
+
+      .inventory-slot {
+        position: relative;
+        display: grid;
+        min-width: 0;
+        aspect-ratio: 1;
+        grid-template-rows: 1fr auto;
+        place-items: center;
+        padding: 0.35rem 0.12rem 0.3rem;
+        border: 1px solid rgba(132, 93, 76, 0.45);
+        border-radius: 0.35rem;
+        background: rgba(20, 11, 9, 0.88);
+        color: #bda8a0;
+        appearance: none;
+        -webkit-appearance: none;
+        touch-action: none;
+      }
+
+      .ios-haptic-surface {
+        position: absolute;
+        z-index: 3;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        opacity: 0.001;
+        cursor: pointer;
+      }
+
+      .programmatic-haptic-trigger {
+        position: fixed;
+        top: -2px;
+        left: -2px;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        opacity: 0.001;
+        pointer-events: none;
+      }
+
+      .inventory-slot.empty {
+        border-color: rgba(98, 76, 69, 0.24);
+        background: rgba(10, 7, 6, 0.5);
+      }
+
+      .inventory-slot.empty .item-icon {
+        display: none;
+      }
+
+      .inventory-slot[aria-disabled='true'] {
+        opacity: 1;
+      }
+
+      .inventory-slot.selected {
+        border-color: #cf806f;
+        background: rgba(77, 26, 21, 0.82);
+        box-shadow: inset 0 0 1.4rem rgba(164, 65, 49, 0.25);
+      }
+
+      .inventory-slot.detail {
+        outline: 2px solid rgba(219, 169, 144, 0.54);
+        outline-offset: 2px;
+      }
+
+      .inventory-slot.pressing {
+        transform: scale(0.96);
+        border-color: #e0aa9b;
+      }
+
+      .item-icon {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        align-self: stretch;
+        object-fit: contain;
+        padding: 0.08rem;
+        filter: drop-shadow(0 0.12rem 0.16rem rgba(0, 0, 0, 0.7));
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .item-name {
+        width: 100%;
+        height: 0.75rem;
+        overflow: hidden;
+        font-size: 0.58rem;
+        line-height: 1.25;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      .control-button {
+        width: 100%;
+        min-height: 4.15rem;
+        border: 1px solid rgba(154, 98, 84, 0.48);
+        border-radius: 0.4rem;
+        background: rgba(22, 10, 9, 0.9);
+      }
+
+      .control-button:active,
+      .control-button.pressed {
+        transform: scale(0.97);
+        border-color: #cf806f;
+        background: rgba(77, 26, 21, 0.92);
+      }
+
+      #calibrate {
+        width: min(100%, 28rem);
+        min-height: 2.65rem;
+        justify-self: center;
+        border-color: rgba(117, 91, 82, 0.34);
+        color: #756762;
+        font-size: 0.76rem;
+      }
+
+      #hint {
+        margin: 0;
+        color: #5d5350;
+        text-align: center;
+        font-size: 0.72rem;
+        line-height: 1.6;
+      }
+
+      body.started #hint {
+        display: none;
+      }
+
+      @media (orientation: landscape) and (pointer: coarse) {
+        #app {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          width: 100dvh;
+          height: 100dvw;
+          min-height: 0;
+          transform: translate(-50%, -50%) rotate(var(--controller-rotation));
+          transform-origin: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app">
+      <header id="top">
+        <p id="status">等待同步。</p>
+        <p id="sensor-status" data-state="idle">方向感應：尚未啟用</p>
+        <p id="selected">目前道具：無</p>
+      </header>
+      <div id="inventory-area">
+        <div id="phone-inventory" aria-label="物品欄"></div>
+      </div>
+      <button id="start" type="button">同步 407</button>
+      <section id="controls">
+        <button id="calibrate" class="control-button" type="button">重新校正</button>
+        <div id="joystick" aria-label="中央單點互動，按住拖曳切換視角">
+          <input id="joystick-haptic" type="checkbox" switch aria-label="互動" />
+          <div id="stick"><span id="stick-label">互動</span></div>
+        </div>
+      </section>
+      <p id="hint">手機在空中移動游標。中央單點互動；按住中央往方向拖曳才會切換視角。</p>
+    </main>
+    <script type="module" src="/src/prototype/controller.ts"></script>
+  </body>
+</html>

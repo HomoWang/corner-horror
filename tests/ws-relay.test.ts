@@ -49,6 +49,10 @@ describe('WsRelay', () => {
     controller.emit('message', JSON.stringify({ type: 'orient', q: [0, 0, 0, 1], t: 1 }));
     controller.emit('message', JSON.stringify({ type: 'ready' }));
     controller.emit('message', JSON.stringify({ type: 'story-action', id: 'answer' }));
+    controller.emit(
+      'message',
+      JSON.stringify({ type: 'proto-item-action', item: 'receipt', action: 'inspect' }),
+    );
     host.emit('message', JSON.stringify({ type: 'cue', id: 'ring' }));
     host.emit('message', JSON.stringify({ type: 'story', screen: 'incoming-407' }));
     host.emit(
@@ -60,6 +64,7 @@ describe('WsRelay', () => {
       { type: 'orient', q: [0, 0, 0, 1], t: 1 },
       { type: 'ready' },
       { type: 'story-action', id: 'answer' },
+      { type: 'proto-item-action', item: 'receipt', action: 'inspect' },
     ]);
     expect(controller.messages()).toEqual([
       { type: 'cue', id: 'ring' },

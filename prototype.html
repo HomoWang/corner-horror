@@ -1,0 +1,1168 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>407 Prototype</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --aim-x: 50vw;
+        --aim-y: 50vh;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #211b18;
+        color: #c8b7ad;
+        font-family: "Noto Sans TC", system-ui, sans-serif;
+      }
+
+      body {
+        cursor: none;
+      }
+
+      #stage {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at var(--aim-x) var(--aim-y), rgba(255, 222, 174, 0.34), transparent 18rem),
+          linear-gradient(#2b211c, #17110f);
+      }
+
+      #room-scene {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #080807;
+        background-position: center;
+        background-size: cover;
+        background-repeat: no-repeat;
+        --scene-x: 0%;
+        --scene-y: 0%;
+        --scene-scale: 1.055;
+        --scene-origin-x: 50%;
+        --scene-origin-y: 50%;
+      }
+
+      #room-background,
+      #room-state-layer {
+        position: absolute;
+        inset: -8%;
+        width: 116%;
+        height: 116%;
+        transform-origin: var(--scene-origin-x) var(--scene-origin-y);
+        transform:
+          translate(var(--scene-x), var(--scene-y))
+          scale(var(--scene-scale));
+        transition:
+          transform 420ms cubic-bezier(0.22, 0.7, 0.2, 1),
+          filter 180ms ease-out,
+          opacity 150ms ease-out;
+      }
+
+      #room-scene.dragging #room-background,
+      #room-scene.dragging #room-state-layer {
+        transition:
+          transform 70ms linear,
+          filter 180ms ease-out,
+          opacity 150ms ease-out;
+      }
+
+      #room-scene.switching-wall #room-background,
+      #room-scene.switching-wall #room-state-layer {
+        transition:
+          transform 0ms linear,
+          filter 180ms ease-out,
+          opacity 150ms ease-out;
+      }
+
+      #room-background {
+        object-fit: cover;
+        user-select: none;
+        filter: brightness(1.08) contrast(1.04) saturate(0.88);
+      }
+
+      #room-state-layer {
+        pointer-events: none;
+      }
+
+      #room-scene.changing-view #room-background,
+      #room-scene.changing-view #room-state-layer {
+        opacity: 0.78;
+        filter: brightness(0.82) contrast(1.02) saturate(0.86);
+      }
+
+      .room-prop {
+        position: absolute;
+        height: auto;
+        object-fit: contain;
+        transform: translate(-50%, -50%);
+        filter: brightness(0.72) contrast(1.12) saturate(0.7);
+      }
+
+      .pencil-prop {
+        transform: translate(-50%, -50%);
+        filter: brightness(0.58) contrast(1.12) saturate(0.72);
+      }
+
+      .receipt-prop {
+        filter: none;
+      }
+
+      #room {
+        position: fixed;
+        inset: 0;
+        perspective: 80rem;
+        overflow: hidden;
+      }
+
+      .wall-face {
+        position: absolute;
+        inset: -3%;
+        overflow: hidden;
+        transform-origin: 50% 58%;
+        background:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 7rem 100%,
+          radial-gradient(ellipse at 50% 24%, rgba(128, 107, 87, 0.3), transparent 46%),
+          linear-gradient(90deg, #171310, #2b211c 45%, #17110f);
+        box-shadow: inset 0 0 9rem rgba(0, 0, 0, 0.7);
+        will-change: transform, opacity;
+      }
+
+      .wall-face::before {
+        content: "";
+        position: absolute;
+        left: -8%;
+        right: -8%;
+        bottom: -8%;
+        height: 38%;
+        z-index: 1;
+        background:
+          repeating-linear-gradient(90deg, transparent 0 7rem, rgba(155, 121, 95, 0.12) 7.08rem 7.18rem),
+          repeating-linear-gradient(0deg, transparent 0 3rem, rgba(155, 121, 95, 0.1) 3.08rem 3.16rem),
+          linear-gradient(#382a22, #100b09 82%);
+        clip-path: polygon(16% 0, 84% 0, 100% 100%, 0 100%);
+      }
+
+      .wall-face::after {
+        content: "";
+        position: absolute;
+        left: 5%;
+        right: 5%;
+        bottom: 30%;
+        z-index: 1;
+        height: 1px;
+        background: rgba(197, 164, 133, 0.2);
+        box-shadow: 0 -7rem 5rem rgba(0, 0, 0, 0.24);
+      }
+
+      .hotspot {
+        position: absolute;
+        z-index: 2;
+        border: 1px solid rgba(190, 160, 125, 0.18);
+        background: rgba(28, 21, 17, 0.28);
+        color: rgba(224, 204, 186, 0.34);
+        display: grid;
+        place-items: center;
+        letter-spacing: 0.12em;
+        transition: border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+      }
+
+      .scenery {
+        position: absolute;
+        z-index: 2;
+        color: rgba(210, 190, 172, 0.2);
+        display: grid;
+        place-items: center;
+        letter-spacing: 0.12em;
+      }
+
+      .hotspot.active {
+        border-color: rgba(196, 146, 116, 0.55);
+        color: rgba(232, 205, 188, 0.72);
+        box-shadow: inset 0 0 2rem rgba(130, 58, 42, 0.18), 0 0 2rem rgba(118, 44, 35, 0.2);
+      }
+
+      #door {
+        left: 35%;
+        top: 10%;
+        width: 30%;
+        height: 60%;
+        background:
+          repeating-linear-gradient(90deg, transparent 0 1.2rem, rgba(0, 0, 0, 0.1) 1.25rem 1.35rem),
+          linear-gradient(100deg, #3b2821, #120c0a);
+        box-shadow: 0 0 3rem rgba(0, 0, 0, 0.72);
+      }
+
+      #wardrobe {
+        left: 30%;
+        top: 9%;
+        width: 40%;
+        height: 62%;
+        background:
+          linear-gradient(90deg, transparent 49.5%, rgba(190, 149, 111, 0.2) 50%, transparent 50.5%),
+          linear-gradient(94deg, #453229, #17100d);
+        box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.65);
+      }
+
+      #table {
+        left: 22%;
+        bottom: 29%;
+        width: 56%;
+        height: 27%;
+        background:
+          linear-gradient(90deg, transparent 7%, #17100d 7% 12%, transparent 12% 88%, #17100d 88% 93%, transparent 93%),
+          linear-gradient(#4b352a 0 20%, transparent 20%);
+        box-shadow: 0 1.2rem 2.8rem rgba(0, 0, 0, 0.58);
+      }
+
+      #coat {
+        right: 15%;
+        bottom: 30%;
+        width: 14%;
+        height: 44%;
+        background:
+          radial-gradient(circle at 50% 8%, #171312 0 10%, transparent 11%),
+          linear-gradient(105deg, transparent 12%, #211916 13% 47%, #130f0e 48% 87%, transparent 88%);
+        opacity: 0.72;
+      }
+
+      #bed {
+        left: 14%;
+        bottom: 30%;
+        width: 72%;
+        height: 30%;
+        align-items: end;
+        padding-bottom: 2rem;
+        background:
+          linear-gradient(90deg, #241a16 0 5%, transparent 5% 95%, #241a16 95%),
+          linear-gradient(#493b34 0 30%, #211816 31% 78%, #110c0b 79%);
+        box-shadow: 0 1.5rem 3rem rgba(0, 0, 0, 0.65);
+      }
+
+      #safe {
+        right: 9%;
+        bottom: 31%;
+        width: 14%;
+        height: 23%;
+        border: 2px solid rgba(153, 139, 124, 0.18);
+        background: linear-gradient(125deg, #292725, #0e0d0c);
+      }
+
+      #radio {
+        left: 31%;
+        bottom: 52%;
+        width: 18%;
+        height: 12%;
+        border: 1px solid rgba(156, 128, 104, 0.2);
+        background: linear-gradient(125deg, #342720, #100c0a);
+      }
+
+      #cursor {
+        position: fixed;
+        left: var(--aim-x);
+        top: var(--aim-y);
+        z-index: 24;
+        width: 1.65rem;
+        height: 1.65rem;
+        transform: translate(-50%, -50%);
+        border: 2px solid rgba(255, 244, 220, 0.96);
+        border-radius: 50%;
+        background: radial-gradient(circle, #fff4dc 0 2px, transparent 3px);
+        box-shadow:
+          0 0 0 2px rgba(0, 0, 0, 0.82),
+          0 0 1.25rem rgba(255, 226, 181, 0.72);
+        pointer-events: none;
+        will-change: left, top;
+        transition: left 55ms linear, top 55ms linear;
+      }
+
+      #cursor::before,
+      #cursor::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        background: rgba(255, 244, 220, 0.94);
+        box-shadow: 0 0 2px #000;
+      }
+
+      #cursor::before {
+        width: 2.35rem;
+        height: 2px;
+        transform: translate(-50%, -50%);
+      }
+
+      #cursor::after {
+        width: 2px;
+        height: 2.35rem;
+        transform: translate(-50%, -50%);
+      }
+
+      #flashlight {
+        position: fixed;
+        inset: 0;
+        z-index: 8;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at var(--aim-x) var(--aim-y), transparent 0 13rem, rgba(0, 0, 0, 0.08) 20rem, rgba(0, 0, 0, 0.34) 38rem);
+        mix-blend-mode: multiply;
+      }
+
+      #hud {
+        position: fixed;
+        left: 1rem;
+        top: 1rem;
+        z-index: 20;
+        max-width: 28rem;
+        color: #8e7f78;
+        font-size: 0.86rem;
+        line-height: 1.6;
+        text-shadow: 0 2px 10px #000;
+      }
+
+      #notice {
+        position: fixed;
+        left: 50%;
+        bottom: 7vh;
+        z-index: 46;
+        min-width: min(30rem, 78vw);
+        transform: translateX(-50%);
+        padding: 0.85rem 1rem;
+        border: 1px solid rgba(118, 78, 68, 0.45);
+        background: rgba(4, 2, 2, 0.86);
+        color: #cdb8ad;
+        text-align: center;
+        letter-spacing: 0.08em;
+        opacity: 0;
+        transition: opacity 0.18s ease;
+      }
+
+      #notice.show {
+        opacity: 1;
+      }
+
+      #audio-enable {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 48;
+        min-height: 2.6rem;
+        padding: 0.55rem 0.85rem;
+        border: 1px solid rgba(174, 124, 101, 0.58);
+        border-radius: 0.35rem;
+        background: rgba(18, 10, 8, 0.94);
+        color: #d5bdb1;
+        font: 0.8rem/1.2 "Noto Sans TC", system-ui, sans-serif;
+        cursor: pointer;
+      }
+
+      #audio-enable.ready {
+        border-color: rgba(103, 126, 102, 0.55);
+        color: #9dad9b;
+      }
+
+      #audio-enable.muted {
+        border-color: rgba(130, 116, 109, 0.48);
+        color: #8f817a;
+      }
+
+      #overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: grid;
+        place-items: center;
+        background: rgba(0, 0, 0, 0.88);
+      }
+
+      #overlay.hidden {
+        display: none;
+      }
+
+      #qr-panel {
+        display: grid;
+        gap: 0.85rem;
+        justify-items: center;
+        color: #82746e;
+        text-align: center;
+      }
+
+      #qr {
+        padding: 0.5rem;
+        background: #fff;
+      }
+
+      #join-url {
+        max-width: min(34rem, 84vw);
+        margin: 0;
+        color: #5d5652;
+        font: 0.72rem/1.5 ui-monospace, monospace;
+        overflow-wrap: anywhere;
+      }
+
+      #inventory {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: none;
+        grid-template-rows: auto 1fr;
+        gap: 1rem;
+        padding: clamp(1rem, 4vw, 3rem);
+        background: rgba(5, 3, 3, 0.96);
+      }
+
+      #inventory.open {
+        display: grid;
+      }
+
+      #inventory.open ~ #cursor,
+      #safe-inspect.open ~ #cursor,
+      #photo-inspect.open ~ #cursor,
+      #drawer-puzzle.open ~ #cursor {
+        z-index: 45;
+        border-color: #fff2d8;
+        background: rgba(255, 242, 216, 0.12);
+        box-shadow:
+          0 0 0 2px rgba(0, 0, 0, 0.86),
+          0 0 1.4rem rgba(255, 226, 181, 0.7);
+      }
+
+      #inventory.open ~ #flashlight,
+      #safe-inspect.open ~ #flashlight,
+      #photo-inspect.open ~ #flashlight,
+      #drawer-puzzle.open ~ #flashlight {
+        opacity: 0;
+      }
+
+      #item-list {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      #inventory-back {
+        width: 8rem;
+        min-height: 3rem;
+        border: 1px solid rgba(132, 93, 76, 0.38);
+        background: rgba(28, 16, 13, 0.84);
+        color: #b9a39a;
+        display: grid;
+        place-items: center;
+      }
+
+      #detail-panels {
+        display: grid;
+        min-height: 0;
+        place-items: center;
+      }
+
+      #detail-panels > * {
+        grid-area: 1 / 1;
+      }
+
+      #receipt-panel {
+        display: none;
+        place-items: center;
+      }
+
+      #receipt-panel.open {
+        display: grid;
+      }
+
+      #receipt-paper {
+        width: min(24rem, 40vw);
+        aspect-ratio: 0.68;
+        padding: 2rem 1.4rem;
+        background:
+          radial-gradient(circle at 52% 32%, rgba(0, 0, 0, 0.12), transparent 28%),
+          #b9af98;
+        color: #3c2f29;
+        font: 1.1rem/1.8 "Noto Sans TC", system-ui, sans-serif;
+        box-shadow: 0 1rem 3rem #000, inset 0 0 2rem rgba(45, 28, 18, 0.34);
+      }
+
+      #receipt-panel.rubbing #receipt-paper {
+        background:
+          repeating-linear-gradient(104deg, transparent 0 0.8rem, rgba(43, 34, 29, 0.05) 0.85rem 0.92rem),
+          radial-gradient(circle at 52% 32%, rgba(0, 0, 0, 0.12), transparent 28%),
+          #b9af98;
+      }
+
+      #pencil-panel {
+        display: none;
+        place-items: center;
+        color: #b9a39a;
+        text-align: center;
+      }
+
+      #pencil-panel.open {
+        display: grid;
+      }
+
+      #pencil-detail {
+        display: grid;
+        width: min(32rem, 76vw);
+        justify-items: center;
+        gap: 1.3rem;
+      }
+
+      #pencil-object {
+        width: min(30rem, 72vw);
+        aspect-ratio: 2.5;
+        background: center / contain no-repeat url('/assets/room407/props/pencil-model.png');
+        filter: brightness(0.82) contrast(1.08) saturate(0.78)
+          drop-shadow(0 1rem 1.4rem rgba(0, 0, 0, 0.72));
+      }
+
+      #pencil-detail h2,
+      #pencil-detail p {
+        margin: 0;
+      }
+
+      #pencil-detail h2 {
+        font-size: 1.25rem;
+      }
+
+      #pencil-detail p {
+        color: #74655f;
+        font-size: 0.9rem;
+      }
+
+      #generic-item-panel {
+        display: none;
+        place-items: center;
+        color: #b9a39a;
+        text-align: center;
+      }
+
+      #generic-item-panel.open {
+        display: grid;
+      }
+
+      #generic-item-detail {
+        display: grid;
+        width: min(30rem, 76vw);
+        justify-items: center;
+        gap: 1.1rem;
+      }
+
+      #generic-item-image {
+        display: block;
+        width: min(27rem, 68vw);
+        height: min(19rem, 46vh);
+        min-height: 13rem;
+        object-fit: contain;
+        background:
+          radial-gradient(circle at 50% 48%, rgba(141, 123, 111, 0.13), transparent 58%),
+          rgba(5, 5, 5, 0.28);
+        border: 1px solid rgba(132, 93, 76, 0.22);
+        border-radius: 6px;
+      }
+
+      #generic-item-name,
+      #generic-item-description {
+        margin: 0;
+      }
+
+      #generic-item-name {
+        font-size: 1.25rem;
+      }
+
+      #generic-item-description {
+        color: #74655f;
+        font-size: 0.9rem;
+      }
+
+      #safe-inspect {
+        position: fixed;
+        inset: 0;
+        z-index: 31;
+        display: none;
+        place-items: center;
+        overflow: hidden;
+        background: #020202;
+      }
+
+      #safe-inspect.open {
+        display: grid;
+      }
+
+      #safe-inspect-frame {
+        position: relative;
+        width: min(100vw, 100vh);
+        aspect-ratio: 1;
+        max-height: 100vh;
+        background: #020202;
+      }
+
+      #safe-inspect-image {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        user-select: none;
+        pointer-events: none;
+      }
+
+      .safe-empty-prop {
+        position: absolute;
+        z-index: 1;
+        display: none;
+        object-fit: contain;
+        user-select: none;
+        pointer-events: none;
+      }
+
+      #safe-inspect.photo-collected.has-pendant #safe-empty-pendant,
+      #safe-inspect.photo-collected.has-key #safe-empty-key {
+        display: block;
+      }
+
+      #safe-empty-pendant {
+        left: 34.1%;
+        top: 67.1%;
+        width: 11.2%;
+        height: 11.2%;
+        transform: rotate(-17deg);
+        filter: brightness(0.72) contrast(1.08);
+      }
+
+      #safe-empty-key {
+        left: 44.8%;
+        top: 66.8%;
+        width: 10.2%;
+        height: 10.2%;
+        transform: rotate(90deg) scale(0.9);
+        filter: brightness(0.72) contrast(1.08);
+      }
+
+      #safe-inspect-back {
+        position: absolute;
+        z-index: 3;
+        top: 1rem;
+        left: 1rem;
+        width: 3rem;
+        height: 3rem;
+        border: 1px solid rgba(172, 136, 116, 0.48);
+        border-radius: 50%;
+        background: rgba(8, 5, 4, 0.8);
+        color: #c7aea0;
+        font: 1.35rem/1 system-ui, sans-serif;
+      }
+
+      .safe-inspect-hotspot {
+        position: absolute;
+        z-index: 2;
+        border: 1px solid transparent;
+        background: transparent;
+      }
+
+      .safe-inspect-hotspot[hidden] {
+        display: none;
+      }
+
+      #safe-keypad-hotspot {
+        left: 43.4%;
+        top: 41.2%;
+        width: 14.2%;
+        height: 24.8%;
+      }
+
+      #safe-inspect.unlocked #safe-keypad-hotspot {
+        display: none;
+      }
+
+      #safe-pendant-hotspot {
+        left: 34.2%;
+        top: 68.1%;
+        width: 10.8%;
+        height: 10.1%;
+      }
+
+      #safe-key-hotspot {
+        left: 45.1%;
+        top: 69.5%;
+        width: 9.9%;
+        height: 7.4%;
+      }
+
+      #safe-photo-hotspot {
+        left: 53.2%;
+        top: 67.1%;
+        width: 16.7%;
+        height: 10.6%;
+      }
+
+      #safe-inspect .safe-inspect-hotspot.active {
+        outline: none;
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      #photo-inspect {
+        position: fixed;
+        inset: 0;
+        z-index: 34;
+        display: none;
+        place-items: center;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 46%, rgba(74, 57, 46, 0.2), transparent 42%),
+          rgba(2, 2, 2, 0.985);
+        perspective: 90rem;
+      }
+
+      #photo-inspect.open {
+        display: grid;
+      }
+
+      #photo-inspect-frame {
+        position: relative;
+        display: grid;
+        width: 100%;
+        height: 100%;
+        place-items: center;
+      }
+
+      #photo-inspect-back {
+        position: absolute;
+        z-index: 3;
+        top: 1rem;
+        left: 1rem;
+        width: 3rem;
+        height: 3rem;
+        border: 1px solid rgba(172, 136, 116, 0.48);
+        border-radius: 50%;
+        background: rgba(8, 5, 4, 0.8);
+        color: #c7aea0;
+        font: 1.35rem/1 system-ui, sans-serif;
+      }
+
+      #photo-card {
+        position: relative;
+        width: min(72vw, 46rem);
+        aspect-ratio: 1393 / 1129;
+        padding: 0;
+        border: 1px solid rgba(175, 151, 120, 0.42);
+        border-radius: 2px;
+        background: #15110d;
+        box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.86);
+        transform-style: preserve-3d;
+        transition: transform 520ms cubic-bezier(0.2, 0.72, 0.2, 1);
+      }
+
+      #photo-card.active {
+        border-color: rgba(175, 151, 120, 0.42);
+        box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.86);
+      }
+
+      #photo-inspect.flipped #photo-card {
+        transform: rotateY(180deg);
+      }
+
+      #photo-front,
+      #photo-rear {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        backface-visibility: hidden;
+        pointer-events: none;
+      }
+
+      #photo-front img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      #photo-rear {
+        display: grid;
+        align-content: center;
+        gap: clamp(0.75rem, 2.2vh, 1.45rem);
+        padding: clamp(2rem, 7vw, 5rem);
+        transform: rotateY(180deg);
+        background:
+          radial-gradient(circle at 22% 18%, rgba(72, 46, 30, 0.16), transparent 32%),
+          repeating-linear-gradient(8deg, rgba(63, 45, 31, 0.035) 0 1px, transparent 1px 7px),
+          #b9aa8d;
+        color: #3b2b24;
+        text-align: left;
+        box-shadow: inset 0 0 3.5rem rgba(48, 29, 19, 0.42);
+      }
+
+      #photo-rear p {
+        margin: 0;
+        font: clamp(1.05rem, 2.8vw, 2rem)/1.45 "DFKai-SB", "KaiTi", serif;
+        letter-spacing: 0;
+      }
+
+      #drawer-puzzle {
+        position: fixed;
+        inset: 0;
+        z-index: 32;
+        display: none;
+        grid-template-rows: auto 1fr;
+        gap: 1rem;
+        padding: clamp(1rem, 4vw, 3rem);
+        background: rgba(5, 3, 3, 0.97);
+      }
+
+      #drawer-puzzle.open {
+        display: grid;
+      }
+
+      #drawer-back {
+        width: 8rem;
+        min-height: 3rem;
+        justify-self: end;
+        border: 1px solid rgba(132, 93, 76, 0.38);
+        background: rgba(28, 16, 13, 0.84);
+        color: #b9a39a;
+        display: grid;
+        place-items: center;
+      }
+
+      #drawer-lock {
+        position: relative;
+        width: min(72vh, 92vw);
+        aspect-ratio: 1;
+        align-self: center;
+        justify-self: center;
+        background: #080808;
+        overflow: hidden;
+      }
+
+      #drawer-lock-model {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        pointer-events: none;
+      }
+
+      #drawer-lock h2 {
+        display: none;
+      }
+
+      #drawer-code-display {
+        position: absolute;
+        top: 13.7%;
+        left: 25.4%;
+        width: 49.2%;
+        height: 12.8%;
+        border: 1px solid rgba(112, 119, 93, 0.38);
+        background: rgba(5, 8, 6, 0.94);
+        color: #adb991;
+        display: grid;
+        place-items: center;
+        font: clamp(1.3rem, 5.2vh, 3.3rem)/1 ui-monospace, monospace;
+        letter-spacing: 0;
+        text-shadow: 0 0 0.6rem rgba(178, 192, 142, 0.42);
+      }
+
+      #drawer-keypad {
+        position: absolute;
+        top: 30%;
+        left: 26.2%;
+        width: 47.6%;
+        height: 56.5%;
+        display: grid;
+        grid-template-columns: repeat(3, 29%);
+        grid-template-rows: repeat(4, 18%) 21%;
+        justify-content: space-between;
+        align-content: space-between;
+      }
+
+      .drawer-key[data-drawer-submit] {
+        grid-column: 1 / -1;
+      }
+
+      .drawer-key {
+        min-width: 0;
+        min-height: 0;
+        border: 1px solid transparent;
+        border-radius: 0.35rem;
+        background: transparent;
+        color: transparent;
+        display: grid;
+        place-items: center;
+      }
+
+      #receipt-code {
+        --rub-progress: 0%;
+        position: relative;
+        margin-top: 2.5rem;
+        min-height: 2.8rem;
+        color: rgba(39, 27, 23, 0.16);
+        font: 700 2.2rem/1.2 ui-monospace, monospace;
+        letter-spacing: 0.3em;
+      }
+
+      #receipt-code::before {
+        content: "4826";
+        position: absolute;
+        inset: 0;
+        color: #271b17;
+        clip-path: inset(0 calc(100% - var(--rub-progress)) 0 0);
+        text-shadow:
+          1px 0 rgba(35, 27, 23, 0.32),
+          -1px 1px rgba(35, 27, 23, 0.26);
+      }
+
+      #receipt-code::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: -0.45rem;
+        width: var(--rub-progress);
+        height: 3.4rem;
+        background: repeating-linear-gradient(
+          103deg,
+          transparent 0 0.42rem,
+          rgba(43, 33, 28, 0.22) 0.46rem 0.52rem,
+          transparent 0.56rem 0.82rem
+        );
+        mix-blend-mode: multiply;
+        pointer-events: none;
+      }
+
+      #quick-slot {
+        position: fixed;
+        left: 50%;
+        bottom: 1.2rem;
+        z-index: 25;
+        display: none;
+        min-width: 13rem;
+        min-height: 3.4rem;
+        transform: translateX(-50%);
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 0.85rem;
+        padding: 0.65rem 0.9rem;
+        border: 1px solid rgba(174, 124, 101, 0.56);
+        background: rgba(18, 10, 8, 0.9);
+        box-shadow: 0 0.8rem 2.5rem rgba(0, 0, 0, 0.72);
+        color: #d5bdb1;
+      }
+
+      #quick-slot.active {
+        display: grid;
+      }
+
+      #quick-slot.active ~ #notice {
+        bottom: 5.8rem;
+      }
+
+      #quick-slot span {
+        color: #796963;
+        font-size: 0.72rem;
+      }
+
+      #quick-slot-label {
+        font-size: 0.92rem;
+      }
+
+      .selectable.active:not(.drawer-key),
+      #inventory-back.active,
+      #receipt-paper.active {
+        outline: none;
+        box-shadow: none;
+      }
+    </style>
+  </head>
+  <body>
+    <audio
+      id="ambient-audio"
+      src="/assets/audio/horror-score-piano-horror.mp3"
+      autoplay
+      loop
+      preload="auto"
+      playsinline
+      hidden
+    ></audio>
+    <main id="stage">
+      <div id="room-scene" aria-label="407 房間"></div>
+      <section id="inventory" aria-label="物品欄">
+        <div id="item-list">
+          <div id="inventory-back" class="selectable" data-inventory-back="true">返回</div>
+        </div>
+        <div id="detail-panels">
+          <div id="receipt-panel">
+            <div id="receipt-paper" class="selectable" data-receipt-paper="true">
+              <div>便利商店收據</div>
+              <div>小電池</div>
+              <div>充電線</div>
+              <div>行動電源</div>
+              <div id="receipt-code">_ _ _ _</div>
+            </div>
+          </div>
+          <div id="pencil-panel">
+            <div id="pencil-detail">
+              <div id="pencil-object" aria-hidden="true"></div>
+              <h2>短鉛筆</h2>
+              <p>削得很短，筆芯還能留下痕跡。</p>
+            </div>
+          </div>
+          <div id="generic-item-panel">
+            <div id="generic-item-detail">
+              <img id="generic-item-image" alt="" />
+              <h2 id="generic-item-name"></h2>
+              <p id="generic-item-description"></p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="safe-inspect" aria-label="保險箱近景">
+        <div id="safe-inspect-frame">
+          <img
+            id="safe-inspect-image"
+            src="/assets/room407/photos/密碼鎖.png"
+            alt="衣櫃內的老舊保險箱"
+          />
+          <img
+            id="safe-empty-pendant"
+            class="safe-empty-prop"
+            src="/assets/inventory-icons/pendant-user.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <img
+            id="safe-empty-key"
+            class="safe-empty-prop"
+            src="/assets/inventory-icons/key-user.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <button
+            id="safe-inspect-back"
+            class="selectable"
+            type="button"
+            data-safe-back="true"
+            aria-label="返回房間"
+          >←</button>
+          <div
+            id="safe-keypad-hotspot"
+            class="safe-inspect-hotspot selectable"
+            data-safe-keypad="true"
+            aria-label="保險箱密碼面板"
+          ></div>
+          <div
+            id="safe-pendant-hotspot"
+            class="safe-inspect-hotspot selectable"
+            data-safe-item="pendant"
+            aria-label="錄音吊飾"
+            hidden
+          ></div>
+          <div
+            id="safe-key-hotspot"
+            class="safe-inspect-hotspot selectable"
+            data-safe-item="smallKey"
+            aria-label="鑰匙"
+            hidden
+          ></div>
+          <div
+            id="safe-photo-hotspot"
+            class="safe-inspect-hotspot selectable"
+            data-safe-item="photo"
+            aria-label="男女主角的合照"
+            hidden
+          ></div>
+        </div>
+      </section>
+      <section id="photo-inspect" aria-label="合照檢視">
+        <div id="photo-inspect-frame">
+          <button
+            id="photo-inspect-back"
+            class="selectable"
+            type="button"
+            data-photo-back="true"
+            aria-label="返回保險箱"
+          >←</button>
+          <button
+            id="photo-card"
+            class="selectable"
+            type="button"
+            data-photo-card="true"
+            aria-label="翻看照片背面"
+          >
+            <span id="photo-front">
+              <img
+                src="/assets/room407/photos/男女主角照片.png"
+                alt="男女主角的合照"
+              />
+            </span>
+            <span id="photo-rear" aria-label="照片背面的文字">
+              <p>聽見那些聲音……</p>
+              <p>按一下……</p>
+              <p>吊飾……</p>
+            </span>
+          </button>
+        </div>
+      </section>
+      <section id="drawer-puzzle" aria-label="保險箱密碼鎖">
+        <div id="drawer-back" class="selectable" data-drawer-back="true">返回</div>
+        <div id="drawer-lock">
+          <h2>保險箱</h2>
+          <img
+            id="drawer-lock-model"
+            src="/assets/room407/photos/keypad-closeup.png"
+            alt="老舊的保險箱密碼鎖"
+          />
+          <output id="drawer-code-display">_ _ _ _</output>
+          <div id="drawer-keypad">
+            <div class="drawer-key selectable" data-drawer-digit="1">1</div>
+            <div class="drawer-key selectable" data-drawer-digit="2">2</div>
+            <div class="drawer-key selectable" data-drawer-digit="3">3</div>
+            <div class="drawer-key selectable" data-drawer-digit="4">4</div>
+            <div class="drawer-key selectable" data-drawer-digit="5">5</div>
+            <div class="drawer-key selectable" data-drawer-digit="6">6</div>
+            <div class="drawer-key selectable" data-drawer-digit="7">7</div>
+            <div class="drawer-key selectable" data-drawer-digit="8">8</div>
+            <div class="drawer-key selectable" data-drawer-digit="9">9</div>
+            <div class="drawer-key command selectable" data-drawer-reset="true">RESET</div>
+            <div class="drawer-key selectable" data-drawer-digit="0">0</div>
+            <div class="drawer-key command selectable" data-drawer-delete="true">DELETE</div>
+            <div class="drawer-key command selectable" data-drawer-submit="true">ENTER</div>
+          </div>
+        </div>
+      </section>
+      <div id="cursor"></div>
+      <div id="flashlight"></div>
+      <div id="quick-slot">
+        <span>使用中</span>
+        <strong id="quick-slot-label">無</strong>
+      </div>
+      <section id="hud">
+        <div>407 Prototype</div>
+        <div id="status">等待手機連線。</div>
+        <div id="target">目前指向：無</div>
+        <div id="held-item">目前道具：無</div>
+      </section>
+      <button id="audio-enable" type="button" aria-pressed="false">靜音</button>
+      <div id="notice"></div>
+      <section id="overlay">
+        <div id="qr-panel">
+          <h1>掃描手機控制器</h1>
+          <canvas id="qr"></canvas>
+          <p id="join-url"></p>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/prototype/host.ts"></script>
+  </body>
+</html>

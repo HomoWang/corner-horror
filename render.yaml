@@ -3,7 +3,7 @@ services:
     name: corner-horror-relay-homowang
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build:server
+    buildCommand: ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci && npm run build:server
     startCommand: npm start
     healthCheckPath: /health
     envVars:

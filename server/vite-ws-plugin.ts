@@ -9,16 +9,25 @@ import type { RelaySocket } from './ws-relay';
 
 /** 取區網 IPv4；偏好常見私有網段（虛擬網卡常佔 172.x 等其他段） */
 export function getLanIp(): string | null {
-  const candidates: string[] = [];
-  for (const list of Object.values(os.networkInterfaces())) {
+  const candidates: Array<{ address: string; interfaceName: string }> = [];
+  for (const [interfaceName, list] of Object.entries(os.networkInterfaces())) {
     for (const net of list ?? []) {
-      if (net.family === 'IPv4' && !net.internal) candidates.push(net.address);
+      if (net.family === 'IPv4' && !net.internal) {
+        candidates.push({ address: net.address, interfaceName });
+      }
     }
   }
+
+  const preferredWifi = candidates.find(
+    ({ address, interfaceName }) =>
+      /wi-?fi|wlan|wireless/i.test(interfaceName) && address.startsWith('192.168.'),
+  );
+
   return (
-    candidates.find((ip) => ip.startsWith('192.168.')) ??
-    candidates.find((ip) => ip.startsWith('10.')) ??
-    candidates[0] ??
+    preferredWifi?.address ??
+    candidates.find(({ address }) => address.startsWith('192.168.'))?.address ??
+    candidates.find(({ address }) => address.startsWith('10.'))?.address ??
+    candidates[0]?.address ??
     null
   );
 }
