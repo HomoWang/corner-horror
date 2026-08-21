@@ -13,7 +13,7 @@ const calibrateBtn = document.querySelector<HTMLButtonElement>('#calibrate')!;
 
 const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = {
   receipt: { label: '收據', image: publicUrl('assets/inventory-icons/receipt.png') },
-  pencil: { label: '短鉛筆', image: publicUrl('assets/room407/props/pencil-model.png') },
+  pencil: { label: '短鉛筆', image: publicUrl('assets/inventory-icons/pencil-environment.png') },
   tape: { label: '錄音磁帶', image: publicUrl('assets/inventory-icons/tape.png') },
   oldBattery: { label: '舊電池', image: publicUrl('assets/inventory-icons/battery.png') },
   smallKey: { label: '鑰匙', image: publicUrl('assets/inventory-icons/key-user.png') },
