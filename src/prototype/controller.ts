@@ -115,15 +115,15 @@ let detailItem: ProtoItemId | null = null;
 let interfaceWasOpen = false;
 let smoothedPointer = { x: 0, y: 0 };
 const viewPointerResponse = {
-  x: { range: 25, deadZone: 0.9, curve: 1.05 },
-  y: { range: 21, deadZone: 0.85, curve: 1.05 },
+  x: { range: 20, deadZone: 0.35, curve: 1 },
+  y: { range: 18, deadZone: 0.35, curve: 1 },
 };
 const rollPointerResponse = {
-  x: { range: 18, deadZone: 1.1, curve: 1.05 },
+  x: { range: 16, deadZone: 0.45, curve: 1 },
 };
 const interfacePointerResponse = {
-  x: { range: 24, deadZone: 0.7, curve: 1.1 },
-  y: { range: 21, deadZone: 0.65, curve: 1.1 },
+  x: { range: 18, deadZone: 0.3, curve: 1 },
+  y: { range: 17, deadZone: 0.3, curve: 1 },
 };
 let itemPress:
   | {
@@ -489,23 +489,15 @@ function medianAngle(values: number[]): number {
 
 function smoothPointerAxis(current: number, target: number, interfaceMode: boolean): number {
   if (target === 0) {
-    if (interfaceMode) {
-      const step = Math.min(Math.abs(current), 0.018);
-      const stopped = current - Math.sign(current) * step;
-      return Math.abs(stopped) < 0.006 ? 0 : stopped;
-    }
-    const stopped = current * (interfaceMode ? 0.32 : 0.18);
-    return Math.abs(stopped) < 0.012 ? 0 : stopped;
+    const stopped = current * (interfaceMode ? 0.58 : 0.48);
+    return Math.abs(stopped) < 0.003 ? 0 : stopped;
   }
 
   const difference = target - current;
   const distance = Math.abs(difference);
-  if (interfaceMode) {
-    const blend = distance > 0.24 ? 0.18 : 0.12;
-    const step = Math.min(distance * blend, 0.026);
-    return current + Math.sign(difference) * step;
-  }
-  const blend = distance > 0.2 ? 0.68 : 0.24;
+  const blend = interfaceMode
+    ? distance > 0.22 ? 0.42 : 0.3
+    : distance > 0.2 ? 0.5 : 0.34;
   return current + difference * blend;
 }
 
