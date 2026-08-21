@@ -116,7 +116,8 @@ export type ProtoItemId =
   | 'oldBattery'
   | 'smallKey'
   | 'pendant'
-  | 'photo';
+  | 'photo'
+  | 'antenna';
 export type ProtoItemAction = 'use' | 'inspect';
 
 export interface ProtoItemActionMsg {
@@ -214,6 +215,7 @@ const PROTO_ITEM_IDS = new Set<ProtoItemId>([
   'smallKey',
   'pendant',
   'photo',
+  'antenna',
 ]);
 const PROTO_ITEM_ACTIONS = new Set<ProtoItemAction>(['use', 'inspect']);
 

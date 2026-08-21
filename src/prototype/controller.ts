@@ -19,6 +19,7 @@ const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = 
   smallKey: { label: '鑰匙', image: publicUrl('assets/inventory-icons/key-user.png') },
   pendant: { label: '錄音吊飾', image: publicUrl('assets/inventory-icons/pendant-user.png') },
   photo: { label: '合照', image: publicUrl('assets/room407/photos/男女主角照片.png') },
+  antenna: { label: '脫落的天線', image: publicUrl('assets/inventory-icons/antenna.png') },
 };
 
 type HapticPattern = number | number[];
