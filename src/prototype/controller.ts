@@ -14,8 +14,8 @@ const calibrateBtn = document.querySelector<HTMLButtonElement>('#calibrate')!;
 const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = {
   receipt: { label: '收據', image: publicUrl('assets/inventory-icons/receipt.png') },
   pencil: { label: '短鉛筆', image: publicUrl('assets/inventory-icons/pencil-environment.png') },
-  tape: { label: '錄音磁帶', image: publicUrl('assets/inventory-icons/tape.png') },
-  oldBattery: { label: '舊電池', image: publicUrl('assets/inventory-icons/battery.png') },
+  tape: { label: '錄音磁帶', image: publicUrl('assets/inventory-icons/cassette-environment.png') },
+  oldBattery: { label: '舊電池', image: publicUrl('assets/inventory-icons/battery-environment.png') },
   smallKey: { label: '鑰匙', image: publicUrl('assets/inventory-icons/key-user.png') },
   pendant: { label: '錄音吊飾', image: publicUrl('assets/inventory-icons/pendant-user.png') },
   photo: { label: '合照', image: publicUrl('assets/room407/photos/男女主角照片.png') },
@@ -117,9 +117,6 @@ let smoothedPointer = { x: 0, y: 0 };
 const viewPointerResponse = {
   x: { range: 20, deadZone: 0.35, curve: 1 },
   y: { range: 18, deadZone: 0.35, curve: 1 },
-};
-const rollPointerResponse = {
-  x: { range: 16, deadZone: 0.45, curve: 1 },
 };
 const interfacePointerResponse = {
   x: { range: 18, deadZone: 0.3, curve: 1 },
@@ -489,15 +486,15 @@ function medianAngle(values: number[]): number {
 
 function smoothPointerAxis(current: number, target: number, interfaceMode: boolean): number {
   if (target === 0) {
-    const stopped = current * (interfaceMode ? 0.58 : 0.48);
-    return Math.abs(stopped) < 0.003 ? 0 : stopped;
+    const stopped = current * (interfaceMode ? 0.42 : 0.36);
+    return Math.abs(stopped) < 0.002 ? 0 : stopped;
   }
 
   const difference = target - current;
   const distance = Math.abs(difference);
   const blend = interfaceMode
-    ? distance > 0.22 ? 0.42 : 0.3
-    : distance > 0.2 ? 0.5 : 0.34;
+    ? distance > 0.12 ? 0.72 : 0.56
+    : distance > 0.15 ? 0.66 : 0.5;
   return current + difference * blend;
 }
 
@@ -508,13 +505,8 @@ function sendPointerLoop(): void {
   ) {
     const response = interfaceWasOpen ? interfacePointerResponse : viewPointerResponse;
     const yawX = normalizeAxis(angleDelta(orientation.yaw, center.yaw), response.x);
-    const rollX = normalizeAxis(
-      orientation.roll - center.roll,
-      interfaceWasOpen ? response.x : rollPointerResponse.x,
-    );
-    // Blend turning and tilting instead of switching abruptly between them.
-    // Switching sources made the cursor appear to jump between fixed cells.
-    const targetX = clamp(yawX + rollX * 0.7);
+    const rollX = normalizeAxis(orientation.roll - center.roll, response.x);
+    const targetX = Math.abs(yawX) >= Math.abs(rollX) ? yawX : rollX;
     const targetY = normalizeAxis(angleDelta(orientation.pitch, center.pitch), response.y);
     smoothedPointer = {
       x: smoothPointerAxis(smoothedPointer.x, targetX, interfaceWasOpen),
