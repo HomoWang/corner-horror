@@ -115,12 +115,12 @@ let detailItem: ProtoItemId | null = null;
 let interfaceWasOpen = false;
 let smoothedPointer = { x: 0, y: 0 };
 const viewPointerResponse = {
-  x: { range: 20, deadZone: 0.35, curve: 1 },
-  y: { range: 18, deadZone: 0.35, curve: 1 },
+  x: { range: 16, deadZone: 0.22, curve: 1 },
+  y: { range: 16, deadZone: 0.22, curve: 1 },
 };
 const interfacePointerResponse = {
-  x: { range: 18, deadZone: 0.3, curve: 1 },
-  y: { range: 17, deadZone: 0.3, curve: 1 },
+  x: { range: 14, deadZone: 0.18, curve: 1 },
+  y: { range: 14, deadZone: 0.18, curve: 1 },
 };
 let itemPress:
   | {
@@ -504,9 +504,10 @@ function sendPointerLoop(): void {
     orientation.hasData
   ) {
     const response = interfaceWasOpen ? interfacePointerResponse : viewPointerResponse;
-    const yawX = normalizeAxis(angleDelta(orientation.yaw, center.yaw), response.x);
-    const rollX = normalizeAxis(orientation.roll - center.roll, response.x);
-    const targetX = Math.abs(yawX) >= Math.abs(rollX) ? yawX : rollX;
+    // Portrait phones point left/right by rotating around their screen's Y axis.
+    // Compass heading is deliberately excluded: iOS magnetometer corrections made
+    // the cursor pause or jump even while the phone itself moved continuously.
+    const targetX = normalizeAxis(orientation.roll - center.roll, response.x);
     const targetY = normalizeAxis(angleDelta(orientation.pitch, center.pitch), response.y);
     smoothedPointer = {
       x: smoothPointerAxis(smoothedPointer.x, targetX, interfaceWasOpen),
