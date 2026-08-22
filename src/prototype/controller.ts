@@ -708,7 +708,7 @@ function endJoystick(event: PointerEvent): void {
   resetJoystick();
   if (
     event.type === 'pointerup' &&
-    didMove &&
+    (didMove || dragDistance >= navigationThreshold) &&
     startedInCenter &&
     dragDistance >= navigationThreshold
   ) {
