@@ -645,13 +645,21 @@ joystickEl.addEventListener('pointerdown', (event) => {
 joystickEl.addEventListener('pointermove', (event) => {
   if (event.pointerId !== joystickPointerId) return;
   event.preventDefault();
-  // Detailed interfaces use phone orientation exclusively. Finger movement on
-  // the control surface must never move the cursor or trigger a tap action.
   if (interfaceWasOpen) {
-    if (
-      Math.hypot(event.clientX - joystickStart.x, event.clientY - joystickStart.y) > 14
-    ) {
+    if (!joystickStartedInCenter) return;
+    const dragDistance = Math.hypot(
+      event.clientX - joystickStart.x,
+      event.clientY - joystickStart.y,
+    );
+    const dragThreshold = Math.max(42, joystickEl.getBoundingClientRect().width * 0.19);
+    if (!joystickMovementStarted && dragDistance <= dragThreshold) return;
+    if (!joystickMovementStarted) {
+      joystickMovementStarted = true;
       joystickTapCandidate = false;
+      if (joystickInteractHeld) {
+        joystickInteractHeld = false;
+        send({ type: 'proto-use', pressed: false });
+      }
     }
     return;
   }
@@ -702,18 +710,24 @@ function endJoystick(event: PointerEvent): void {
     event.type === 'pointerup' &&
     didMove &&
     startedInCenter &&
-    !interfaceWasOpen &&
     dragDistance >= navigationThreshold
   ) {
-    const direction = Math.abs(dragX) > Math.abs(dragY)
-      ? dragX < 0
-        ? 'left'
-        : 'right'
-      : dragY < 0
-        ? 'forward'
-        : 'back';
-    send({ type: 'proto-navigate', direction });
-    triggerHaptic(28, false);
+    if (interfaceWasOpen) {
+      if (dragY > 0 && Math.abs(dragY) > Math.abs(dragX)) {
+        send({ type: 'proto-navigate', direction: 'back' });
+        triggerHaptic(28, false);
+      }
+    } else {
+      const direction = Math.abs(dragX) > Math.abs(dragY)
+        ? dragX < 0
+          ? 'left'
+          : 'right'
+        : dragY < 0
+          ? 'forward'
+          : 'back';
+      send({ type: 'proto-navigate', direction });
+      triggerHaptic(28, false);
+    }
   }
   if (shouldInteract) {
     triggerHaptic(25, false);
