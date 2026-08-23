@@ -115,8 +115,8 @@ let detailItem: ProtoItemId | null = null;
 let interfaceWasOpen = false;
 let smoothedPointer = { x: 0, y: 0 };
 const viewPointerResponse = {
-  x: { range: 16, deadZone: 0.22, curve: 1 },
-  y: { range: 16, deadZone: 0.22, curve: 1 },
+  x: { range: 24, deadZone: 0.1, curve: 1.08 },
+  y: { range: 24, deadZone: 0.1, curve: 1.08 },
 };
 const interfacePointerResponse = viewPointerResponse;
 let itemPress:
@@ -475,15 +475,15 @@ function medianAngle(values: number[]): number {
 
 function smoothPointerAxis(current: number, target: number, interfaceMode: boolean): number {
   if (target === 0) {
-    const stopped = current * (interfaceMode ? 0.42 : 0.36);
-    return Math.abs(stopped) < 0.002 ? 0 : stopped;
+    const stopped = current * (interfaceMode ? 0.78 : 0.74);
+    return Math.abs(stopped) < 0.001 ? 0 : stopped;
   }
 
   const difference = target - current;
   const distance = Math.abs(difference);
   const blend = interfaceMode
-    ? distance > 0.12 ? 0.72 : 0.56
-    : distance > 0.15 ? 0.66 : 0.5;
+    ? distance > 0.12 ? 0.24 : 0.14
+    : distance > 0.15 ? 0.28 : 0.16;
   return current + difference * blend;
 }
 
