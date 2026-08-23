@@ -18,7 +18,7 @@ const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = 
   oldBattery: { label: '舊電池', image: publicUrl('assets/inventory-icons/battery-environment.png') },
   smallKey: { label: '鑰匙', image: publicUrl('assets/inventory-icons/key-user.png') },
   pendant: { label: '錄音吊飾', image: publicUrl('assets/inventory-icons/pendant-user.png') },
-  photo: { label: '合照', image: publicUrl('assets/room407/photos/男女主角照片.png') },
+  photo: { label: '合照', image: publicUrl('assets/room307/photos/男女主角照片.png') },
   antenna: { label: '脫落的天線', image: publicUrl('assets/inventory-icons/antenna.png') },
 };
 
@@ -118,10 +118,7 @@ const viewPointerResponse = {
   x: { range: 16, deadZone: 0.22, curve: 1 },
   y: { range: 16, deadZone: 0.22, curve: 1 },
 };
-const interfacePointerResponse = {
-  x: { range: 14, deadZone: 0.18, curve: 1 },
-  y: { range: 14, deadZone: 0.18, curve: 1 },
-};
+const interfacePointerResponse = viewPointerResponse;
 let itemPress:
   | {
       item: ProtoItemId;
@@ -297,14 +294,6 @@ function connect(): void {
       if (isPuzzleErrorPattern(msg.pattern)) playPuzzleErrorFeedback();
     }
     if (msg.type === 'proto-controller-state') {
-      if (interfaceWasOpen !== msg.inventoryOpen && orientation.hasData) {
-        center = {
-          pitch: orientation.pitch,
-          yaw: orientation.yaw,
-          roll: orientation.roll,
-        };
-        smoothedPointer = { x: 0, y: 0 };
-      }
       interfaceWasOpen = msg.inventoryOpen;
       controllerSlots = [...msg.slots];
       selectedItem = msg.selectedItem ?? null;
