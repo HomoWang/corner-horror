@@ -12,7 +12,10 @@ const stickEl = document.querySelector<HTMLDivElement>('#stick')!;
 const calibrateBtn = document.querySelector<HTMLButtonElement>('#calibrate')!;
 
 const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = {
-  receipt: { label: '收據', image: publicUrl('assets/inventory-icons/receipt.png') },
+  receipt: {
+    label: '便條紙',
+    image: publicUrl('assets/room307/props/number-guess-note-v1.png'),
+  },
   pencil: { label: '短鉛筆', image: publicUrl('assets/inventory-icons/pencil-environment.png') },
   tape: { label: '錄音磁帶', image: publicUrl('assets/inventory-icons/cassette-environment.png') },
   oldBattery: { label: '舊電池', image: publicUrl('assets/inventory-icons/battery-environment.png') },
