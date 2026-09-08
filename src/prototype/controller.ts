@@ -277,10 +277,19 @@ function connect(): void {
   }
   const socket = new WebSocket(endpoint);
   ws = socket;
+  setStatus('正在連接 307，請留在此頁，不用重新掃描。');
+  const connectTimeout = window.setTimeout(() => {
+    if (socket.readyState === WebSocket.CONNECTING) socket.close();
+  }, 12000);
 
   socket.addEventListener('open', () => {
+    window.clearTimeout(connectTimeout);
     socket.send(JSON.stringify({ type: 'hello', role: 'controller' }));
     setStatus('已連線，請點同步。');
+  });
+
+  socket.addEventListener('error', () => {
+    window.clearTimeout(connectTimeout);
   });
 
   socket.addEventListener('message', (event) => {
@@ -307,14 +316,15 @@ function connect(): void {
   });
 
   socket.addEventListener('close', () => {
+    window.clearTimeout(connectTimeout);
     if (ws === socket) ws = null;
     if (!reconnectEnabled) return;
     if (reconnectTimer) return;
-    setStatus('連線中斷，正在重連。');
+    setStatus('連線服務啟動中，請留在此頁，不用重新掃描。');
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
       connect();
-    }, 1000);
+    }, 1500);
   });
 }
 
