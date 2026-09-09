@@ -19,10 +19,18 @@ const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = 
   pencil: { label: '短鉛筆', image: publicUrl('assets/inventory-icons/pencil-environment.png') },
   tape: { label: '錄音磁帶', image: publicUrl('assets/inventory-icons/cassette-environment.png') },
   oldBattery: { label: '舊電池', image: publicUrl('assets/inventory-icons/battery-environment.png') },
-  smallKey: { label: '書桌抽屜鑰匙', image: publicUrl('assets/inventory-icons/key-user.png') },
+  smallKey: { label: '鑰匙', image: publicUrl('assets/inventory-icons/key-user.png') },
   pendant: { label: '錄音吊飾', image: publicUrl('assets/inventory-icons/pendant-user.png') },
   photo: { label: '合照', image: publicUrl('assets/room307/photos/男女主角照片.png') },
   antenna: { label: '脫落的天線', image: publicUrl('assets/inventory-icons/antenna.png') },
+  boxCutter: {
+    label: '美工刀',
+    image: publicUrl('assets/inventory-icons/utility-knife-v1.png'),
+  },
+  firefighterGear: {
+    label: '消防員裝備',
+    image: publicUrl('assets/room307/photos/cardboard-box-closeup-open-gear-v1.png'),
+  },
 };
 
 type HapticPattern = number | number[];

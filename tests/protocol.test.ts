@@ -154,10 +154,15 @@ describe('parseMessage', () => {
     ).toEqual({ type: 'proto-item-action', item: 'tape', action: 'inspect' });
     expect(
       parseMessage(
+        JSON.stringify({ type: 'proto-item-action', item: 'boxCutter', action: 'use' }),
+      ),
+    ).toEqual({ type: 'proto-item-action', item: 'boxCutter', action: 'use' });
+    expect(
+      parseMessage(
         JSON.stringify({
           type: 'proto-controller-state',
           inventoryOpen: true,
-          slots: ['receipt', 'pencil', null, null, null, null],
+          slots: ['receipt', 'pencil', 'boxCutter', null, null, null],
           selectedItem: 'pencil',
           detailItem: 'receipt',
         }),
@@ -165,7 +170,7 @@ describe('parseMessage', () => {
     ).toEqual({
       type: 'proto-controller-state',
       inventoryOpen: true,
-      slots: ['receipt', 'pencil', null, null, null, null],
+      slots: ['receipt', 'pencil', 'boxCutter', null, null, null],
       selectedItem: 'pencil',
       detailItem: 'receipt',
     });

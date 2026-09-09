@@ -18,6 +18,9 @@ const itemLabels: Record<ItemId, string> = {
   smallKey: '鑰匙',
   pendant: '錄音吊飾',
   photo: '男女主角的合照',
+  antenna: '脫落的天線',
+  boxCutter: '美工刀',
+  firefighterGear: '消防員裝備',
 };
 
 const itemDetails: Record<ItemId, { image: string; description: string }> = {
@@ -48,6 +51,18 @@ const itemDetails: Record<ItemId, { image: string; description: string }> = {
   photo: {
     image: publicUrl('assets/room407/photos/男女主角照片.png'),
     description: '照片背面寫著：聽見那些聲音……按一下……吊飾……',
+  },
+  antenna: {
+    image: publicUrl('assets/inventory-icons/antenna.png'),
+    description: '從收錄音機上脫落的伸縮天線。',
+  },
+  boxCutter: {
+    image: publicUrl('assets/inventory-icons/utility-knife-v1.png'),
+    description: '一把可以割開封箱膠帶的舊美工刀。',
+  },
+  firefighterGear: {
+    image: publicUrl('assets/room307/photos/cardboard-box-closeup-open-gear-v1.png'),
+    description: '一套摺好的消防衣褲和頭盔。',
   },
 };
 
