@@ -61,7 +61,7 @@ const itemDetails: Record<ItemId, { image: string; description: string }> = {
     description: '一把可以割開封箱膠帶的舊美工刀。',
   },
   firefighterGear: {
-    image: publicUrl('assets/room307/photos/cardboard-box-closeup-open-gear-v1.png'),
+    image: publicUrl('assets/inventory-icons/firefighter-gear-v1.png'),
     description: '一套摺好的消防衣褲和頭盔。',
   },
 };

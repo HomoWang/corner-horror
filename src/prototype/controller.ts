@@ -29,7 +29,7 @@ const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = 
   },
   firefighterGear: {
     label: '消防員裝備',
-    image: publicUrl('assets/room307/photos/cardboard-box-closeup-open-gear-v1.png'),
+    image: publicUrl('assets/inventory-icons/firefighter-gear-v1.png'),
   },
 };
 
@@ -118,14 +118,6 @@ let joystickStartedInCenter = false;
 let joystickMovementStarted = false;
 let joystickInteractHeld = false;
 let joystickStart = { x: 0, y: 0, time: 0 };
-let boxCutterDrag:
-  | {
-      pointerX: number;
-      pointerY: number;
-      clientX: number;
-      clientY: number;
-    }
-  | null = null;
 let calibrationSamples: Array<{ pitch: number; yaw: number; roll: number }> = [];
 let calibrating = false;
 let controllerSlots: Array<ProtoItemId | null> = Array.from({ length: 6 }, () => null);
@@ -519,8 +511,7 @@ function smoothPointerAxis(current: number, target: number, interfaceMode: boole
 function sendPointerLoop(): void {
   if (
     document.body.classList.contains('started') &&
-    orientation.hasData &&
-    boxCutterDrag === null
+    orientation.hasData
   ) {
     const response = interfaceWasOpen ? interfacePointerResponse : viewPointerResponse;
     // Portrait phones point left/right by rotating around their screen's Y axis.
@@ -653,15 +644,6 @@ joystickEl.addEventListener('pointerdown', (event) => {
     Math.hypot(event.clientX - centerX, event.clientY - centerY) <= rect.width * 0.19;
   joystickTapCandidate = joystickStartedInCenter;
   joystickInteractHeld = joystickTapCandidate;
-  boxCutterDrag =
-    interfaceWasOpen && selectedItem === 'boxCutter' && joystickStartedInCenter
-      ? {
-          pointerX: smoothedPointer.x,
-          pointerY: smoothedPointer.y,
-          clientX: event.clientX,
-          clientY: event.clientY,
-        }
-      : null;
   if (joystickInteractHeld) send({ type: 'proto-use', pressed: true });
   joystickMovementStarted = false;
   joystickStart = { x: event.clientX, y: event.clientY, time: performance.now() };
@@ -673,22 +655,6 @@ joystickEl.addEventListener('pointerdown', (event) => {
 joystickEl.addEventListener('pointermove', (event) => {
   if (event.pointerId !== joystickPointerId) return;
   event.preventDefault();
-  if (boxCutterDrag) {
-    const rect = joystickEl.getBoundingClientRect();
-    const pointerTravel = Math.max(96, rect.width * 0.55);
-    const dragX = event.clientX - boxCutterDrag.clientX;
-    const dragY = event.clientY - boxCutterDrag.clientY;
-    smoothedPointer = {
-      x: clamp(boxCutterDrag.pointerX + dragX / pointerTravel),
-      y: clamp(boxCutterDrag.pointerY - dragY / pointerTravel),
-    };
-    send({ type: 'proto-pointer', ...smoothedPointer, t: Date.now() });
-    if (Math.hypot(dragX, dragY) > 8) {
-      joystickMovementStarted = true;
-      joystickTapCandidate = false;
-    }
-    return;
-  }
   if (interfaceWasOpen) {
     if (!joystickStartedInCenter) return;
     const dragDistance = Math.hypot(
@@ -739,10 +705,8 @@ function endJoystick(event: PointerEvent): void {
     event.type === 'pointerup' &&
     joystickTapCandidate &&
     performance.now() - joystickStart.time <= 350;
-  const wasBoxCutterDrag = boxCutterDrag !== null;
   if (joystickInteractHeld) send({ type: 'proto-use', pressed: false });
   joystickInteractHeld = false;
-  boxCutterDrag = null;
   joystickPointerId = null;
   joystickTapCandidate = false;
   const startedInCenter = joystickStartedInCenter;
@@ -752,7 +716,6 @@ function endJoystick(event: PointerEvent): void {
     joystickEl.releasePointerCapture(event.pointerId);
   }
   resetJoystick();
-  if (wasBoxCutterDrag) return;
   if (
     event.type === 'pointerup' &&
     (didMove || dragDistance >= navigationThreshold) &&
