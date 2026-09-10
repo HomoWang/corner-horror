@@ -159,6 +159,24 @@ describe('parseMessage', () => {
     ).toEqual({ type: 'proto-item-action', item: 'boxCutter', action: 'use' });
     expect(
       parseMessage(
+        JSON.stringify({ type: 'proto-item-action', item: 'firefighterMask', action: 'use' }),
+      ),
+    ).toEqual({ type: 'proto-item-action', item: 'firefighterMask', action: 'use' });
+    expect(
+      parseMessage(
+        JSON.stringify({
+          type: 'proto-item-action',
+          item: 'completeFirefighterGear',
+          action: 'inspect',
+        }),
+      ),
+    ).toEqual({
+      type: 'proto-item-action',
+      item: 'completeFirefighterGear',
+      action: 'inspect',
+    });
+    expect(
+      parseMessage(
         JSON.stringify({
           type: 'proto-controller-state',
           inventoryOpen: true,

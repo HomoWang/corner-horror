@@ -28,8 +28,16 @@ const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = 
     image: publicUrl('assets/inventory-icons/utility-knife-v1.png'),
   },
   firefighterGear: {
-    label: '消防員裝備',
+    label: '消防衣與頭盔',
     image: publicUrl('assets/inventory-icons/firefighter-gear-v1.png'),
+  },
+  firefighterMask: {
+    label: '消防面罩',
+    image: publicUrl('assets/inventory-icons/firefighter-mask-v1.png'),
+  },
+  completeFirefighterGear: {
+    label: '完整消防裝備',
+    image: publicUrl('assets/inventory-icons/firefighter-gear-complete-v1.png'),
   },
 };
 

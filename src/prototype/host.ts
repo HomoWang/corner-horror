@@ -20,7 +20,9 @@ const itemLabels: Record<ItemId, string> = {
   photo: '男女主角的合照',
   antenna: '脫落的天線',
   boxCutter: '美工刀',
-  firefighterGear: '消防員裝備',
+  firefighterGear: '消防衣與頭盔',
+  firefighterMask: '消防面罩',
+  completeFirefighterGear: '完整消防裝備',
 };
 
 const itemDetails: Record<ItemId, { image: string; description: string }> = {
@@ -63,6 +65,14 @@ const itemDetails: Record<ItemId, { image: string; description: string }> = {
   firefighterGear: {
     image: publicUrl('assets/inventory-icons/firefighter-gear-v1.png'),
     description: '一套摺好的消防衣褲和頭盔。',
+  },
+  firefighterMask: {
+    image: publicUrl('assets/inventory-icons/firefighter-mask-v1.png'),
+    description: '一副舊消防面罩，透明視窗覆著刮痕與煙灰。',
+  },
+  completeFirefighterGear: {
+    image: publicUrl('assets/inventory-icons/firefighter-gear-complete-v1.png'),
+    description: '消防衣褲、頭盔與面罩已整理成一套完整的消防裝備。',
   },
 };
 

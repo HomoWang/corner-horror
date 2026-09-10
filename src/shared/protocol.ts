@@ -119,7 +119,9 @@ export type ProtoItemId =
   | 'photo'
   | 'antenna'
   | 'boxCutter'
-  | 'firefighterGear';
+  | 'firefighterGear'
+  | 'firefighterMask'
+  | 'completeFirefighterGear';
 export type ProtoItemAction = 'use' | 'inspect';
 
 export interface ProtoItemActionMsg {
@@ -220,6 +222,8 @@ const PROTO_ITEM_IDS = new Set<ProtoItemId>([
   'antenna',
   'boxCutter',
   'firefighterGear',
+  'firefighterMask',
+  'completeFirefighterGear',
 ]);
 const PROTO_ITEM_ACTIONS = new Set<ProtoItemAction>(['use', 'inspect']);
 
