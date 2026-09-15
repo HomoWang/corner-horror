@@ -3,8 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>407 Prototype</title>
+    <title>307：開端</title>
     <style>
+      @font-face {
+        font-family: "Room307 Cute Handwriting";
+        src: url("/assets/fonts/LXGWWenKaiTC-Regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Room307 Note Handwriting";
+        src: url("/assets/fonts/JasonHandwriting2.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
       :root {
         color-scheme: dark;
         --aim-x: 50vw;
@@ -97,27 +111,322 @@
         pointer-events: none;
       }
 
-      #room-scene.changing-view #room-background,
-      #room-scene.changing-view #room-state-layer {
+      .wardrobe-state-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        clip-path: inset(15% 49% 33% 27%);
+      }
+
+      #room-scene.changing-view #room-background {
         opacity: 0.78;
         filter: brightness(0.82) contrast(1.02) saturate(0.86);
+      }
+
+      body.tape-playing #room-background,
+      body.tape-playing #room-state-layer {
+        animation: tape-room-flicker 1.7s steps(2, end) infinite;
+      }
+
+      body.tape-distorted #room-background,
+      body.tape-distorted #room-state-layer {
+        animation: tape-room-distortion 0.18s steps(2, end) infinite;
+      }
+
+      @keyframes tape-room-flicker {
+        0%, 76%, 100% { filter: brightness(1.02) contrast(1.05) saturate(0.82); }
+        78% { filter: brightness(0.72) contrast(1.18) saturate(0.62); }
+        82% { filter: brightness(0.94) contrast(1.08) saturate(0.76); }
+      }
+
+      @keyframes tape-room-distortion {
+        0% { transform: translate(var(--scene-x), var(--scene-y)) scale(var(--scene-scale)); }
+        50% { transform: translate(calc(var(--scene-x) - 0.35%), var(--scene-y)) scale(var(--scene-scale)); }
       }
 
       .room-prop {
         position: absolute;
         height: auto;
         object-fit: contain;
+        opacity: 0.94;
         transform: translate(-50%, -50%);
-        filter: brightness(0.72) contrast(1.12) saturate(0.7);
-      }
-
-      .pencil-prop {
-        transform: translate(-50%, -50%);
-        filter: brightness(0.58) contrast(1.12) saturate(0.72);
+        filter: brightness(0.54) contrast(0.98) saturate(0.46) sepia(0.08)
+          drop-shadow(0 0.15rem 0.14rem rgba(0, 0, 0, 0.72));
       }
 
       .receipt-prop {
-        filter: none;
+        opacity: 0.94;
+        filter: brightness(0.82) contrast(1.02) saturate(0.52) sepia(0.16)
+          drop-shadow(0 0.12rem 0.1rem rgba(0, 0, 0, 0.76));
+      }
+
+      .firefighter-mask-prop {
+        z-index: 1;
+        opacity: 0.84;
+        filter: brightness(0.57) contrast(0.94) saturate(0.32) sepia(0.08)
+          blur(0.18px) drop-shadow(0.11rem 0.2rem 0.13rem rgba(0, 0, 0, 0.78));
+        transform: rotate(1.5deg);
+        transform-origin: 52% 4%;
+      }
+
+      .firefighter-mask-hook {
+        position: absolute;
+        z-index: 0;
+        left: 59.48%;
+        top: 30.72%;
+        width: 0.42%;
+        aspect-ratio: 1 / 1.7;
+        border: 0.06rem solid rgba(37, 31, 26, 0.88);
+        border-radius: 50% 50% 38% 38%;
+        background: linear-gradient(90deg, #211c18, #66584b 47%, #17130f);
+        box-shadow: 0.08rem 0.12rem 0.12rem rgba(0, 0, 0, 0.84);
+        transform: translate(-50%, -50%);
+      }
+
+      .story-wall-photo {
+        position: absolute;
+        z-index: 1;
+        margin: 0;
+        padding: 0.42%;
+        overflow: hidden;
+        background: linear-gradient(135deg, #3a291f, #17100c 72%);
+        border: 0.18rem solid #130d0a;
+        box-shadow:
+          inset 0 0 0 0.12rem rgba(129, 91, 60, 0.34),
+          0 0.5rem 0.55rem rgba(0, 0, 0, 0.82),
+          0 0 0.25rem rgba(0, 0, 0, 0.9);
+        transform: translate(-50%, -50%);
+      }
+
+      .story-wall-photo::after {
+        content: '';
+        position: absolute;
+        inset: 0.42%;
+        pointer-events: none;
+        box-shadow: inset 0 0 0.6rem rgba(12, 8, 6, 0.54);
+      }
+
+      .story-wall-photo img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        filter: brightness(0.72) contrast(1.04) saturate(0.78) sepia(0.05);
+      }
+
+      .story-wall-photo.family-photo {
+        left: 38%;
+        top: 31.5%;
+        width: 3.5%;
+        aspect-ratio: 1.24;
+        transform: translate(-50%, -50%);
+      }
+
+      .story-wall-photo.firefighter-photo {
+        left: 51%;
+        top: 31.5%;
+        width: 3.2%;
+        aspect-ratio: 1.04;
+        transform: translate(-50%, -50%);
+      }
+
+      .story-wall-photo.girlfriend-photo {
+        left: 48%;
+        top: 44%;
+        width: 3.5%;
+        aspect-ratio: 1.24;
+        transform: translate(-50%, -50%);
+      }
+
+      .story-wall-photo.couple-photo {
+        left: 57.5%;
+        top: 31.5%;
+        width: 3.5%;
+        aspect-ratio: 1.24;
+        transform: translate(-50%, -50%);
+      }
+
+      .story-wall-photo.couple-photo.empty {
+        background:
+          linear-gradient(142deg, rgba(70, 49, 37, 0.16), transparent 42%),
+          #090706;
+      }
+
+      .story-wall-photo.couple-photo.empty::before {
+        content: '';
+        position: absolute;
+        inset: 9%;
+        border: 1px solid rgba(91, 67, 51, 0.28);
+        background: rgba(4, 3, 3, 0.72);
+        box-shadow: inset 0 0 0.75rem rgba(0, 0, 0, 0.9);
+      }
+
+      .story-wall-award {
+        position: absolute;
+        z-index: 1;
+        width: 2.8%;
+        aspect-ratio: 1086 / 1448;
+        overflow: hidden;
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+        transform: translate(-50%, -50%);
+        filter: brightness(0.58) contrast(1.04) saturate(0.6) sepia(0.05)
+          drop-shadow(0 0.26rem 0.22rem rgba(0, 0, 0, 0.86));
+        user-select: none;
+      }
+
+      .story-wall-award.award-one {
+        left: 44.5%;
+        top: 31.5%;
+        background-position: left center;
+        transform: translate(-50%, -50%);
+      }
+
+      .story-wall-award.award-two {
+        left: 41.5%;
+        top: 44%;
+        background-position: center center;
+        transform: translate(-50%, -50%);
+      }
+
+      .story-wall-award.award-three {
+        left: 54.5%;
+        top: 44%;
+        background-position: right center;
+        transform: translate(-50%, -50%);
+      }
+
+      .story-wall-medals {
+        position: absolute;
+        z-index: 1;
+        left: 64.5%;
+        top: 38%;
+        width: 3.6%;
+        height: auto;
+        transform: translate(-50%, -50%);
+        filter: brightness(0.46) contrast(1.08) saturate(0.54) sepia(0.06)
+          drop-shadow(0 0.24rem 0.2rem rgba(0, 0, 0, 0.88));
+        user-select: none;
+      }
+
+      body.photo-memory-playing::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: 31;
+        pointer-events: none;
+        background: #d7c4aa;
+        mix-blend-mode: screen;
+        animation: photo-memory-flash 9.2s steps(1, end) both;
+      }
+
+      body.photo-memory-playing #room-background,
+      body.photo-memory-playing #room-state-layer {
+        animation: photo-memory-room 9.2s cubic-bezier(0.2, 0.72, 0.2, 1) both;
+      }
+
+      body.photo-memory-playing .story-wall-photo.couple-photo {
+        animation: photo-memory-frame 9.2s cubic-bezier(0.2, 0.72, 0.2, 1) both;
+      }
+
+      @keyframes photo-memory-flash {
+        0%, 8%, 15%, 23%, 31%, 100% { opacity: 0; }
+        9% { opacity: 0.24; }
+        16% { opacity: 0.1; }
+        24% { opacity: 0.32; }
+        32% { opacity: 0.07; }
+      }
+
+      @keyframes photo-memory-room {
+        0% {
+          transform: translate(var(--scene-x), var(--scene-y)) scale(var(--scene-scale));
+          filter: brightness(1) contrast(1) saturate(1);
+        }
+        24% {
+          transform: translate(var(--scene-x), var(--scene-y)) scale(calc(var(--scene-scale) + 0.05));
+          filter: brightness(0.58) contrast(1.26) saturate(0.58);
+        }
+        58% {
+          transform: translate(var(--scene-x), var(--scene-y)) scale(calc(var(--scene-scale) + 0.025));
+          filter: brightness(0.82) contrast(1.12) saturate(0.72);
+        }
+        100% {
+          transform: translate(var(--scene-x), var(--scene-y)) scale(var(--scene-scale));
+          filter: brightness(1) contrast(1) saturate(1);
+        }
+      }
+
+      @keyframes photo-memory-frame {
+        0% { filter: brightness(0.7) saturate(0.72); }
+        18% { filter: brightness(1.65) contrast(1.18) saturate(0.32); }
+        30% { filter: brightness(0.48) contrast(1.35) saturate(0.2); }
+        48% { filter: brightness(1.2) contrast(1.08) saturate(0.62); }
+        100% { filter: brightness(0.78) contrast(1.04) saturate(0.78); }
+      }
+
+      .antenna-prop {
+        opacity: 0.9;
+        mix-blend-mode: multiply;
+        filter: brightness(0.55) contrast(1.02) saturate(0.28) sepia(0.08)
+          drop-shadow(0 0.16rem 0.12rem rgba(0, 0, 0, 0.78));
+        transform: translate(-50%, -50%) rotate(7deg);
+      }
+
+      body.bed-scare::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        pointer-events: none;
+        background: #000;
+        animation: bed-scare-blackout 1.25s steps(2, end) both;
+      }
+
+      @keyframes bed-scare-blackout {
+        0%, 18% { opacity: 0; }
+        20%, 72% { opacity: 0.96; }
+        74%, 100% { opacity: 0; }
+      }
+
+      body.chapter-ending #room-scene,
+      body.chapter-ending #flashlight,
+      body.chapter-ending #cursor,
+      body.chapter-ending #hud,
+      body.chapter-ending #quick-slot {
+        opacity: 0;
+        transition: opacity 900ms ease;
+      }
+
+      #chapter-complete {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: grid;
+        place-content: center;
+        gap: 0.55rem;
+        color: #d8d4cf;
+        background: #030303;
+        text-align: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 800ms ease;
+      }
+
+      #chapter-complete.show {
+        opacity: 1;
+      }
+
+      #chapter-complete strong {
+        font-size: clamp(1.4rem, 3vw, 2.2rem);
+        font-weight: 500;
+      }
+
+      #chapter-complete span {
+        color: #77726e;
+        font-size: 0.9rem;
       }
 
       #room {
@@ -285,7 +594,7 @@
           0 0 1.25rem rgba(255, 226, 181, 0.72);
         pointer-events: none;
         will-change: left, top;
-        transition: left 55ms linear, top 55ms linear;
+        transition: none;
       }
 
       #cursor::before,
@@ -402,6 +711,8 @@
       #qr {
         padding: 0.5rem;
         background: #fff;
+        width: min(300px, 72vw);
+        height: auto;
       }
 
       #join-url {
@@ -430,6 +741,10 @@
       #inventory.open ~ #cursor,
       #safe-inspect.open ~ #cursor,
       #photo-inspect.open ~ #cursor,
+      #desk-drawer-inspect.open ~ #cursor,
+      #cardboard-box-inspect.open ~ #cursor,
+      #bed-inspect.open ~ #cursor,
+      #radio-inspect.open ~ #cursor,
       #drawer-puzzle.open ~ #cursor {
         z-index: 45;
         border-color: #fff2d8;
@@ -442,6 +757,10 @@
       #inventory.open ~ #flashlight,
       #safe-inspect.open ~ #flashlight,
       #photo-inspect.open ~ #flashlight,
+      #desk-drawer-inspect.open ~ #flashlight,
+      #cardboard-box-inspect.open ~ #flashlight,
+      #bed-inspect.open ~ #flashlight,
+      #radio-inspect.open ~ #flashlight,
       #drawer-puzzle.open ~ #flashlight {
         opacity: 0;
       }
@@ -480,63 +799,15 @@
         display: grid;
       }
 
-      #receipt-paper {
-        width: min(24rem, 40vw);
-        aspect-ratio: 0.68;
-        padding: 2rem 1.4rem;
-        background:
-          radial-gradient(circle at 52% 32%, rgba(0, 0, 0, 0.12), transparent 28%),
-          #b9af98;
-        color: #3c2f29;
-        font: 1.1rem/1.8 "Noto Sans TC", system-ui, sans-serif;
-        box-shadow: 0 1rem 3rem #000, inset 0 0 2rem rgba(45, 28, 18, 0.34);
-      }
-
-      #receipt-panel.rubbing #receipt-paper {
-        background:
-          repeating-linear-gradient(104deg, transparent 0 0.8rem, rgba(43, 34, 29, 0.05) 0.85rem 0.92rem),
-          radial-gradient(circle at 52% 32%, rgba(0, 0, 0, 0.12), transparent 28%),
-          #b9af98;
-      }
-
-      #pencil-panel {
-        display: none;
-        place-items: center;
-        color: #b9a39a;
-        text-align: center;
-      }
-
-      #pencil-panel.open {
-        display: grid;
-      }
-
-      #pencil-detail {
-        display: grid;
-        width: min(32rem, 76vw);
-        justify-items: center;
-        gap: 1.3rem;
-      }
-
-      #pencil-object {
-        width: min(30rem, 72vw);
-        aspect-ratio: 2.5;
-        background: center / contain no-repeat url('/assets/room407/props/pencil-model.png');
-        filter: brightness(0.82) contrast(1.08) saturate(0.78)
-          drop-shadow(0 1rem 1.4rem rgba(0, 0, 0, 0.72));
-      }
-
-      #pencil-detail h2,
-      #pencil-detail p {
-        margin: 0;
-      }
-
-      #pencil-detail h2 {
-        font-size: 1.25rem;
-      }
-
-      #pencil-detail p {
-        color: #74655f;
-        font-size: 0.9rem;
+      #receipt-note-image {
+        display: block;
+        width: min(34rem, 78vw);
+        max-height: 78vh;
+        object-fit: contain;
+        filter: brightness(0.92) contrast(1.04) saturate(0.76)
+          drop-shadow(0 1rem 2.6rem rgba(0, 0, 0, 0.92));
+        user-select: none;
+        pointer-events: none;
       }
 
       #generic-item-panel {
@@ -566,8 +837,9 @@
         background:
           radial-gradient(circle at 50% 48%, rgba(141, 123, 111, 0.13), transparent 58%),
           rgba(5, 5, 5, 0.28);
-        border: 1px solid rgba(132, 93, 76, 0.22);
-        border-radius: 6px;
+        border: 0;
+        border-radius: 0;
+        outline: none;
       }
 
       #generic-item-name,
@@ -616,36 +888,58 @@
         pointer-events: none;
       }
 
-      .safe-empty-prop {
+      .safe-item-layer {
         position: absolute;
         z-index: 1;
         display: none;
+        height: auto;
         object-fit: contain;
+        transform-origin: 50% 80%;
         user-select: none;
         pointer-events: none;
       }
 
-      #safe-inspect.photo-collected.has-pendant #safe-empty-pendant,
-      #safe-inspect.photo-collected.has-key #safe-empty-key {
+      #safe-inspect.unlocked.has-pendant #safe-pendant-layer,
+      #safe-inspect.unlocked.has-key #safe-key-layer,
+      #safe-inspect.unlocked.has-photo #safe-photo-layer {
         display: block;
       }
 
-      #safe-empty-pendant {
-        left: 34.1%;
-        top: 67.1%;
-        width: 11.2%;
-        height: 11.2%;
-        transform: rotate(-17deg);
-        filter: brightness(0.72) contrast(1.08);
+      #safe-photo-layer {
+        z-index: 1;
+        left: 41%;
+        top: 58%;
+        width: 20%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        clip-path: inset(2.4% 2.4% 2.8% 2.4% round 0.1rem);
+        transform-origin: 50% 90%;
+        transform: perspective(34rem) rotateX(55deg) rotateZ(-1.5deg);
+        filter: brightness(0.62) contrast(1.02) saturate(0.62) sepia(0.07)
+          drop-shadow(0.18rem 0.22rem 0.12rem rgba(0, 0, 0, 0.82));
       }
 
-      #safe-empty-key {
-        left: 44.8%;
-        top: 66.8%;
-        width: 10.2%;
-        height: 10.2%;
-        transform: rotate(90deg) scale(0.9);
-        filter: brightness(0.72) contrast(1.08);
+      #safe-pendant-layer {
+        z-index: 2;
+        left: 35%;
+        top: 59.5%;
+        width: 15%;
+        transform-origin: 50% 72%;
+        transform: perspective(30rem) rotateX(49deg) rotateZ(50deg);
+        filter: brightness(0.66) contrast(1.06) saturate(0.54) sepia(0.08)
+          drop-shadow(0.18rem 0.2rem 0.14rem rgba(0, 0, 0, 0.86));
+      }
+
+      #safe-key-layer {
+        z-index: 2;
+        left: 57.5%;
+        top: 64%;
+        width: 8%;
+        transform-origin: 50% 80%;
+        transform: perspective(30rem) rotateX(48deg) rotateZ(15deg);
+        filter: brightness(0.62) contrast(1.08) saturate(0.48) sepia(0.06)
+          drop-shadow(0.26rem 0.3rem 0.18rem rgba(0, 0, 0, 0.92));
       }
 
       #safe-inspect-back {
@@ -685,24 +979,28 @@
       }
 
       #safe-pendant-hotspot {
-        left: 34.2%;
-        top: 68.1%;
-        width: 10.8%;
-        height: 10.1%;
+        left: 34%;
+        top: 58.5%;
+        width: 19%;
+        height: 16%;
       }
 
       #safe-key-hotspot {
-        left: 45.1%;
-        top: 69.5%;
-        width: 9.9%;
-        height: 7.4%;
+        left: 57.5%;
+        top: 64%;
+        width: 8%;
+        aspect-ratio: 1;
+        transform-origin: 50% 80%;
+        transform: perspective(30rem) rotateX(48deg) rotateZ(15deg);
       }
 
       #safe-photo-hotspot {
-        left: 53.2%;
-        top: 67.1%;
-        width: 16.7%;
-        height: 10.6%;
+        left: 41%;
+        top: 58%;
+        width: 20%;
+        aspect-ratio: 1393 / 1129;
+        transform-origin: 50% 90%;
+        transform: perspective(34rem) rotateX(55deg) rotateZ(-1.5deg);
       }
 
       #safe-inspect .safe-inspect-hotspot.active {
@@ -752,12 +1050,14 @@
       }
 
       #photo-card {
+        --preview-inset: 0px;
         position: relative;
         width: min(72vw, 46rem);
         aspect-ratio: 1393 / 1129;
         padding: 0;
-        border: 1px solid rgba(175, 151, 120, 0.42);
-        border-radius: 2px;
+        border: 0;
+        border-radius: 0;
+        outline: none;
         background: #15110d;
         box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.86);
         transform-style: preserve-3d;
@@ -765,18 +1065,94 @@
       }
 
       #photo-card.active {
-        border-color: rgba(175, 151, 120, 0.42);
+        border: 0;
+        outline: none;
         box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.86);
+      }
+
+      #photo-inspect.framed-preview #photo-card {
+        --preview-inset: 8.65%;
+        border: 0;
+        background: #090604;
+        box-shadow: none;
+      }
+
+      #photo-inspect.framed-preview #photo-card.active {
+        border: 0;
+        box-shadow: none;
+      }
+
+      #photo-frame-overlay {
+        position: absolute;
+        z-index: 4;
+        inset: 0;
+        display: none;
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+        pointer-events: none;
+        backface-visibility: hidden;
+        filter:
+          brightness(0.68)
+          contrast(1.08)
+          saturate(0.58)
+          drop-shadow(0 1.6rem 2.2rem rgba(0, 0, 0, 0.9));
+      }
+
+      #photo-inspect.framed-preview #photo-frame-overlay {
+        display: block;
       }
 
       #photo-inspect.flipped #photo-card {
         transform: rotateY(180deg);
       }
 
+      #photo-inspect.story-preview #photo-card {
+        cursor: default;
+      }
+
+      #photo-inspect.story-preview #photo-rear {
+        display: none;
+      }
+
+      #photo-inspect.award-preview #photo-card {
+        width: min(34vw, 21rem);
+        background: transparent;
+        box-shadow: 0 1.7rem 4rem rgba(0, 0, 0, 0.88);
+      }
+
+      #photo-inspect.award-preview #photo-front img {
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+        object-fit: contain;
+        transform: none;
+      }
+
+      #photo-inspect.award-two-preview #photo-front img {
+        transform: translateX(-33.3333%);
+      }
+
+      #photo-inspect.award-three-preview #photo-front img {
+        transform: translateX(-66.6667%);
+      }
+
+      #photo-inspect.medals-preview #photo-card {
+        width: min(30vw, 18rem);
+        background: transparent;
+        box-shadow: none;
+      }
+
+      #photo-inspect.medals-preview #photo-front img {
+        object-fit: contain;
+        filter: brightness(0.82) contrast(1.05) saturate(0.74)
+          drop-shadow(0 1rem 1.1rem rgba(0, 0, 0, 0.86));
+      }
+
       #photo-front,
       #photo-rear {
         position: absolute;
-        inset: 0;
+        inset: var(--preview-inset);
         overflow: hidden;
         backface-visibility: hidden;
         pointer-events: none;
@@ -787,6 +1163,17 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
+      }
+
+      #photo-inspect.empty-frame-preview #photo-front {
+        background:
+          radial-gradient(circle at 48% 42%, rgba(61, 45, 36, 0.16), transparent 44%),
+          #050403;
+        box-shadow: inset 0 0 2.2rem rgba(0, 0, 0, 0.96);
+      }
+
+      #photo-inspect.empty-frame-preview #photo-front img {
+        display: none;
       }
 
       #photo-rear {
@@ -806,8 +1193,316 @@
 
       #photo-rear p {
         margin: 0;
-        font: clamp(1.05rem, 2.8vw, 2rem)/1.45 "DFKai-SB", "KaiTi", serif;
+        font: 400 clamp(1.16rem, 2.9vw, 2.12rem)/1.5 "Room307 Note Handwriting", "Room307 Cute Handwriting", "DFKai-SB", cursive;
         letter-spacing: 0;
+        text-shadow: 0.025em 0.03em 0 rgba(41, 25, 19, 0.2);
+        transform-origin: left center;
+      }
+
+      #photo-rear p:nth-child(1) { transform: rotate(-0.7deg); }
+      #photo-rear p:nth-child(2) { transform: rotate(0.45deg) translateX(0.2rem); }
+      #photo-rear p:nth-child(3) { transform: rotate(-0.35deg) translateX(-0.1rem); }
+      #photo-rear p:nth-child(4) { transform: rotate(0.6deg) translateX(0.25rem); }
+
+      #desk-drawer-inspect,
+      #cardboard-box-inspect,
+      #bed-inspect,
+      #radio-inspect {
+        position: fixed;
+        inset: 0;
+        z-index: 33;
+        display: none;
+        place-items: center;
+        overflow: hidden;
+        background: #010101;
+      }
+
+      #desk-drawer-inspect.open,
+      #cardboard-box-inspect.open,
+      #bed-inspect.open,
+      #radio-inspect.open {
+        display: grid;
+      }
+
+      #desk-drawer-inspect-frame,
+      #cardboard-box-inspect-frame,
+      #bed-inspect-frame,
+      #radio-inspect-frame {
+        position: relative;
+        width: min(100vw, 177.78vh);
+        aspect-ratio: 16 / 9;
+        max-height: 100vh;
+        overflow: hidden;
+        background: #050403;
+      }
+
+      #desk-drawer-inspect-image,
+      #cardboard-box-inspect-image,
+      #bed-inspect-image,
+      #radio-inspect-image,
+      .bed-event-video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .bed-event-video {
+        z-index: 1;
+        display: none;
+        background: #000;
+      }
+
+      #bed-inspect.playing-scare #bed-inspect-image {
+        visibility: hidden;
+      }
+
+      #bed-inspect.playing-scare .bed-event-video.is-playing {
+        display: block;
+      }
+
+      #cardboard-box-inspect.opened #cardboard-box-inspect-image {
+        object-fit: cover;
+      }
+
+      #desk-drawer-inspect-frame {
+        width: min(100vw, 150vh);
+        aspect-ratio: 3 / 2;
+      }
+
+      #desk-drawer-inspect:not(.opened) #desk-drawer-inspect-frame {
+        width: min(100vw, 177.78vh);
+        aspect-ratio: 16 / 9;
+      }
+
+      #desk-drawer-inspect.opening #desk-drawer-inspect-image {
+        animation: drawer-unlock-pull 420ms ease-in-out both;
+      }
+
+      #desk-drawer-inspect.opened #desk-drawer-inspect-image {
+        filter: brightness(1.42) saturate(0.46) contrast(0.98);
+      }
+
+      @keyframes drawer-unlock-pull {
+        0%, 42% { transform: translateY(0) scale(1); filter: brightness(1); }
+        52% { transform: translateY(0.35%) scale(1.004); filter: brightness(1.08); }
+        100% { transform: translateY(1.8%) scale(1.018); filter: brightness(0.82); }
+      }
+
+      #desk-drawer-back,
+      #cardboard-box-back {
+        position: absolute;
+        z-index: 5;
+        top: 1rem;
+        left: 1rem;
+        width: 3rem;
+        height: 3rem;
+        border: 1px solid rgba(172, 136, 116, 0.48);
+        border-radius: 50%;
+        background: rgba(8, 5, 4, 0.8);
+        color: #c7aea0;
+        font: 1.35rem/1 system-ui, sans-serif;
+      }
+
+      .desk-drawer-item,
+      .desk-drawer-hotspot {
+        position: absolute;
+        transform: translate(-50%, -50%);
+      }
+
+      .desk-drawer-item {
+        z-index: 2;
+        object-fit: contain;
+        pointer-events: none;
+        filter: brightness(0.68) contrast(1.06) saturate(0.58) sepia(0.08)
+          drop-shadow(0.28rem 0.38rem 0.22rem rgba(0, 0, 0, 0.9));
+      }
+
+      .desk-drawer-hotspot {
+        z-index: 3;
+        border: 0;
+        outline: 0;
+        background: transparent;
+      }
+
+      .desk-drawer-hotspot[hidden],
+      .desk-drawer-item[hidden] {
+        display: none;
+      }
+
+      #desk-drawer-door-hotspot {
+        position: absolute;
+        z-index: 3;
+        left: 8%;
+        top: 27%;
+        width: 84%;
+        height: 48%;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+      }
+
+      #desk-drawer-door-hotspot[hidden] {
+        display: none;
+      }
+
+      #drawer-tape-layer,
+      #drawer-tape-hotspot {
+        left: 43%;
+        top: 48%;
+        width: 17%;
+        height: 17%;
+      }
+      #drawer-battery-layer,
+      #drawer-battery-hotspot {
+        left: 59%;
+        top: 51%;
+        width: 16%;
+        height: 14%;
+      }
+      #drawer-box-cutter-layer,
+      #drawer-box-cutter-hotspot {
+        left: 76%;
+        top: 45%;
+        width: 19%;
+        height: 11%;
+      }
+
+      #drawer-box-cutter-layer {
+        filter: brightness(1.08) contrast(1.02) saturate(0.72) sepia(0.03)
+          drop-shadow(0.28rem 0.38rem 0.22rem rgba(0, 0, 0, 0.9));
+      }
+
+      #cardboard-box-open-hotspot,
+      #cardboard-box-gear-hotspot {
+        position: absolute;
+        z-index: 3;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+      }
+
+      #cardboard-box-cut-progress {
+        position: absolute;
+        z-index: 2;
+        left: var(--box-cut-left, 0%);
+        top: var(--box-cut-top, 50%);
+        width: var(--box-cut-width, 0%);
+        height: 0.13rem;
+        border-radius: 0.15rem;
+        opacity: 0;
+        pointer-events: none;
+        background: linear-gradient(180deg, #18120e 0%, #a28b69 48%, #211812 100%);
+        box-shadow: 0 0.06rem 0.12rem rgba(218, 195, 158, 0.3), 0.08rem 0 0.14rem #050302;
+      }
+
+      #cardboard-box-inspect.cutting #cardboard-box-cut-progress {
+        opacity: 0.7;
+      }
+
+      #cardboard-box-cut-tool {
+        position: absolute;
+        z-index: 4;
+        left: var(--box-cutter-x, 0%);
+        top: var(--box-cutter-y, 50%);
+        width: 29%;
+        height: auto;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-3%, -50%) rotate(-8deg);
+        transform-origin: left center;
+        clip-path: polygon(0 39%, 78% 4%, 100% 16%, 100% 82%, 76% 95%, 0 58%);
+        mix-blend-mode: screen;
+        filter: brightness(0.88) saturate(0.72) drop-shadow(0 0.18rem 0.16rem rgba(0, 0, 0, 0.82));
+      }
+
+      #cardboard-box-cut-tool.reverse {
+        transform: translate(-97%, -50%) scaleX(-1) rotate(-8deg);
+      }
+
+      #cardboard-box-inspect.cutting #cardboard-box-cut-tool {
+        opacity: 0.94;
+      }
+
+      #cardboard-box-open-hotspot {
+        left: 20%;
+        top: 36%;
+        width: 60%;
+        height: 18%;
+      }
+
+      #cardboard-box-gear-hotspot {
+        left: 28%;
+        top: 20%;
+        width: 54%;
+        height: 57%;
+      }
+
+      #cardboard-box-open-hotspot[hidden],
+      #cardboard-box-gear-hotspot[hidden] {
+        display: none;
+      }
+
+      #bed-antenna-hotspot {
+        position: absolute;
+        z-index: 2;
+        left: 44%;
+        top: 44%;
+        width: 21%;
+        height: 12%;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+      }
+
+      #bed-antenna-hotspot[hidden] {
+        display: none;
+      }
+
+      body.bed-grab-active #bed-antenna-hotspot {
+        pointer-events: none;
+      }
+
+      #radio-device-hotspot {
+        position: absolute;
+        z-index: 3;
+        left: 23%;
+        top: 15%;
+        width: 60%;
+        height: 58%;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+      }
+
+      #bed-antenna-hotspot.active,
+      #radio-device-hotspot.active {
+        border: 0;
+        outline: 0;
+        box-shadow: none;
+      }
+
+      body.radio-broadcast-playing::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        pointer-events: none;
+        background: rgba(255, 248, 224, var(--radio-flash-alpha, 0));
+        transition: background var(--radio-flicker-transition, 45ms) linear;
+      }
+
+      body.radio-broadcast-playing #radio-inspect-frame {
+        filter: brightness(var(--radio-brightness, 1))
+          contrast(var(--radio-contrast, 1));
+        transition: filter var(--radio-flicker-transition, 45ms) linear;
       }
 
       #drawer-puzzle {
@@ -837,16 +1532,20 @@
       }
 
       #drawer-lock {
+        --drawer-light-x: 50%;
+        --drawer-light-y: 50%;
+        --drawer-beam-size: clamp(8rem, 20vh, 14rem);
         position: relative;
-        width: min(72vh, 92vw);
-        aspect-ratio: 1;
+        width: min(56vh, 92vw);
+        aspect-ratio: 2 / 3;
         align-self: center;
         justify-self: center;
-        background: #080808;
+        background: #000;
         overflow: hidden;
       }
 
-      #drawer-lock-model {
+      #drawer-lock-model,
+      #drawer-lock-light-model {
         position: absolute;
         inset: 0;
         width: 100%;
@@ -855,35 +1554,102 @@
         pointer-events: none;
       }
 
+      #drawer-lock-model {
+        z-index: 0;
+        filter: brightness(0.95) contrast(1.04) saturate(0.58);
+      }
+
+      #drawer-lock-light-model {
+        z-index: 1;
+        filter: brightness(2) contrast(1.1) saturate(0.7);
+        -webkit-mask-image: radial-gradient(
+          circle var(--drawer-beam-size) at var(--drawer-light-x) var(--drawer-light-y),
+          #000 0,
+          rgba(0, 0, 0, 0.98) 28%,
+          rgba(0, 0, 0, 0.68) 60%,
+          transparent 100%
+        );
+        mask-image: radial-gradient(
+          circle var(--drawer-beam-size) at var(--drawer-light-x) var(--drawer-light-y),
+          #000 0,
+          rgba(0, 0, 0, 0.98) 28%,
+          rgba(0, 0, 0, 0.68) 60%,
+          transparent 100%
+        );
+      }
+
+      #drawer-flashlight-beam {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        background: radial-gradient(
+          circle var(--drawer-beam-size) at var(--drawer-light-x) var(--drawer-light-y),
+          rgba(255, 246, 211, 0.22),
+          rgba(225, 211, 168, 0.085) 46%,
+          transparent 76%
+        );
+        pointer-events: none;
+      }
+
       #drawer-lock h2 {
         display: none;
       }
 
       #drawer-code-display {
+        --drawer-code-size: clamp(1.2rem, 4.8vh, 2.85rem);
         position: absolute;
-        top: 13.7%;
-        left: 25.4%;
-        width: 49.2%;
-        height: 12.8%;
-        border: 1px solid rgba(112, 119, 93, 0.38);
-        background: rgba(5, 8, 6, 0.94);
-        color: #adb991;
+        z-index: 3;
+        top: 18.8%;
+        left: 25.9%;
+        width: 48.2%;
+        height: 9.4%;
+        box-sizing: border-box;
+        border: 1px solid rgba(80, 91, 72, 0.48);
+        background: #030604;
         display: grid;
+        grid-template-columns: repeat(4, var(--drawer-code-size));
+        gap: clamp(0.25rem, 1.1vh, 0.72rem);
+        place-content: center;
+        padding: 0;
+        box-shadow:
+          inset 0 0 0.8rem rgba(0, 0, 0, 0.96),
+          0 1px rgba(129, 137, 105, 0.12);
+      }
+
+      .drawer-code-slot {
+        display: grid;
+        min-width: 0;
+        height: 100%;
         place-items: center;
-        font: clamp(1.3rem, 5.2vh, 3.3rem)/1 ui-monospace, monospace;
+        box-sizing: border-box;
+        border: 0;
+        background: transparent;
+        color: #c2cda2;
+        font: 500 var(--drawer-code-size)/1 ui-monospace, monospace;
         letter-spacing: 0;
-        text-shadow: 0 0 0.6rem rgba(178, 192, 142, 0.42);
+        text-align: center;
+        text-shadow: 0 0 0.55rem rgba(187, 204, 145, 0.48);
+        box-shadow: none;
+      }
+
+      .drawer-code-slot[data-empty="true"]::after {
+        content: '';
+        width: 36%;
+        height: 1px;
+        background: rgba(125, 139, 103, 0.3);
+        box-shadow: 0 0 0.3rem rgba(125, 139, 103, 0.18);
       }
 
       #drawer-keypad {
         position: absolute;
-        top: 30%;
-        left: 26.2%;
-        width: 47.6%;
-        height: 56.5%;
+        z-index: 4;
+        top: 32.3%;
+        left: 25.6%;
+        width: 49.5%;
+        height: 50%;
         display: grid;
-        grid-template-columns: repeat(3, 29%);
-        grid-template-rows: repeat(4, 18%) 21%;
+        grid-template-columns: repeat(3, 28%);
+        grid-template-rows: repeat(4, 16.5%) 15.8%;
         justify-content: space-between;
         align-content: space-between;
       }
@@ -901,44 +1667,6 @@
         color: transparent;
         display: grid;
         place-items: center;
-      }
-
-      #receipt-code {
-        --rub-progress: 0%;
-        position: relative;
-        margin-top: 2.5rem;
-        min-height: 2.8rem;
-        color: rgba(39, 27, 23, 0.16);
-        font: 700 2.2rem/1.2 ui-monospace, monospace;
-        letter-spacing: 0.3em;
-      }
-
-      #receipt-code::before {
-        content: "4826";
-        position: absolute;
-        inset: 0;
-        color: #271b17;
-        clip-path: inset(0 calc(100% - var(--rub-progress)) 0 0);
-        text-shadow:
-          1px 0 rgba(35, 27, 23, 0.32),
-          -1px 1px rgba(35, 27, 23, 0.26);
-      }
-
-      #receipt-code::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: -0.45rem;
-        width: var(--rub-progress);
-        height: 3.4rem;
-        background: repeating-linear-gradient(
-          103deg,
-          transparent 0 0.42rem,
-          rgba(43, 33, 28, 0.22) 0.46rem 0.52rem,
-          transparent 0.56rem 0.82rem
-        );
-        mix-blend-mode: multiply;
-        pointer-events: none;
       }
 
       #quick-slot {
@@ -978,8 +1706,7 @@
       }
 
       .selectable.active:not(.drawer-key),
-      #inventory-back.active,
-      #receipt-paper.active {
+      #inventory-back.active {
         outline: none;
         box-shadow: none;
       }
@@ -988,7 +1715,7 @@
   <body>
     <audio
       id="ambient-audio"
-      src="/assets/audio/horror-score-piano-horror.mp3"
+      src="/assets/audio/ashes-under-glass-7min.mp3"
       autoplay
       loop
       preload="auto"
@@ -996,27 +1723,18 @@
       hidden
     ></audio>
     <main id="stage">
-      <div id="room-scene" aria-label="407 房間"></div>
+      <div id="room-scene" aria-label="307 房間"></div>
       <section id="inventory" aria-label="物品欄">
         <div id="item-list">
           <div id="inventory-back" class="selectable" data-inventory-back="true">返回</div>
         </div>
         <div id="detail-panels">
           <div id="receipt-panel">
-            <div id="receipt-paper" class="selectable" data-receipt-paper="true">
-              <div>便利商店收據</div>
-              <div>小電池</div>
-              <div>充電線</div>
-              <div>行動電源</div>
-              <div id="receipt-code">_ _ _ _</div>
-            </div>
-          </div>
-          <div id="pencil-panel">
-            <div id="pencil-detail">
-              <div id="pencil-object" aria-hidden="true"></div>
-              <h2>短鉛筆</h2>
-              <p>削得很短，筆芯還能留下痕跡。</p>
-            </div>
+            <img
+              id="receipt-note-image"
+              src="/assets/room307/props/number-guess-note-v1.png"
+              alt="寫著三組猜數字紀錄的舊便條紙"
+            />
           </div>
           <div id="generic-item-panel">
             <div id="generic-item-detail">
@@ -1031,19 +1749,26 @@
         <div id="safe-inspect-frame">
           <img
             id="safe-inspect-image"
-            src="/assets/room407/photos/密碼鎖.png"
+            src="/assets/room307/photos/密碼鎖.png"
             alt="衣櫃內的老舊保險箱"
           />
           <img
-            id="safe-empty-pendant"
-            class="safe-empty-prop"
+            id="safe-photo-layer"
+            class="safe-item-layer"
+            src="/assets/room307/photos/男女主角照片.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <img
+            id="safe-pendant-layer"
+            class="safe-item-layer"
             src="/assets/inventory-icons/pendant-user.png"
             alt=""
             aria-hidden="true"
           />
           <img
-            id="safe-empty-key"
-            class="safe-empty-prop"
+            id="safe-key-layer"
+            class="safe-item-layer"
             src="/assets/inventory-icons/key-user.png"
             alt=""
             aria-hidden="true"
@@ -1062,6 +1787,13 @@
             aria-label="保險箱密碼面板"
           ></div>
           <div
+            id="safe-photo-hotspot"
+            class="safe-inspect-hotspot selectable"
+            data-safe-item="photo"
+            aria-label="男女主角的合照"
+            hidden
+          ></div>
+          <div
             id="safe-pendant-hotspot"
             class="safe-inspect-hotspot selectable"
             data-safe-item="pendant"
@@ -1075,13 +1807,6 @@
             aria-label="鑰匙"
             hidden
           ></div>
-          <div
-            id="safe-photo-hotspot"
-            class="safe-inspect-hotspot selectable"
-            data-safe-item="photo"
-            aria-label="男女主角的合照"
-            hidden
-          ></div>
         </div>
       </section>
       <section id="photo-inspect" aria-label="合照檢視">
@@ -1091,7 +1816,7 @@
             class="selectable"
             type="button"
             data-photo-back="true"
-            aria-label="返回保險箱"
+            aria-label="返回房間"
           >←</button>
           <button
             id="photo-card"
@@ -1102,16 +1827,176 @@
           >
             <span id="photo-front">
               <img
-                src="/assets/room407/photos/男女主角照片.png"
+                src="/assets/room307/photos/男女主角照片.png"
                 alt="男女主角的合照"
               />
             </span>
             <span id="photo-rear" aria-label="照片背面的文字">
-              <p>聽見那些聲音……</p>
-              <p>按一下……</p>
-              <p>吊飾……</p>
+              <p>你總想把所有人帶回來。</p>
+              <p>如果又被那場火困住，</p>
+              <p>就握住吊飾。</p>
+              <p>這一次，換我帶你回來。</p>
             </span>
+            <img id="photo-frame-overlay" alt="" aria-hidden="true" />
           </button>
+        </div>
+      </section>
+      <section id="desk-drawer-inspect" aria-label="書桌抽屜近景">
+        <div id="desk-drawer-inspect-frame">
+          <img
+            id="desk-drawer-inspect-image"
+            src="/assets/room307/props/open-drawer-realistic.png"
+            alt="打開的老舊木製書桌抽屜"
+          />
+          <img
+            id="drawer-tape-layer"
+            class="desk-drawer-item"
+            src="/assets/inventory-icons/cassette-environment.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <img
+            id="drawer-battery-layer"
+            class="desk-drawer-item"
+            src="/assets/inventory-icons/battery-environment.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <img
+            id="drawer-box-cutter-layer"
+            class="desk-drawer-item"
+            src="/assets/inventory-icons/utility-knife-v1.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <button
+            id="desk-drawer-back"
+            class="selectable"
+            type="button"
+            data-desk-drawer-back="true"
+            aria-label="返回房間"
+          >←</button>
+          <button
+            id="desk-drawer-door-hotspot"
+            class="selectable"
+            type="button"
+            data-desk-drawer-door="true"
+            aria-label="開啟抽屜"
+          ></button>
+          <button
+            id="drawer-tape-hotspot"
+            class="desk-drawer-hotspot selectable"
+            type="button"
+            data-desk-drawer-item="tape"
+            aria-label="錄音磁帶"
+          ></button>
+          <button
+            id="drawer-battery-hotspot"
+            class="desk-drawer-hotspot selectable"
+            type="button"
+            data-desk-drawer-item="oldBattery"
+            aria-label="舊電池"
+          ></button>
+          <button
+            id="drawer-box-cutter-hotspot"
+            class="desk-drawer-hotspot selectable"
+            type="button"
+            data-desk-drawer-item="boxCutter"
+            aria-label="美工刀"
+          ></button>
+        </div>
+      </section>
+      <section id="cardboard-box-inspect" aria-label="紙箱近景">
+        <div id="cardboard-box-inspect-frame">
+          <img
+            id="cardboard-box-inspect-image"
+            src="/assets/room307/photos/cardboard-box-closeup-closed-v1.png"
+            alt="封箱膠帶仍未割開的舊紙箱"
+          />
+          <div id="cardboard-box-cut-progress" aria-hidden="true"></div>
+          <button
+            id="cardboard-box-back"
+            class="selectable"
+            type="button"
+            data-cardboard-box-back="true"
+            aria-label="返回房間"
+          >←</button>
+          <button
+            id="cardboard-box-open-hotspot"
+            class="selectable"
+            type="button"
+            data-cardboard-box-open="true"
+            aria-label="割開紙箱的封箱膠帶"
+          >
+            <img
+              id="cardboard-box-cut-tool"
+              src="/assets/inventory-icons/utility-knife-v1.png"
+              alt=""
+              aria-hidden="true"
+            />
+          </button>
+          <button
+            id="cardboard-box-gear-hotspot"
+            class="selectable"
+            type="button"
+            data-cardboard-box-gear="true"
+            aria-label="拾取消防衣與頭盔"
+            hidden
+          ></button>
+        </div>
+      </section>
+      <section id="bed-inspect" aria-label="床底近景">
+        <div id="bed-inspect-frame">
+          <img
+            id="bed-inspect-image"
+            src="/assets/room307/photos/under-bed-antenna.png"
+            alt="昏暗的床底與地上的天線"
+          />
+          <video
+            id="bed-scare-video"
+            class="bed-event-video"
+            src="/assets/room307/videos/bed-under-scare.webm"
+            poster="/assets/room307/photos/under-bed-antenna.png"
+            preload="auto"
+            playsinline
+          ></video>
+          <video
+            id="bed-struggle-video"
+            class="bed-event-video"
+            src="/assets/room307/videos/bed-under-struggle-success-v2.webm"
+            preload="auto"
+            playsinline
+          ></video>
+          <video
+            id="bed-death-video"
+            class="bed-event-video"
+            src="/assets/room307/videos/bed-under-death-v17.webm"
+            preload="auto"
+            playsinline
+          ></video>
+          <button
+            id="bed-antenna-hotspot"
+            class="selectable"
+            type="button"
+            data-bed-antenna="true"
+            aria-label="撿起床底的天線"
+          ></button>
+        </div>
+      </section>
+      <section id="radio-inspect" aria-label="收錄音機近景">
+        <div id="radio-inspect-frame">
+          <img
+            id="radio-inspect-image"
+            src="/assets/room307/photos/recorder-closeup-empty.png"
+            alt="桌上的老舊收錄音機"
+          />
+          <button
+            id="radio-device-hotspot"
+            class="selectable"
+            type="button"
+            data-radio-device="true"
+            aria-label="操作收錄音機"
+          ></button>
         </div>
       </section>
       <section id="drawer-puzzle" aria-label="保險箱密碼鎖">
@@ -1120,19 +2005,31 @@
           <h2>保險箱</h2>
           <img
             id="drawer-lock-model"
-            src="/assets/room407/photos/keypad-closeup.png"
+            src="/assets/room307/photos/keypad-blood-fingerprint-v1.png"
             alt="老舊的保險箱密碼鎖"
           />
-          <output id="drawer-code-display">_ _ _ _</output>
+          <img
+            id="drawer-lock-light-model"
+            src="/assets/room307/photos/keypad-blood-fingerprint-v1.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <div id="drawer-flashlight-beam" aria-hidden="true"></div>
+          <output id="drawer-code-display" aria-label="尚未輸入密碼">
+            <span class="drawer-code-slot" data-empty="true"></span>
+            <span class="drawer-code-slot" data-empty="true"></span>
+            <span class="drawer-code-slot" data-empty="true"></span>
+            <span class="drawer-code-slot" data-empty="true"></span>
+          </output>
           <div id="drawer-keypad">
             <div class="drawer-key selectable" data-drawer-digit="1">1</div>
-            <div class="drawer-key selectable" data-drawer-digit="2">2</div>
+            <div class="drawer-key worn selectable" data-drawer-digit="2">2</div>
             <div class="drawer-key selectable" data-drawer-digit="3">3</div>
-            <div class="drawer-key selectable" data-drawer-digit="4">4</div>
+            <div class="drawer-key worn selectable" data-drawer-digit="4">4</div>
             <div class="drawer-key selectable" data-drawer-digit="5">5</div>
-            <div class="drawer-key selectable" data-drawer-digit="6">6</div>
+            <div class="drawer-key worn selectable" data-drawer-digit="6">6</div>
             <div class="drawer-key selectable" data-drawer-digit="7">7</div>
-            <div class="drawer-key selectable" data-drawer-digit="8">8</div>
+            <div class="drawer-key worn selectable" data-drawer-digit="8">8</div>
             <div class="drawer-key selectable" data-drawer-digit="9">9</div>
             <div class="drawer-key command selectable" data-drawer-reset="true">RESET</div>
             <div class="drawer-key selectable" data-drawer-digit="0">0</div>
@@ -1148,13 +2045,17 @@
         <strong id="quick-slot-label">無</strong>
       </div>
       <section id="hud">
-        <div>407 Prototype</div>
+        <div>307｜開端</div>
         <div id="status">等待手機連線。</div>
-        <div id="target">目前指向：無</div>
+        <div id="target" hidden></div>
         <div id="held-item">目前道具：無</div>
       </section>
       <button id="audio-enable" type="button" aria-pressed="false">靜音</button>
       <div id="notice"></div>
+      <section id="chapter-complete" aria-live="polite">
+        <strong>第一章｜開端</strong>
+        <span>完成</span>
+      </section>
       <section id="overlay">
         <div id="qr-panel">
           <h1>掃描手機控制器</h1>

@@ -1,6 +1,7 @@
 import { parseMessage, type ProtoItemId } from '../shared/protocol';
 import { publicUrl } from '../shared/public-url';
 import { buildWebSocketUrl, normalizeRoomCode } from '../shared/session';
+import { createShakeDetectorState, detectShakeImpulse } from './shake-detector';
 
 const statusEl = document.querySelector<HTMLParagraphElement>('#status')!;
 const sensorStatusEl = document.querySelector<HTMLParagraphElement>('#sensor-status')!;
@@ -16,10 +17,9 @@ const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = 
     label: '便條紙',
     image: publicUrl('assets/room307/props/number-guess-note-v1.png'),
   },
-  pencil: { label: '短鉛筆', image: publicUrl('assets/inventory-icons/pencil-environment.png') },
-  tape: { label: '錄音磁帶', image: publicUrl('assets/inventory-icons/cassette-environment.png') },
-  oldBattery: { label: '舊電池', image: publicUrl('assets/inventory-icons/battery-environment.png') },
   smallKey: { label: '鑰匙', image: publicUrl('assets/inventory-icons/key-user.png') },
+  oldBattery: { label: '舊電池', image: publicUrl('assets/inventory-icons/battery-environment.png') },
+  tape: { label: '錄音磁帶', image: publicUrl('assets/inventory-icons/cassette-environment.png') },
   pendant: { label: '錄音吊飾', image: publicUrl('assets/inventory-icons/pendant-user.png') },
   photo: { label: '合照', image: publicUrl('assets/room307/photos/男女主角照片.png') },
   antenna: { label: '脫落的天線', image: publicUrl('assets/inventory-icons/antenna.png') },
@@ -119,6 +119,7 @@ let orientation = { pitch: 0, yaw: 0, roll: 0, hasData: false };
 let center = { pitch: 0, yaw: 0, roll: 0 };
 let sensorsBound = false;
 let lastOrientationEventAt = 0;
+let shakeDetectorState = createShakeDetectorState();
 let awaitingSensorCenter = false;
 let joystickPointerId: number | null = null;
 let joystickTapCandidate = false;
@@ -414,10 +415,33 @@ function handleOrientation(event: DeviceOrientationEvent): void {
 }
 
 function handleMotion(event: DeviceMotionEvent): void {
+  const direct = event.acceleration;
+  const includingGravity = event.accelerationIncludingGravity;
+  const directComplete =
+    direct?.x !== null && direct?.x !== undefined &&
+    direct.y !== null && direct.y !== undefined &&
+    direct.z !== null && direct.z !== undefined;
+  const motion = directComplete ? direct : includingGravity;
+  if (
+    motion?.x !== null && motion?.x !== undefined &&
+    motion.y !== null && motion.y !== undefined &&
+    motion.z !== null && motion.z !== undefined
+  ) {
+    const detection = detectShakeImpulse(
+      shakeDetectorState,
+      { x: motion.x, y: motion.y, z: motion.z, time: performance.now() },
+      directComplete,
+    );
+    shakeDetectorState = detection.state;
+    if (detection.intensity !== null && document.body.classList.contains('started')) {
+      send({ type: 'proto-shake', intensity: detection.intensity, t: Date.now() });
+    }
+  }
+
   // Device orientation is more precise. Gravity is only used when Safari does
   // not provide orientation events on this device.
   if (performance.now() - lastOrientationEventAt < 700) return;
-  const gravity = event.accelerationIncludingGravity;
+  const gravity = includingGravity;
   if (
     gravity?.x === null ||
     gravity?.y === null ||

@@ -10,7 +10,7 @@ describe('session connection helpers', () => {
 
   it('builds a same-origin WebSocket URL for local development', () => {
     expect(
-      buildWebSocketUrl('0123456789abcdef', undefined, 'https://192.168.1.2:5173/index.html'),
+      buildWebSocketUrl('0123456789abcdef', undefined, 'https://192.168.1.2:5173/prototype.html'),
     ).toBe('wss://192.168.1.2:5173/ws?room=0123456789abcdef');
   });
 

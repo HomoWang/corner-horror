@@ -10,12 +10,12 @@ and art must not own networking or desktop lifecycle code.
    - Owns the game window, fullscreen behavior, audio autoplay policy, and persistent save file.
    - Does not contain story or puzzle logic.
 
-2. **Game host (`src/host/`, `src/prototype/host.ts`)**
+2. **Game host (`src/prototype/host.ts`)**
    - Renders the room and runs authoritative game state.
    - Sends inventory and haptic state to the phone.
    - The phone never decides whether a puzzle succeeds.
 
-3. **Phone controller (`src/controller/`, `src/prototype/controller.ts`)**
+3. **Phone controller (`src/prototype/controller.ts`)**
    - Reads motion sensors, joystick, interaction, and inventory input.
    - Displays only controller UI and mirrored inventory state.
    - Is hosted on HTTPS so iPhone motion permission works reliably.
@@ -26,7 +26,7 @@ and art must not own networking or desktop lifecycle code.
    - Normal disconnects reconnect automatically; replaced clients stay disconnected.
 
 5. **Shared contracts (`src/shared/`)**
-   - Defines network messages, calibration math, story contracts, and persistence format.
+   - Defines the validated network messages, canonical story facts, session helpers, and persistence format.
    - Changes here require tests because both screens depend on them.
 
 ## Persistence
@@ -51,11 +51,14 @@ Save data is versioned so future story changes can migrate old saves.
 - Prefer compressed GLB meshes and GPU-compressed textures for release. Keep original high-resolution
   textures outside `public/`.
 - Measure Windows package size, first-scene load time, and peak memory before adding the next chapter.
-- Current prototype baseline: roughly 731 MB packaged, including roughly 383 MB of runtime assets.
-  This is a measurement baseline, not the final size target.
+- Retired 3D models, reference images, and video experiments live under `production/archive/` and are
+  never copied into the web or Windows runtime.
 
 ## Content rule
 
 New chapters may add scenes, objects, puzzles, audio, and item definitions. They must use the shared
 input, persistence, audio, and connection services instead of creating chapter-specific sockets or
 desktop APIs.
+
+`STORY.md` is the only narrative authority. `src/shared/game-canon.ts` mirrors its immutable facts in
+testable code. Retired inspection-story concepts must not be restored or mixed into 307.

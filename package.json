@@ -6,13 +6,13 @@
   "main": "desktop/main.mjs",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --configLoader runner",
     "build:server": "vite build --config vite.server.config.ts",
     "start": "node dist-server/index.mjs",
     "desktop:dev": "node desktop/dev.mjs",
     "desktop:package": "node desktop/package.mjs",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.config.ts --configLoader runner",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

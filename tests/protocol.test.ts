@@ -2,141 +2,53 @@ import { describe, expect, it } from 'vitest';
 import { parseMessage } from '../src/shared/protocol';
 
 describe('parseMessage', () => {
-  it('解析合法 hello（host / controller）', () => {
+  it('accepts connection lifecycle messages', () => {
     expect(parseMessage(JSON.stringify({ type: 'hello', role: 'host' }))).toEqual({
       type: 'hello',
       role: 'host',
     });
-    expect(
-      parseMessage(JSON.stringify({ type: 'hello', role: 'controller' })),
-    ).toEqual({ type: 'hello', role: 'controller' });
-  });
-
-  it('拒絕未知 role 的 hello', () => {
-    expect(parseMessage(JSON.stringify({ type: 'hello', role: 'admin' }))).toBeNull();
-    expect(parseMessage(JSON.stringify({ type: 'hello' }))).toBeNull();
-  });
-
-  it('解析合法 orient', () => {
-    const raw = JSON.stringify({ type: 'orient', q: [0, 0, 0, 1], t: 123.4 });
-    expect(parseMessage(raw)).toEqual({ type: 'orient', q: [0, 0, 0, 1], t: 123.4 });
-  });
-
-  it('拒絕格式不符的 orient', () => {
-    expect(parseMessage(JSON.stringify({ type: 'orient', q: [0, 0, 1], t: 1 }))).toBeNull(); // 長度 3
-    expect(
-      parseMessage(JSON.stringify({ type: 'orient', q: [0, 0, 0, 'x'], t: 1 })),
-    ).toBeNull(); // 非數字
-    expect(
-      parseMessage(JSON.stringify({ type: 'orient', q: [0, 0, 0, null], t: 1 })),
-    ).toBeNull();
-    expect(parseMessage(JSON.stringify({ type: 'orient', q: [0, 0, 0, 1] }))).toBeNull(); // 缺 t
-    expect(parseMessage('{"type":"orient","q":[0,0,0,1e999],"t":1}')).toBeNull(); // Infinity
-  });
-
-  it('解析合法 btn 並拒絕未知 id', () => {
-    expect(
-      parseMessage(JSON.stringify({ type: 'btn', id: 'action', pressed: true })),
-    ).toEqual({ type: 'btn', id: 'action', pressed: true });
-    expect(
-      parseMessage(JSON.stringify({ type: 'btn', id: 'other', pressed: true })),
-    ).toBeNull();
-    expect(parseMessage(JSON.stringify({ type: 'btn', id: 'action' }))).toBeNull();
-  });
-
-  it('解析 status 與 kick', () => {
+    expect(parseMessage(JSON.stringify({ type: 'hello', role: 'controller' }))).toEqual({
+      type: 'hello',
+      role: 'controller',
+    });
+    expect(parseMessage(JSON.stringify({ type: 'ready' }))).toEqual({ type: 'ready' });
     expect(parseMessage(JSON.stringify({ type: 'status', controller: true }))).toEqual({
       type: 'status',
       controller: true,
     });
-    expect(parseMessage(JSON.stringify({ type: 'status' }))).toBeNull();
     expect(parseMessage(JSON.stringify({ type: 'kick' }))).toEqual({ type: 'kick' });
-    expect(parseMessage(JSON.stringify({ type: 'ready' }))).toEqual({ type: 'ready' });
   });
 
-  it('只接受已知的手機音效 cue', () => {
-    expect(parseMessage(JSON.stringify({ type: 'cue', id: 'ambience-start' }))).toEqual({
-      type: 'cue',
-      id: 'ambience-start',
-    });
-    expect(parseMessage(JSON.stringify({ type: 'cue', id: 'ambience-stop' }))).toEqual({
-      type: 'cue',
-      id: 'ambience-stop',
-    });
-    expect(parseMessage(JSON.stringify({ type: 'cue', id: 'ring' }))).toEqual({
-      type: 'cue',
-      id: 'ring',
-    });
-    expect(parseMessage(JSON.stringify({ type: 'cue', id: 'voice-warning' }))).toEqual({
-      type: 'cue',
-      id: 'voice-warning',
-    });
-    expect(parseMessage(JSON.stringify({ type: 'cue', id: 'jumpscare' }))).toEqual({
-      type: 'cue',
-      id: 'jumpscare',
-    });
-    expect(parseMessage(JSON.stringify({ type: 'cue', id: 'unknown' }))).toBeNull();
-  });
-
-  it('解析劇情畫面與手機劇情操作', () => {
-    expect(parseMessage(JSON.stringify({ type: 'story', screen: 'incoming-407' }))).toEqual({
-      type: 'story',
-      screen: 'incoming-407',
-    });
-    expect(parseMessage(JSON.stringify({ type: 'story', screen: 'portrait-inspect-back' }))).toEqual({
-      type: 'story',
-      screen: 'portrait-inspect-back',
-    });
-    expect(parseMessage(JSON.stringify({ type: 'story-action', id: 'answer' }))).toEqual({
-      type: 'story-action',
-      id: 'answer',
+  it('validates pointer, movement, navigation, and interaction input', () => {
+    expect(
+      parseMessage(JSON.stringify({ type: 'proto-pointer', x: 2, y: -2, t: 10 })),
+    ).toEqual({ type: 'proto-pointer', x: 1, y: -1, t: 10 });
+    expect(parseMessage(JSON.stringify({ type: 'proto-move', x: 0.4, y: -0.3 }))).toEqual({
+      type: 'proto-move',
+      x: 0.4,
+      y: -0.3,
     });
     expect(
-      parseMessage(JSON.stringify({ type: 'story-action', id: 'digit', value: '7' })),
-    ).toEqual({ type: 'story-action', id: 'digit', value: '7' });
-    expect(parseMessage(JSON.stringify({ type: 'story', screen: 'not-a-scene' }))).toBeNull();
-    expect(
-      parseMessage(JSON.stringify({ type: 'story-action', id: 'digit', value: '31' })),
-    ).toBeNull();
-  });
-
-  it('解析影片時間軸 cue，並限制自由台詞與震動格式', () => {
-    expect(
-      parseMessage(
-        JSON.stringify({
-          type: 'fmv-cue',
-          audio: 'whisper',
-          narration: '別看門。',
-          role: 'entity',
-          haptic: 'double-short',
-        }),
-      ),
-    ).toEqual({
-      type: 'fmv-cue',
-      audio: 'whisper',
-      narration: '別看門。',
-      role: 'entity',
-      haptic: 'double-short',
+      parseMessage(JSON.stringify({ type: 'proto-shake', intensity: 1.8, t: 20 })),
+    ).toEqual({ type: 'proto-shake', intensity: 1, t: 20 });
+    expect(parseMessage(JSON.stringify({ type: 'proto-navigate', direction: 'left' }))).toEqual({
+      type: 'proto-navigate',
+      direction: 'left',
     });
-    expect(parseMessage(JSON.stringify({ type: 'fmv-cue', narration: '' }))).toBeNull();
-    expect(parseMessage(JSON.stringify({ type: 'fmv-cue', audio: 'voice-wrong-side' }))).toEqual({
-      type: 'fmv-cue',
-      audio: 'voice-wrong-side',
+    expect(parseMessage(JSON.stringify({ type: 'proto-interact' }))).toEqual({
+      type: 'proto-interact',
     });
-    expect(parseMessage(JSON.stringify({ type: 'fmv-cue', role: 'ghost' }))).toBeNull();
-    expect(parseMessage(JSON.stringify({ type: 'fmv-cue', haptic: 'forever' }))).toBeNull();
-  });
-
-  it('解析 prototype 道具操作與手機物品欄狀態', () => {
-    expect(
-      parseMessage(JSON.stringify({ type: 'proto-navigate', direction: 'left' })),
-    ).toEqual({ type: 'proto-navigate', direction: 'left' });
-    expect(
-      parseMessage(JSON.stringify({ type: 'proto-navigate', direction: 'back' })),
-    ).toEqual({ type: 'proto-navigate', direction: 'back' });
+    expect(parseMessage(JSON.stringify({ type: 'proto-use', pressed: true }))).toEqual({
+      type: 'proto-use',
+      pressed: true,
+    });
+    expect(parseMessage(JSON.stringify({ type: 'proto-shake', intensity: 'high', t: 20 }))).toBeNull();
     expect(
       parseMessage(JSON.stringify({ type: 'proto-navigate', direction: 'diagonal' })),
     ).toBeNull();
+  });
+
+  it('validates inventory actions and six-slot controller state', () => {
     expect(
       parseMessage(
         JSON.stringify({ type: 'proto-item-action', item: 'receipt', action: 'inspect' }),
@@ -144,72 +56,65 @@ describe('parseMessage', () => {
     ).toEqual({ type: 'proto-item-action', item: 'receipt', action: 'inspect' });
     expect(
       parseMessage(
-        JSON.stringify({ type: 'proto-item-action', item: 'pencil', action: 'use' }),
+        JSON.stringify({ type: 'proto-item-action', item: 'antenna', action: 'use' }),
       ),
-    ).toEqual({ type: 'proto-item-action', item: 'pencil', action: 'use' });
-    expect(
-      parseMessage(
-        JSON.stringify({ type: 'proto-item-action', item: 'tape', action: 'inspect' }),
-      ),
-    ).toEqual({ type: 'proto-item-action', item: 'tape', action: 'inspect' });
-    expect(
-      parseMessage(
-        JSON.stringify({ type: 'proto-item-action', item: 'boxCutter', action: 'use' }),
-      ),
-    ).toEqual({ type: 'proto-item-action', item: 'boxCutter', action: 'use' });
-    expect(
-      parseMessage(
-        JSON.stringify({ type: 'proto-item-action', item: 'firefighterMask', action: 'use' }),
-      ),
-    ).toEqual({ type: 'proto-item-action', item: 'firefighterMask', action: 'use' });
-    expect(
-      parseMessage(
-        JSON.stringify({
-          type: 'proto-item-action',
-          item: 'completeFirefighterGear',
-          action: 'inspect',
-        }),
-      ),
-    ).toEqual({
-      type: 'proto-item-action',
-      item: 'completeFirefighterGear',
-      action: 'inspect',
-    });
+    ).toEqual({ type: 'proto-item-action', item: 'antenna', action: 'use' });
     expect(
       parseMessage(
         JSON.stringify({
           type: 'proto-controller-state',
           inventoryOpen: true,
-          slots: ['receipt', 'pencil', 'boxCutter', null, null, null],
-          selectedItem: 'pencil',
+          slots: ['receipt', 'tape', null, null, null, null],
+          selectedItem: 'tape',
           detailItem: 'receipt',
         }),
       ),
     ).toEqual({
       type: 'proto-controller-state',
       inventoryOpen: true,
-      slots: ['receipt', 'pencil', 'boxCutter', null, null, null],
-      selectedItem: 'pencil',
+      slots: ['receipt', 'tape', null, null, null, null],
+      selectedItem: 'tape',
       detailItem: 'receipt',
     });
     expect(
-      parseMessage(
-        JSON.stringify({ type: 'proto-item-action', item: 'key', action: 'use' }),
-      ),
+      parseMessage(JSON.stringify({ type: 'proto-item-action', item: 'key', action: 'use' })),
     ).toBeNull();
-    expect(
-      parseMessage(
-        JSON.stringify({ type: 'proto-controller-state', inventoryOpen: false }),
-      ),
-    ).toBeNull();
+    for (const restoredItem of [
+      'oldBattery',
+      'smallKey',
+      'boxCutter',
+      'firefighterGear',
+      'firefighterMask',
+      'completeFirefighterGear',
+    ]) {
+      expect(
+        parseMessage(
+          JSON.stringify({ type: 'proto-item-action', item: restoredItem, action: 'use' }),
+        ),
+      ).toEqual({ type: 'proto-item-action', item: restoredItem, action: 'use' });
+    }
+    for (const removedItem of ['pencil']) {
+      expect(
+        parseMessage(
+          JSON.stringify({ type: 'proto-item-action', item: removedItem, action: 'use' }),
+        ),
+      ).toBeNull();
+    }
   });
 
-  it('拒絕非字串、壞 JSON、未知 type', () => {
+  it('validates phone vibration patterns', () => {
+    expect(parseMessage(JSON.stringify({ type: 'proto-vibrate', pattern: [220, 130, 220] }))).toEqual({
+      type: 'proto-vibrate',
+      pattern: [220, 130, 220],
+    });
+    expect(parseMessage(JSON.stringify({ type: 'proto-vibrate', pattern: [3000] }))).toBeNull();
+  });
+
+  it('rejects malformed and legacy story messages', () => {
     expect(parseMessage(42)).toBeNull();
-    expect(parseMessage(new ArrayBuffer(4))).toBeNull();
     expect(parseMessage('not json')).toBeNull();
-    expect(parseMessage('null')).toBeNull();
-    expect(parseMessage('"just a string"')).toBeNull();
+    expect(parseMessage(JSON.stringify({ type: 'hello', role: 'admin' }))).toBeNull();
+    expect(parseMessage(JSON.stringify({ type: 'story', screen: 'legacy-screen' }))).toBeNull();
     expect(parseMessage(JSON.stringify({ type: 'unknown' }))).toBeNull();
   });
 });

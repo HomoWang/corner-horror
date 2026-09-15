@@ -21,14 +21,16 @@ music may be used in personal and commercial projects; attribution is not requir
 | `password-reset.mp3` | User-provided project audio (`密碼刪除&重新.mp3`, 2026-08-04) | Password delete and reset feedback |
 | `pencil-rubbing.mp3` | User-provided project audio (`鉛筆畫畫.mp3`, 2026-08-04) | Receipt rubbing while interaction is held and the cursor moves |
 | `player-walking.mp3` | User-provided project audio (`走路音效.mp3`, 2026-08-04) | Active looping player walking sound |
+| `ashes-under-glass-7min.mp3` | User-provided project audio (`Ash Under Glass-7分鐘版好聽.mp3`, 2026-08-20) | Looping Room 307 background score |
+| `voice/tape-girlfriend-01.m4a` | User-recorded character dialogue (`你每次都說，晚一步就會失去誰。.m4a`, 2026-08-25) | Opening tape: girlfriend's first two lines |
+| `voice/tape-girlfriend-02.m4a` | User-recorded character dialogue (`你每次都這樣說.m4a`, 2026-08-25) | Opening tape: girlfriend's reply |
+| `voice/tape-girlfriend-distorted-tail.m4a` | User-recorded character dialogue (`你沒有.m4a`, 2026-08-25) | Opening tape: altered final phrase |
 
 The scream is a 2.4-second project cut of the downloaded source. The ambience, door, and ring
 files are short usable excerpts to keep mobile loading time low.
 
 ## Character narration
 
-Character dialogue is not a bundled audio asset. It is authored in `src/shared/narration.ts` and
-spoken at runtime by the player's own device through the Web Speech API after the user presses the
-controller start button. This avoids redistributing output from a proprietary desktop TTS voice or
-a Chinese open-source model whose training-data license is unclear. The host displays the same authored
-line as a synchronized subtitle when speech synthesis is unavailable.
+The girlfriend's opening tape dialogue is bundled as user-recorded audio. The protagonist's line remains
+text-only until its final performance is recorded. Dialogue timing and captions are authored in
+`src/prototype/chapter-one.ts`.

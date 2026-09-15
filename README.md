@@ -1,19 +1,18 @@
-# THE CORNER
+# 307
 
-A two-screen cinematic browser horror experience. Open the host on a larger screen, scan its QR
-code with a phone, then keep watching the host while using the phone only as a motion-controlled
-flashlight and one-button controller.
+A single-player horror puzzle game displayed on a Windows PC and controlled by a phone. The PC owns
+the room, story, audio, puzzle state, and saves; the phone supplies motion aiming, movement,
+interaction, inventory selection, and haptic feedback.
 
-The first playable chapter is **407 號房：最後點交**: a 6–10 minute investigation with a phone
-call, window and portrait triggers, a host-screen code sequence, a recorded warning, an aimed door
-choice, and two endings. The complete event outline is documented in [STORY.md](STORY.md).
+The story follows a firefighter trapped in a distorted memory of the night he entered room 307 to
+rescue his girlfriend. He believes she died, but the complete memory reveals that she survived and
+he is the one lying critically injured. The target play time for the complete prototype is 20–30
+minutes. [STORY.md](STORY.md) is the only canonical plot source; the detailed opening chapter is
+documented in [CHAPTER_1_OPENING.md](CHAPTER_1_OPENING.md).
 
-After the phone is ready, press its central button to start. The phone owns the guaranteed audio
-track because that touch can unlock mobile audio directly. The host can optionally be clicked once
-for synchronized room audio, but it never blocks the experience. Story text, codes, and choices
-stay on the larger screen. Character dialogue uses the phone's on-device Traditional Chinese speech
-voice and appears as synchronized subtitles on the host; no generated voice recording is redistributed.
-Mobile Safari or Chrome is recommended for speech synthesis and orientation support.
+The computer always plays game audio. The phone remains portrait-only and shows six persistent
+inventory slots above the central movement and interaction control. Mobile Safari is recommended on
+iPhone because motion permission requires a secure page and an explicit start gesture.
 
 ## Live experience
 
@@ -25,8 +24,8 @@ around one minute to wake up; leave the host page open and it will reconnect aut
 ## Development
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 ## Windows desktop development
@@ -35,13 +34,13 @@ The desktop mode opens the host in a standalone Electron game window while the p
 use the hosted HTTPS controller shown by the QR code.
 
 ```bash
-npm run desktop:dev
+pnpm desktop:dev
 ```
 
 Create a self-contained Windows test build:
 
 ```bash
-npm run desktop:package
+pnpm desktop:package
 ```
 
 The executable is written to `release/Room307-win32-x64/Room307.exe`. Press `F11` to toggle
@@ -52,14 +51,12 @@ Vite serves the host, controller, LAN QR endpoint, and local WebSocket relay tog
 ## Verification
 
 ```bash
-npm run typecheck
-npm test
-npm run build
-npm run build:server
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm build:server
 ```
 
 Deployment details are documented in [DEPLOYMENT.md](DEPLOYMENT.md). Audio sources and licensing
 are recorded in [public/assets/audio/SOURCES.md](public/assets/audio/SOURCES.md); original visual
-asset generation notes are recorded in [public/assets/SOURCES.md](public/assets/SOURCES.md). The
-horror pacing references and the elements adapted for this project are recorded in
-[HORROR_DESIGN_RESEARCH.md](HORROR_DESIGN_RESEARCH.md).
+asset generation notes are recorded in [public/assets/SOURCES.md](public/assets/SOURCES.md).

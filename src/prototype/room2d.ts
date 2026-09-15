@@ -7,12 +7,19 @@ export type RoomObjectId =
   | 'wardrobeRight'
   | 'receipt'
   | 'table'
-  | 'pencil'
+  | 'photo'
+  | 'familyPhoto'
+  | 'firefighterPhoto'
+  | 'girlfriendPhoto'
+  | 'couplePhotoFrame'
+  | 'firefighterAward'
   | 'safe'
-  | 'drawer'
+  | 'cardboardBox'
+  | 'firefighterMask'
+  | 'deskDrawer'
   | 'tape'
-  | 'oldBattery'
-  | 'smallKey'
+  | 'antenna'
+  | 'bed'
   | 'recorder'
   | 'door';
 
@@ -37,17 +44,30 @@ interface Hotspot {
 const VIEW_ORDER: ViewId[] = ['wardrobe', 'desk', 'back', 'bed'];
 
 const VIEW_IMAGES: Record<ViewId, string> = {
-  wardrobe: publicUrl('assets/room407/photos/衣櫥.png'),
-  desk: publicUrl('assets/room407/photos/desk-wall-dynamic-pencil-v2.png'),
-  back: publicUrl('assets/room407/photos/back-wall-corrected-v2.png'),
-  bed: publicUrl('assets/room407/photos/bed-door-wall.png'),
+  wardrobe: publicUrl('assets/room307/photos/衣櫥.png'),
+  desk: publicUrl('assets/room307/photos/desk-wall-clean-v3.png'),
+  back: publicUrl('assets/room307/photos/back-wall-no-photos-v3.png'),
+  bed: publicUrl('assets/room307/photos/bed-door-wall.png'),
 };
 
+const STORY_WALL_IMAGES = {
+  family: publicUrl('assets/room307/photos/男主童年家庭照.png'),
+  firefighter: publicUrl('assets/room307/photos/消防員走向火場.png'),
+  girlfriend: publicUrl('assets/room307/photos/女友搬家生活照.png'),
+  couple: publicUrl('assets/room307/photos/男女主角照片.png'),
+  awards: publicUrl('assets/room307/photos/祈彥殉職褒揚狀-v1.png'),
+} as const;
+
 const WARDROBE_IMAGES = {
-  closed: publicUrl('assets/room407/photos/衣櫥.png'),
-  leftOpen: publicUrl('assets/room407/photos/wardrobe-left-consistent.png'),
-  rightOpen: publicUrl('assets/room407/photos/wardrobe-right-repaired.png'),
-  bothOpen: publicUrl('assets/room407/photos/wardrobe-both-repaired.png'),
+  closed: publicUrl('assets/room307/photos/wardrobe-base-no-photos.png'),
+  leftOpen: publicUrl('assets/room307/photos/wardrobe-left-consistent.png'),
+  rightOpen: publicUrl('assets/room307/photos/wardrobe-right-repaired.png'),
+  bothOpen: publicUrl('assets/room307/photos/wardrobe-both-repaired.png'),
+} as const;
+
+const PROP_IMAGES = {
+  receipt: publicUrl('assets/room307/props/receipt-door.png'),
+  firefighterMask: publicUrl('assets/room307/props/firefighter-mask-hanging-v2.png'),
 } as const;
 
 const VIEW_LABELS: Record<ViewId, string> = {
@@ -69,19 +89,24 @@ export class PrototypeRoom2D {
   private targetObject: RoomObjectId | null = null;
   private wardrobeOpen = new Set<WardrobeSection>();
   private safeOpen = false;
-  private drawerOpen = false;
   private tapeInserted = false;
+  private couplePhotoMounted = false;
   private collected = new Set<RoomObjectId>();
 
   constructor(private readonly root: HTMLElement) {
-    new Set([...Object.values(VIEW_IMAGES), ...Object.values(WARDROBE_IMAGES)]).forEach((src) => {
+    new Set([
+      ...Object.values(VIEW_IMAGES),
+      ...Object.values(WARDROBE_IMAGES),
+      ...Object.values(STORY_WALL_IMAGES),
+      ...Object.values(PROP_IMAGES),
+    ]).forEach((src) => {
       const preload = new Image();
       preload.src = src;
     });
 
     this.image = document.createElement('img');
     this.image.id = 'room-background';
-    this.image.alt = '407 房間';
+    this.image.alt = '307 房間';
     this.image.draggable = false;
 
     this.stateLayer = document.createElement('div');
@@ -120,7 +145,13 @@ export class PrototypeRoom2D {
 
     const aimX = 0.5 + look.x * 0.5;
     const aimY = 0.5 - look.y * 0.5;
-    this.targetObject = this.findTarget(aimX, aimY)?.id ?? null;
+    const roomRect = this.root.getBoundingClientRect();
+    const layerRect = this.stateLayer.getBoundingClientRect();
+    const clientX = roomRect.left + aimX * roomRect.width;
+    const clientY = roomRect.top + aimY * roomRect.height;
+    const localX = (clientX - layerRect.left) / layerRect.width;
+    const localY = (clientY - layerRect.top) / layerRect.height;
+    this.targetObject = this.findTarget(localX, localY)?.id ?? null;
 
     this.transitionSeconds = Math.max(0, this.transitionSeconds - delta);
     return this.transitionSeconds > 0 ? delta * 1.2 : 0;
@@ -145,14 +176,6 @@ export class PrototypeRoom2D {
     return true;
   }
 
-  openDrawer(): boolean {
-    if (this.drawerOpen) return false;
-    this.drawerOpen = true;
-    this.view = 'desk';
-    this.renderView();
-    return true;
-  }
-
   hasTapeInRecorder(): boolean {
     return this.tapeInserted;
   }
@@ -164,9 +187,21 @@ export class PrototypeRoom2D {
     return true;
   }
 
+  mountCouplePhoto(): boolean {
+    if (this.couplePhotoMounted) return false;
+    this.couplePhotoMounted = true;
+    this.view = 'back';
+    this.renderView(false);
+    return true;
+  }
+
+  hasMountedCouplePhoto(): boolean {
+    return this.couplePhotoMounted;
+  }
+
   collectObject(objectId: RoomObjectId): void {
     this.collected.add(objectId);
-    if (objectId === 'receipt' && this.view === 'wardrobe') this.renderView();
+    if (objectId === 'photo') this.renderState();
     else this.renderState();
   }
 
@@ -218,26 +253,29 @@ export class PrototypeRoom2D {
     this.root.classList.toggle('dragging', dragging);
   }
 
-  private renderView(): void {
+  private renderView(animate = true): void {
     const source = this.currentViewImage();
     this.image.src = source;
     this.root.style.backgroundImage = `url("${source}")`;
     this.root.dataset.view = this.view;
-    this.root.setAttribute('aria-label', `407 房間：${VIEW_LABELS[this.view]}`);
-    this.root.classList.add('changing-view');
-    window.setTimeout(() => this.root.classList.remove('changing-view'), 260);
+    this.root.setAttribute('aria-label', `307 房間：${VIEW_LABELS[this.view]}`);
+    this.root.classList.toggle('changing-view', animate);
+    if (animate) window.setTimeout(() => this.root.classList.remove('changing-view'), 260);
     this.renderState();
   }
 
   private currentViewImage(): string {
     if (this.view !== 'wardrobe') return VIEW_IMAGES[this.view];
+    return WARDROBE_IMAGES.closed;
+  }
 
+  private currentWardrobeOverlay(): string | null {
     const leftOpen = this.wardrobeOpen.has('left') || this.wardrobeOpen.has('middle');
     const rightOpen = this.wardrobeOpen.has('right');
     if (leftOpen && rightOpen) return WARDROBE_IMAGES.bothOpen;
     if (rightOpen) return WARDROBE_IMAGES.rightOpen;
     if (leftOpen) return WARDROBE_IMAGES.leftOpen;
-    return WARDROBE_IMAGES.closed;
+    return null;
   }
 
   private renderState(): void {
@@ -251,59 +289,83 @@ export class PrototypeRoom2D {
     }> = [];
     const stateNodes: HTMLElement[] = [];
 
+    if (this.view === 'wardrobe') {
+      const wardrobeOverlay = this.currentWardrobeOverlay();
+      if (wardrobeOverlay) {
+        const image = document.createElement('img');
+        image.src = wardrobeOverlay;
+        image.alt = '';
+        image.className = 'wardrobe-state-overlay';
+        stateNodes.push(image);
+      }
+      const maskHook = document.createElement('span');
+      maskHook.className = 'firefighter-mask-hook';
+      maskHook.setAttribute('aria-hidden', 'true');
+      stateNodes.push(maskHook);
+      if (!this.collected.has('firefighterMask')) {
+        props.push({
+          id: 'firefighterMask',
+          className: 'firefighter-mask-prop',
+          src: PROP_IMAGES.firefighterMask,
+          x: 57.65,
+          y: 30.75,
+          width: 3.55,
+        });
+      }
+    }
+
+    if (this.view === 'back') {
+      const award = document.createElement('div');
+      award.className = 'story-wall-award award-one';
+      award.dataset.objectId = 'firefighterAward';
+      award.style.backgroundImage = `url("${STORY_WALL_IMAGES.awards}")`;
+      stateNodes.push(award);
+
+      const wallPhotos = [
+        { id: 'familyPhoto', className: 'family-photo', src: STORY_WALL_IMAGES.family },
+        { id: 'firefighterPhoto', className: 'firefighter-photo', src: STORY_WALL_IMAGES.firefighter },
+        { id: 'girlfriendPhoto', className: 'girlfriend-photo', src: STORY_WALL_IMAGES.girlfriend },
+      ];
+      stateNodes.push(
+        ...wallPhotos.map(({ id, className, src }) => {
+          const frame = document.createElement('figure');
+          frame.className = `story-wall-photo ${className}`;
+          frame.dataset.objectId = id;
+          const image = document.createElement('img');
+          image.src = src;
+          image.alt = '';
+          frame.append(image);
+          return frame;
+        }),
+      );
+
+      const coupleFrame = document.createElement('figure');
+      coupleFrame.className = `story-wall-photo couple-photo ${
+        this.couplePhotoMounted ? 'mounted' : 'empty'
+      }`;
+      coupleFrame.dataset.objectId = 'couplePhotoFrame';
+      if (this.couplePhotoMounted) {
+        const image = document.createElement('img');
+        image.src = STORY_WALL_IMAGES.couple;
+        image.alt = '';
+        coupleFrame.append(image);
+      }
+      stateNodes.push(coupleFrame);
+    }
+
     if (
       this.view === 'wardrobe' &&
-      this.wardrobeOpen.has('left') &&
+      (this.wardrobeOpen.has('left') || this.wardrobeOpen.has('middle')) &&
       !this.collected.has('receipt')
     ) {
       props.push({
         id: 'receipt',
         className: 'receipt-prop',
-        src: publicUrl('assets/room407/props/receipt-door.png'),
+        src: PROP_IMAGES.receipt,
         x: 30.45,
         y: 35.25,
-        width: 2.25,
+        width: 2.7,
       });
-    }
-
-    if (!this.collected.has('pencil')) {
-      const pencilPlacement: Partial<Record<ViewId, { x: number; y: number; width: number }>> = {
-        wardrobe: { x: 26.5, y: 55.3, width: 3.6 },
-        desk: { x: 52.4, y: 58.5, width: 5.2 },
-        back: { x: 91.2, y: 58.2, width: 3.8 },
-      };
-      const placement = pencilPlacement[this.view];
-      if (placement) {
-        props.push({
-          id: 'pencil',
-          className: 'pencil-prop',
-          src: publicUrl('assets/room407/props/pencil-model.png'),
-          ...placement,
-        });
-      }
-    }
-
-    if (this.view === 'desk' && this.drawerOpen) {
-      if (!this.collected.has('tape')) {
-        props.push({
-          id: 'tape',
-          className: 'drawer-prop',
-          src: publicUrl('assets/inventory-icons/tape.png'),
-          x: 42.3,
-          y: 71.5,
-          width: 4.6,
-        });
-      }
-      if (!this.collected.has('oldBattery')) {
-        props.push({
-          id: 'oldBattery',
-          className: 'drawer-prop',
-          src: publicUrl('assets/inventory-icons/battery.png'),
-          x: 48.3,
-          y: 72.5,
-          width: 1.8,
-        });
-      }
     }
 
     stateNodes.push(
@@ -326,15 +388,18 @@ export class PrototypeRoom2D {
     if (this.view === 'wardrobe') {
       return [
         {
-          id: 'pencil', x: 0.235, y: 0.515, width: 0.06, height: 0.09,
-          visible: () => !this.collected.has('pencil'),
+          id: 'receipt', x: 0.291, y: 0.283, width: 0.027, height: 0.138,
+          visible: () =>
+            (this.wardrobeOpen.has('left') || this.wardrobeOpen.has('middle')) &&
+            !this.collected.has('receipt'),
+        },
+        { id: 'cardboardBox', x: 0.48, y: 0.535, width: 0.075, height: 0.105 },
+        {
+          id: 'firefighterMask', x: 0.555, y: 0.285, width: 0.06, height: 0.16,
+          visible: () => !this.collected.has('firefighterMask'),
         },
         {
-          id: 'receipt', x: 0.285, y: 0.29, width: 0.085, height: 0.28,
-          visible: () => this.wardrobeOpen.has('left') && !this.collected.has('receipt'),
-        },
-        {
-          id: 'safe', x: 0.405, y: 0.3, width: 0.11, height: 0.31,
+          id: 'safe', x: 0.419, y: 0.41, width: 0.055, height: 0.18,
           visible: () => this.wardrobeOpen.has('right'),
         },
         { id: 'wardrobeLeft', x: 0.297, y: 0.205, width: 0.069, height: 0.36 },
@@ -346,34 +411,24 @@ export class PrototypeRoom2D {
     }
     if (this.view === 'desk') {
       return [
-        {
-          id: 'pencil', x: 0.48, y: 0.55, width: 0.08, height: 0.09,
-          visible: () => !this.collected.has('pencil'),
-        },
-        {
-          id: 'tape', x: 0.4, y: 0.66, width: 0.09, height: 0.16,
-          visible: () => this.drawerOpen && !this.collected.has('tape'),
-        },
-        {
-          id: 'oldBattery', x: 0.475, y: 0.66, width: 0.06, height: 0.16,
-          visible: () => this.drawerOpen && !this.collected.has('oldBattery'),
-        },
         { id: 'recorder', x: 0.29, y: 0.43, width: 0.12, height: 0.18 },
-        { id: 'drawer', x: 0.29, y: 0.58, width: 0.14, height: 0.21 },
+        { id: 'deskDrawer', x: 0.415, y: 0.555, width: 0.18, height: 0.16 },
         { id: 'table', x: 0.27, y: 0.49, width: 0.31, height: 0.36 },
       ];
     }
     if (this.view === 'bed') {
       return [
+        { id: 'bed', x: 0.4, y: 0.5, width: 0.55, height: 0.38 },
         { id: 'door', x: 0.25, y: 0.21, width: 0.1, height: 0.48 },
       ];
     }
     if (this.view === 'back') {
       return [
-        {
-          id: 'pencil', x: 0.875, y: 0.535, width: 0.075, height: 0.1,
-          visible: () => !this.collected.has('pencil'),
-        },
+        { id: 'familyPhoto', x: 0.363, y: 0.29, width: 0.035, height: 0.05 },
+        { id: 'firefighterAward', x: 0.431, y: 0.273, width: 0.028, height: 0.084 },
+        { id: 'firefighterPhoto', x: 0.494, y: 0.288, width: 0.032, height: 0.055 },
+        { id: 'couplePhotoFrame', x: 0.558, y: 0.29, width: 0.035, height: 0.05 },
+        { id: 'girlfriendPhoto', x: 0.463, y: 0.415, width: 0.035, height: 0.05 },
         { id: 'recorder', x: 0.705, y: 0.46, width: 0.12, height: 0.18 },
         { id: 'table', x: 0.68, y: 0.48, width: 0.3, height: 0.38 },
       ];

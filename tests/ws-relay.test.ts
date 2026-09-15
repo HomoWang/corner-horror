@@ -15,9 +15,9 @@ class FakeSocket implements RelaySocket {
     this.emit('close');
   }
 
-  on(event: string, cb: (...args: unknown[]) => void): void {
+  on(event: string, callback: (...args: unknown[]) => void): void {
     const callbacks = this.listeners.get(event) ?? [];
-    callbacks.push(cb);
+    callbacks.push(callback);
     this.listeners.set(event, callbacks);
   }
 
@@ -35,7 +35,7 @@ function hello(socket: FakeSocket, role: 'host' | 'controller'): void {
 }
 
 describe('WsRelay', () => {
-  it('forwards controller input to host and host story output to controller only', () => {
+  it('forwards controller input to the host and host state to the controller', () => {
     const relay = new WsRelay();
     const host = new FakeSocket();
     const controller = new FakeSocket();
@@ -46,34 +46,41 @@ describe('WsRelay', () => {
     host.sent = [];
     controller.sent = [];
 
-    controller.emit('message', JSON.stringify({ type: 'orient', q: [0, 0, 0, 1], t: 1 }));
-    controller.emit('message', JSON.stringify({ type: 'ready' }));
-    controller.emit('message', JSON.stringify({ type: 'story-action', id: 'answer' }));
+    controller.emit('message', JSON.stringify({ type: 'proto-interact' }));
+    controller.emit(
+      'message',
+      JSON.stringify({ type: 'proto-shake', intensity: 0.8, t: 1_750_000_000_000 }),
+    );
     controller.emit(
       'message',
       JSON.stringify({ type: 'proto-item-action', item: 'receipt', action: 'inspect' }),
     );
-    host.emit('message', JSON.stringify({ type: 'cue', id: 'ring' }));
-    host.emit('message', JSON.stringify({ type: 'story', screen: 'incoming-407' }));
+    host.emit('message', JSON.stringify({ type: 'proto-vibrate', pattern: [35] }));
     host.emit(
       'message',
-      JSON.stringify({ type: 'fmv-cue', audio: 'voice-warning', haptic: 'double-short' }),
+      JSON.stringify({
+        type: 'proto-controller-state',
+        inventoryOpen: false,
+        slots: [null, null, null, null, null, null],
+      }),
     );
 
     expect(host.messages()).toEqual([
-      { type: 'orient', q: [0, 0, 0, 1], t: 1 },
-      { type: 'ready' },
-      { type: 'story-action', id: 'answer' },
+      { type: 'proto-interact' },
+      { type: 'proto-shake', intensity: 0.8, t: 1_750_000_000_000 },
       { type: 'proto-item-action', item: 'receipt', action: 'inspect' },
     ]);
     expect(controller.messages()).toEqual([
-      { type: 'cue', id: 'ring' },
-      { type: 'story', screen: 'incoming-407' },
-      { type: 'fmv-cue', audio: 'voice-warning', haptic: 'double-short' },
+      { type: 'proto-vibrate', pattern: [35] },
+      {
+        type: 'proto-controller-state',
+        inventoryOpen: false,
+        slots: [null, null, null, null, null, null],
+      },
     ]);
   });
 
-  it('last-wins replacement is safe even when close emits synchronously', () => {
+  it('safely replaces an older controller', () => {
     const relay = new WsRelay();
     const host = new FakeSocket();
     const first = new FakeSocket();

@@ -9,7 +9,9 @@ const desktopDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(desktopDir, '..');
 const stageDir = join(projectRoot, '.desktop-stage');
 const releaseDir = join(projectRoot, 'release');
+const pendingReleaseDir = join(projectRoot, 'release-pending');
 const viteBin = join(projectRoot, 'node_modules', 'vite', 'bin', 'vite.js');
+const controllerVersion = `desktop-${Date.now()}`;
 
 function assertProjectChild(path) {
   const relativePath = relative(projectRoot, path);
@@ -31,15 +33,25 @@ function run(command, args, env = process.env) {
 
 assertProjectChild(stageDir);
 assertProjectChild(releaseDir);
+assertProjectChild(pendingReleaseDir);
 
-await run(process.execPath, [viteBin, 'build', '--mode', 'desktop'], {
+await run(process.execPath, [viteBin, 'build', '--mode', 'desktop', '--configLoader', 'runner'], {
   ...process.env,
   VITE_WS_URL: desktopConfig.relayWebSocketUrl,
   VITE_CONTROLLER_URL: desktopConfig.controllerBaseUrl,
+  VITE_CONTROLLER_VERSION: controllerVersion,
 });
 
 await rm(stageDir, { recursive: true, force: true });
-await rm(releaseDir, { recursive: true, force: true });
+let packageOutputDir = releaseDir;
+try {
+  await rm(releaseDir, { recursive: true, force: true });
+} catch (error) {
+  if (!['EBUSY', 'EPERM'].includes(error?.code)) throw error;
+  packageOutputDir = pendingReleaseDir;
+  await rm(pendingReleaseDir, { recursive: true, force: true });
+  console.warn('現有測試版仍在執行，改將新版輸出至 release-pending。');
+}
 await mkdir(join(stageDir, 'desktop'), { recursive: true });
 await cp(join(projectRoot, 'dist'), join(stageDir, 'dist'), { recursive: true });
 await cp(join(projectRoot, 'desktop', 'main.mjs'), join(stageDir, 'desktop', 'main.mjs'), {
@@ -72,16 +84,18 @@ await packager({
   name: 'Room307',
   platform: 'win32',
   arch: 'x64',
-  out: releaseDir,
+  out: packageOutputDir,
   overwrite: true,
   asar: true,
   prune: true,
   appVersion: '0.1.0',
   win32metadata: {
     CompanyName: 'Room 307',
-    FileDescription: '307 Horror Puzzle Prototype',
+    FileDescription: '307 Horror Puzzle',
     ProductName: '307',
   },
 });
 
-console.log(`\nWindows 測試版已建立：${join(releaseDir, 'Room307-win32-x64', 'Room307.exe')}`);
+console.log(
+  `\nWindows 測試版已建立：${join(packageOutputDir, 'Room307-win32-x64', 'Room307.exe')}`,
+);

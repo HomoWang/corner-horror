@@ -21,7 +21,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        host: fileURLToPath(new URL('index.html', import.meta.url)),
+        home: fileURLToPath(new URL('index.html', import.meta.url)),
         controller: fileURLToPath(new URL('controller.html', import.meta.url)),
         prototype: fileURLToPath(new URL('prototype.html', import.meta.url)),
         'controller-prototype': fileURLToPath(new URL('controller-prototype.html', import.meta.url)),

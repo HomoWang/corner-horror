@@ -13,8 +13,7 @@ tmp/
 # Keep original Flow downloads locally; GitHub Pages only needs the silent game-ready copies.
 production/video-pilot/source/
 
-# Local desktop builds and unused high-resolution 3D experiments are not Pages assets.
+# Local desktop builds and retired high-resolution experiments are not Pages assets.
 release/
 .desktop-stage/
-public/assets/models/
-public/assets/materials/
+production/archive/assets/

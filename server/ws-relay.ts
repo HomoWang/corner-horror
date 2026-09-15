@@ -40,14 +40,12 @@ export class WsRelay {
         }
         return;
       }
-      // controller 的方向、動作與劇情 UI 回應都只轉發給 host。
+      // Controller input only travels to the authoritative game host.
       if (
         role === 'controller' &&
-        (msg.type === 'orient' ||
-          msg.type === 'btn' ||
-          msg.type === 'ready' ||
-          msg.type === 'story-action' ||
+        (msg.type === 'ready' ||
           msg.type === 'proto-pointer' ||
+          msg.type === 'proto-shake' ||
           msg.type === 'proto-move' ||
           msg.type === 'proto-navigate' ||
           msg.type === 'proto-interact' ||
@@ -59,10 +57,7 @@ export class WsRelay {
       }
       if (
         role === 'host' &&
-        (msg.type === 'cue' ||
-          msg.type === 'story' ||
-          msg.type === 'fmv-cue' ||
-          msg.type === 'proto-vibrate' ||
+        (msg.type === 'proto-vibrate' ||
           msg.type === 'proto-controller-state')
       ) {
         if (this.controller) safeSend(this.controller, JSON.stringify(msg));
