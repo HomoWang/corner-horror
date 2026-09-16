@@ -15,7 +15,11 @@ import {
 } from './chapter-one';
 import { addBedShakeProgress, BED_SHAKE_TARGET, hasEscapedBedGrab } from './bed-escape';
 import { BED_AUDIO_CUES } from './bed-audio-cues';
-import { BED_BLOOD_HOLD_MS, buildBedDeathRestartUrl } from './bed-death-flow';
+import {
+  BED_BLOOD_HOLD_MS,
+  buildBedDeathRestartUrl,
+  clearBedDeathInventory,
+} from './bed-death-flow';
 import { PrototypeRoom2D, type RoomObjectId } from './room2d';
 import {
   advanceHorizontalCut,
@@ -292,6 +296,7 @@ const bedPlayerScreamAudio = document.querySelector<HTMLAudioElement>(
 ambienceAudio.volume = 0.26;
 ambienceAudio.loop = true;
 bedReachAudio.volume = BED_AUDIO_CUES.monsterVoiceVolume;
+bedReachAudio.loop = true;
 bedStruggleAudio.volume = BED_AUDIO_CUES.monsterAppearanceVolume;
 bedDeathAudio.volume = BED_AUDIO_CUES.deathVolume;
 bedPlayerScreamAudio.volume = BED_AUDIO_CUES.playerScreamVolume;
@@ -863,11 +868,13 @@ async function playBedAntennaScare(): Promise<void> {
   bedShakeScore = 0;
   bedShakeFeedbackStep = 0;
   bedAntennaHotspotEl.hidden = true;
-  bedScarePreviousAmbientVolume = ambienceAudio.volume;
-  void fadeMediaVolume(ambienceAudio, 0.035, 220);
   stopBedDeathAudio();
-  bedReachAudio.currentTime = BED_AUDIO_CUES.monsterVoiceStartAt;
-  void bedReachAudio.play().catch(() => undefined);
+  if (bedReachAudio.paused && !hostAudioMuted) {
+    if (bedReachAudio.currentTime < BED_AUDIO_CUES.monsterVoiceStartAt) {
+      bedReachAudio.currentTime = BED_AUDIO_CUES.monsterVoiceStartAt;
+    }
+    void bedReachAudio.play().catch(() => undefined);
+  }
   bedScareVideoEl.currentTime = 0;
   bedScareVideoEl.playbackRate = 1;
   bedScareVideoEl.volume = 0.92;
@@ -957,6 +964,20 @@ function restoreBedAmbient(): void {
   bedScarePreviousAmbientVolume = null;
 }
 
+function startBedInspectAudio(): void {
+  if (collectedItems.has('antenna')) return;
+  if (bedScarePreviousAmbientVolume === null) {
+    bedScarePreviousAmbientVolume = ambienceAudio.volume;
+  }
+  void fadeMediaVolume(ambienceAudio, BED_AUDIO_CUES.backgroundVolumeUnderBed, 280);
+  if (bedReachAudio.currentTime < BED_AUDIO_CUES.monsterVoiceStartAt) {
+    bedReachAudio.currentTime = BED_AUDIO_CUES.monsterVoiceStartAt;
+  }
+  if (!hostAudioMuted && bedReachAudio.paused) {
+    void bedReachAudio.play().catch(() => undefined);
+  }
+}
+
 function stopBedStruggleAudio(): void {
   bedStruggleAudio.pause();
   bedStruggleAudio.currentTime = 0;
@@ -991,7 +1012,11 @@ function stopBedReachAudio(): void {
 
 function resumeActiveBedEventAudio(): void {
   if (hostAudioMuted) return;
-  if (bedEventPhase === 'reach' && bedReachAudio.paused) {
+  if (
+    (bedEventPhase === 'reach' ||
+      (bedEventPhase === 'idle' && bedInspectOpen && !collectedItems.has('antenna'))) &&
+    bedReachAudio.paused
+  ) {
     void bedReachAudio.play().catch(() => undefined);
   }
   if (bedEventPhase === 'struggle' && bedStruggleAudio.paused) {
@@ -1106,6 +1131,13 @@ async function startBedDeath(): Promise<void> {
 async function restartGameAfterBedDeath(): Promise<void> {
   if (bedEventPhase !== 'death-menu') return;
   bedEventPhase = 'resetting';
+  clearBedDeathInventory(inventorySlots);
+  collectedItems.clear();
+  selectedItem = null;
+  detailItem = null;
+  inventoryOpen = false;
+  syncControllerState();
+  await wait(120);
   try {
     await clearSave();
   } finally {
@@ -2300,6 +2332,7 @@ function openBedInspect(): void {
   move = { x: 0, y: 0 };
   renderBedInspect();
   bedInspectEl.classList.add('open');
+  startBedInspectAudio();
   syncControllerState();
   updatePointer(pointer.x, pointer.y);
 }
@@ -2309,6 +2342,8 @@ function closeBedInspect(): void {
   bedInspectOpen = false;
   move = { x: 0, y: 0 };
   bedInspectEl.classList.remove('open');
+  stopBedReachAudio();
+  restoreBedAmbient();
   syncControllerState();
   updatePointer(pointer.x, pointer.y);
 }

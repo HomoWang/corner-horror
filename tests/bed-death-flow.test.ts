@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BED_BLOOD_HOLD_MS, buildBedDeathRestartUrl } from '../src/prototype/bed-death-flow';
+import {
+  BED_BLOOD_HOLD_MS,
+  buildBedDeathRestartUrl,
+  clearBedDeathInventory,
+} from '../src/prototype/bed-death-flow';
 
 describe('bed death menu flow', () => {
   it('holds the blood-filled ending before showing the menu', () => {
@@ -17,5 +21,14 @@ describe('bed death menu flow', () => {
     expect(url.searchParams.get('room')).toBe('ABCD1234');
     expect(url.searchParams.get('restart')).toBe('death');
     expect(url.searchParams.has('inspect')).toBe(false);
+  });
+
+  it('clears every inventory slot before the death restart reloads', () => {
+    const slots = Array.from({ length: 12 }, (_, index) => `item-${index}` as string | null);
+
+    clearBedDeathInventory(slots);
+
+    expect(slots).toHaveLength(12);
+    expect(slots).toEqual(Array(12).fill(null));
   });
 });
