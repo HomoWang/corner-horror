@@ -84,7 +84,7 @@
         height: 100dvh;
         min-height: 100dvh;
         display: grid;
-        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        grid-template-rows: auto auto auto minmax(0, 1fr) auto;
         gap: 0.65rem;
         padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
       }
@@ -139,7 +139,7 @@
       }
 
       #start {
-        grid-row: 3;
+        grid-row: 4;
         width: min(62vw, 15rem);
         aspect-ratio: 1;
         align-self: center;
@@ -155,12 +155,11 @@
       }
 
       #controls {
-        grid-row: 3;
+        grid-row: 4;
         display: none;
         min-height: 0;
         height: 100%;
-        grid-template-rows: auto 1fr;
-        gap: 0.8rem;
+        grid-template-rows: 1fr;
         align-items: center;
       }
 
@@ -338,8 +337,8 @@
       }
 
       #calibrate {
-        width: min(100%, 28rem);
-        min-height: 2.65rem;
+        width: min(100%, 32rem);
+        min-height: 2.4rem;
         justify-self: center;
         border-color: rgba(117, 91, 82, 0.34);
         color: #756762;
@@ -379,12 +378,12 @@
         <p id="sensor-status" data-state="idle">方向感應：尚未啟用</p>
         <p id="selected">目前道具：無</p>
       </header>
+      <button id="calibrate" class="control-button" type="button">重新校正</button>
       <div id="inventory-area">
         <div id="phone-inventory" aria-label="物品欄"></div>
       </div>
       <button id="start" type="button">同步 307</button>
       <section id="controls">
-        <button id="calibrate" class="control-button" type="button">重新校正</button>
         <div id="joystick" aria-label="中央單點互動，按住拖曳切換視角">
           <input id="joystick-haptic" type="checkbox" switch aria-label="互動" />
           <div id="stick"><span id="stick-label">互動</span></div>

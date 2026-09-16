@@ -61,7 +61,7 @@ describe('WsRelay', () => {
       JSON.stringify({
         type: 'proto-controller-state',
         inventoryOpen: false,
-        slots: [null, null, null, null, null, null],
+        slots: [null, null, null, null, null, null, null, null, null, null, null, null],
       }),
     );
 
@@ -75,7 +75,7 @@ describe('WsRelay', () => {
       {
         type: 'proto-controller-state',
         inventoryOpen: false,
-        slots: [null, null, null, null, null, null],
+        slots: [null, null, null, null, null, null, null, null, null, null, null, null],
       },
     ]);
   });

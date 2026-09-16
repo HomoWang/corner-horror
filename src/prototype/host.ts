@@ -322,7 +322,7 @@ let tapeNoiseSource: AudioBufferSourceNode | null = null;
 let tapeNoiseGain: GainNode | null = null;
 let cardboardBoxCutSoundAt = 0;
 let radioFlickerTimer: number | null = null;
-const inventorySlots: Array<ItemId | null> = Array.from({ length: 6 }, () => null);
+const inventorySlots: Array<ItemId | null> = Array.from({ length: 12 }, () => null);
 const collectedItems = new Set<ItemId>();
 const SAFE_INSPECT_IMAGES = {
   closed: publicUrl('assets/room307/photos/密碼鎖.png'),

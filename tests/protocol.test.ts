@@ -48,7 +48,7 @@ describe('parseMessage', () => {
     ).toBeNull();
   });
 
-  it('validates inventory actions and six-slot controller state', () => {
+  it('validates inventory actions and twelve-slot controller state', () => {
     expect(
       parseMessage(
         JSON.stringify({ type: 'proto-item-action', item: 'receipt', action: 'inspect' }),
@@ -64,7 +64,7 @@ describe('parseMessage', () => {
         JSON.stringify({
           type: 'proto-controller-state',
           inventoryOpen: true,
-          slots: ['receipt', 'tape', null, null, null, null],
+          slots: ['receipt', 'tape', null, null, null, null, null, null, null, null, null, null],
           selectedItem: 'tape',
           detailItem: 'receipt',
         }),
@@ -72,7 +72,7 @@ describe('parseMessage', () => {
     ).toEqual({
       type: 'proto-controller-state',
       inventoryOpen: true,
-      slots: ['receipt', 'tape', null, null, null, null],
+      slots: ['receipt', 'tape', null, null, null, null, null, null, null, null, null, null],
       selectedItem: 'tape',
       detailItem: 'receipt',
     });

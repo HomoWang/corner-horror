@@ -11,6 +11,7 @@ const inventoryGridEl = document.querySelector<HTMLDivElement>('#phone-inventory
 const joystickEl = document.querySelector<HTMLDivElement>('#joystick')!;
 const stickEl = document.querySelector<HTMLDivElement>('#stick')!;
 const calibrateBtn = document.querySelector<HTMLButtonElement>('#calibrate')!;
+const INVENTORY_SLOT_COUNT = 12;
 
 const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = {
   receipt: {
@@ -129,7 +130,10 @@ let joystickInteractHeld = false;
 let joystickStart = { x: 0, y: 0, time: 0 };
 let calibrationSamples: Array<{ pitch: number; yaw: number; roll: number }> = [];
 let calibrating = false;
-let controllerSlots: Array<ProtoItemId | null> = Array.from({ length: 6 }, () => null);
+let controllerSlots: Array<ProtoItemId | null> = Array.from(
+  { length: INVENTORY_SLOT_COUNT },
+  () => null,
+);
 let selectedItem: ProtoItemId | null = null;
 let detailItem: ProtoItemId | null = null;
 let interfaceWasOpen = false;
@@ -209,9 +213,9 @@ async function lockPortraitOrientation(): Promise<void> {
 }
 
 function renderPhoneInventory(): void {
-  if (inventoryGridEl.children.length !== 6) {
+  if (inventoryGridEl.children.length !== INVENTORY_SLOT_COUNT) {
     inventoryGridEl.replaceChildren();
-    for (let index = 0; index < 6; index += 1) {
+    for (let index = 0; index < INVENTORY_SLOT_COUNT; index += 1) {
       const slot = document.createElement('label');
       slot.dataset.slot = String(index);
       const hapticSurface = document.createElement('input');

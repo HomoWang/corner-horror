@@ -213,7 +213,7 @@ export function parseMessage(raw: unknown): Msg | null {
     case 'proto-controller-state':
       return typeof message.inventoryOpen === 'boolean' &&
         Array.isArray(message.slots) &&
-        message.slots.length === 6 &&
+        message.slots.length === 12 &&
         message.slots.every(
           (item): item is ProtoItemId | null =>
             item === null ||
