@@ -303,7 +303,8 @@ bedReachAudio.volume = BED_AUDIO_CUES.monsterVoiceVolume;
 bedReachAudio.loop = true;
 bedStruggleAudio.volume = BED_AUDIO_CUES.monsterAppearanceVolume;
 bedStruggleAudio.loop = true;
-bedDeathAudio.volume = BED_AUDIO_CUES.deathVolume;
+bedDeathAudio.volume = BED_AUDIO_CUES.monsterDeathVolume;
+bedDeathAudio.loop = BED_AUDIO_CUES.monsterDeathLoop;
 bedPlayerScreamAudio.volume = BED_AUDIO_CUES.playerScreamVolume;
 type HostSoundId =
   | 'keypad'
@@ -976,7 +977,6 @@ function startBedInspectAudio(): void {
 function stopBedStruggleAudio(): void {
   bedStruggleAudio.pause();
   bedStruggleAudio.currentTime = 0;
-  bedStruggleAudio.volume = BED_AUDIO_CUES.monsterAppearanceVolume;
 }
 
 function stopBedDeathAudio(): void {
@@ -1005,7 +1005,6 @@ function syncBedPlayerScreamToVideo(): void {
   }
   if (!shouldStartBedPlayerScream(bedDeathVideoEl.currentTime, bedPlayerScreamStarted)) return;
   bedPlayerScreamStarted = true;
-  bedStruggleAudio.volume = BED_AUDIO_CUES.monsterRoarUnderScreamVolume;
   bedPlayerScreamAudio.currentTime = 0;
   void bedPlayerScreamAudio.play().catch(() => undefined);
 }
@@ -1025,7 +1024,7 @@ function resumeActiveBedEventAudio(): void {
     void bedReachAudio.play().catch(() => undefined);
   }
   if (
-    (bedEventPhase === 'struggle' || bedEventPhase === 'death') &&
+    bedEventPhase === 'struggle' &&
     bedStruggleAudio.paused
   ) {
     void bedStruggleAudio.play().catch(() => undefined);
@@ -1116,6 +1115,7 @@ async function startBedDeath(): Promise<void> {
     (bedEventPhase !== 'struggle' && bedEventPhase !== 'branching')
   ) return;
   bedEventPhase = 'death-transition';
+  stopBedStruggleAudio();
   resetBedEscapeFeedback();
   await Promise.all([
     seekBedVideo(bedDeathVideoEl, BED_DEATH_START_AT),
@@ -1186,6 +1186,7 @@ function finishBedDeath(): void {
   bedDeathVideoEl.pause();
   stopBedReachAudio();
   stopBedStruggleAudio();
+  stopBedDeathAudio();
   resetBedEscapeFeedback();
   if (bedDeathMenuTimer !== null) window.clearTimeout(bedDeathMenuTimer);
   bedDeathMenuTimer = window.setTimeout(() => {
@@ -1266,9 +1267,6 @@ bedStruggleVideoEl.addEventListener('error', () => {
 bedDeathVideoEl.addEventListener('ended', finishBedDeath);
 bedDeathVideoEl.addEventListener('error', finishBedDeath);
 bedDeathVideoEl.addEventListener('timeupdate', syncBedPlayerScreamToVideo);
-bedPlayerScreamAudio.addEventListener('ended', () => {
-  if (bedEventPhase === 'death') stopBedStruggleAudio();
-});
 bedDeathMenuEl.addEventListener('click', (event) => {
   const action = (event.target as HTMLElement).closest<HTMLElement>(
     '[data-bed-death-restart], [data-bed-death-close]',
