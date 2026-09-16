@@ -976,6 +976,7 @@ function startBedInspectAudio(): void {
 function stopBedStruggleAudio(): void {
   bedStruggleAudio.pause();
   bedStruggleAudio.currentTime = 0;
+  bedStruggleAudio.volume = BED_AUDIO_CUES.monsterAppearanceVolume;
 }
 
 function stopBedDeathAudio(): void {
@@ -1004,7 +1005,7 @@ function syncBedPlayerScreamToVideo(): void {
   }
   if (!shouldStartBedPlayerScream(bedDeathVideoEl.currentTime, bedPlayerScreamStarted)) return;
   bedPlayerScreamStarted = true;
-  stopBedStruggleAudio();
+  bedStruggleAudio.volume = BED_AUDIO_CUES.monsterRoarUnderScreamVolume;
   bedPlayerScreamAudio.currentTime = 0;
   void bedPlayerScreamAudio.play().catch(() => undefined);
 }
@@ -1024,8 +1025,7 @@ function resumeActiveBedEventAudio(): void {
     void bedReachAudio.play().catch(() => undefined);
   }
   if (
-    (bedEventPhase === 'struggle' ||
-      (bedEventPhase === 'death' && !bedPlayerScreamStarted)) &&
+    (bedEventPhase === 'struggle' || bedEventPhase === 'death') &&
     bedStruggleAudio.paused
   ) {
     void bedStruggleAudio.play().catch(() => undefined);
@@ -1266,6 +1266,9 @@ bedStruggleVideoEl.addEventListener('error', () => {
 bedDeathVideoEl.addEventListener('ended', finishBedDeath);
 bedDeathVideoEl.addEventListener('error', finishBedDeath);
 bedDeathVideoEl.addEventListener('timeupdate', syncBedPlayerScreamToVideo);
+bedPlayerScreamAudio.addEventListener('ended', () => {
+  if (bedEventPhase === 'death') stopBedStruggleAudio();
+});
 bedDeathMenuEl.addEventListener('click', (event) => {
   const action = (event.target as HTMLElement).closest<HTMLElement>(
     '[data-bed-death-restart], [data-bed-death-close]',

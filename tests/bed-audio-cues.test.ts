@@ -19,6 +19,13 @@ describe('bed event audio cues', () => {
     expect(BED_AUDIO_CUES.monsterAppearanceVolume).toBe(1);
   });
 
+  it('keeps the extended monster roar audible beneath the player scream', () => {
+    expect(BED_AUDIO_CUES.monsterRoarUnderScreamVolume).toBe(0.72);
+    expect(BED_AUDIO_CUES.monsterRoarUnderScreamVolume).toBeLessThan(
+      BED_AUDIO_CUES.monsterAppearanceVolume,
+    );
+  });
+
   it('starts the player scream only after the monster fills the death frame', () => {
     expect(BED_AUDIO_CUES.playerScreamVideoTime).toBe(4.45);
     expect(shouldStartBedPlayerScream(4.44, false)).toBe(false);
