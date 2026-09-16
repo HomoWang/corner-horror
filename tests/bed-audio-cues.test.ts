@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BED_AUDIO_CUES,
+  bedDeathPlaybackRate,
   shouldStartBedPlayerScream,
 } from '../src/prototype/bed-audio-cues';
 
@@ -10,10 +11,10 @@ describe('bed event audio cues', () => {
     expect(BED_AUDIO_CUES.monsterVoiceStartAt).toBeLessThan(1);
   });
 
-  it('keeps the monster voice quiet but above the under-bed background mix', () => {
-    expect(BED_AUDIO_CUES.monsterVoiceVolume).toBe(0.12);
+  it('keeps the under-bed monster voice barely audible beneath the background mix', () => {
+    expect(BED_AUDIO_CUES.monsterVoiceVolume).toBe(0.04);
     expect(BED_AUDIO_CUES.backgroundVolumeUnderBed).toBe(0.08);
-    expect(BED_AUDIO_CUES.monsterVoiceVolume).toBeGreaterThan(
+    expect(BED_AUDIO_CUES.monsterVoiceVolume).toBeLessThan(
       BED_AUDIO_CUES.backgroundVolumeUnderBed,
     );
   });
@@ -27,5 +28,11 @@ describe('bed event audio cues', () => {
     expect(shouldStartBedPlayerScream(4.44, false)).toBe(false);
     expect(shouldStartBedPlayerScream(4.45, false)).toBe(true);
     expect(shouldStartBedPlayerScream(6, true)).toBe(false);
+  });
+
+  it('speeds up only the attack before the monster reaches the camera', () => {
+    expect(bedDeathPlaybackRate(2.02)).toBe(1.35);
+    expect(bedDeathPlaybackRate(4.44)).toBe(1.35);
+    expect(bedDeathPlaybackRate(4.45)).toBe(1);
   });
 });

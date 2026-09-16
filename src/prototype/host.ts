@@ -14,7 +14,11 @@ import {
   type TapeVoiceClipId,
 } from './chapter-one';
 import { addBedShakeProgress, BED_SHAKE_TARGET, hasEscapedBedGrab } from './bed-escape';
-import { BED_AUDIO_CUES, shouldStartBedPlayerScream } from './bed-audio-cues';
+import {
+  BED_AUDIO_CUES,
+  bedDeathPlaybackRate,
+  shouldStartBedPlayerScream,
+} from './bed-audio-cues';
 import {
   BED_BLOOD_HOLD_MS,
   buildBedDeathRestartUrl,
@@ -298,6 +302,7 @@ ambienceAudio.loop = true;
 bedReachAudio.volume = BED_AUDIO_CUES.monsterVoiceVolume;
 bedReachAudio.loop = true;
 bedStruggleAudio.volume = BED_AUDIO_CUES.monsterAppearanceVolume;
+bedStruggleAudio.loop = true;
 bedDeathAudio.volume = BED_AUDIO_CUES.deathVolume;
 bedPlayerScreamAudio.volume = BED_AUDIO_CUES.playerScreamVolume;
 type HostSoundId =
@@ -998,7 +1003,9 @@ function playBedDeathAudio(): void {
 }
 
 function syncBedPlayerScreamToVideo(): void {
-  if (bedEventPhase !== 'death' || hostAudioMuted) return;
+  if (bedEventPhase !== 'death') return;
+  bedDeathVideoEl.playbackRate = bedDeathPlaybackRate(bedDeathVideoEl.currentTime);
+  if (hostAudioMuted) return;
   if (bedPlayerScreamStarted) {
     if (bedPlayerScreamAudio.paused && !bedPlayerScreamAudio.ended) {
       void bedPlayerScreamAudio.play().catch(() => undefined);
@@ -1007,6 +1014,7 @@ function syncBedPlayerScreamToVideo(): void {
   }
   if (!shouldStartBedPlayerScream(bedDeathVideoEl.currentTime, bedPlayerScreamStarted)) return;
   bedPlayerScreamStarted = true;
+  stopBedStruggleAudio();
   bedPlayerScreamAudio.currentTime = 0;
   void bedPlayerScreamAudio.play().catch(() => undefined);
 }
@@ -1025,7 +1033,11 @@ function resumeActiveBedEventAudio(): void {
   ) {
     void bedReachAudio.play().catch(() => undefined);
   }
-  if (bedEventPhase === 'struggle' && bedStruggleAudio.paused) {
+  if (
+    (bedEventPhase === 'struggle' ||
+      (bedEventPhase === 'death' && !bedPlayerScreamStarted)) &&
+    bedStruggleAudio.paused
+  ) {
     void bedStruggleAudio.play().catch(() => undefined);
   }
   if (bedEventPhase === 'death' && bedDeathAudio.paused) {
@@ -1115,7 +1127,6 @@ async function startBedDeath(): Promise<void> {
     (bedEventPhase !== 'struggle' && bedEventPhase !== 'branching')
   ) return;
   bedEventPhase = 'death-transition';
-  stopBedStruggleAudio();
   resetBedEscapeFeedback();
   await Promise.all([
     seekBedVideo(bedDeathVideoEl, BED_DEATH_START_AT),
@@ -1123,7 +1134,7 @@ async function startBedDeath(): Promise<void> {
   ]);
   if (!bedGrabActive || bedEventPhase !== 'death-transition') return;
   bedEventPhase = 'death';
-  bedDeathVideoEl.playbackRate = 1;
+  bedDeathVideoEl.playbackRate = BED_AUDIO_CUES.deathAttackPlaybackRate;
   bedDeathVideoEl.volume = 1;
   setActiveBedVideo(bedDeathVideoEl);
   playBedDeathAudio();
