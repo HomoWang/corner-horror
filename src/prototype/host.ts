@@ -263,9 +263,11 @@ let interactionHeld = false;
 let hostAudioContext: AudioContext | null = null;
 let hostAudioMuted = false;
 const ambienceAudio = document.querySelector<HTMLAudioElement>('#ambient-audio')!;
+const bedReachAudio = document.querySelector<HTMLAudioElement>('#bed-reach-audio')!;
 const bedStruggleAudio = document.querySelector<HTMLAudioElement>('#bed-struggle-audio')!;
 ambienceAudio.volume = 0.26;
 ambienceAudio.loop = true;
+bedReachAudio.volume = 0.5;
 bedStruggleAudio.volume = 0.58;
 type HostSoundId =
   | 'keypad'
@@ -406,6 +408,7 @@ async function loadHostAudioAssets(context: AudioContext): Promise<void> {
 function unlockHostAudio(): void {
   if (hostAudioMuted) return;
   void startAmbientAudio();
+  resumeActiveBedEventAudio();
   const context = ensureHostAudioContext();
   if (!context) return;
   if (context.state === 'suspended') {
@@ -834,6 +837,8 @@ async function playBedAntennaScare(): Promise<void> {
   bedAntennaHotspotEl.hidden = true;
   bedScarePreviousAmbientVolume = ambienceAudio.volume;
   void fadeMediaVolume(ambienceAudio, 0.035, 220);
+  bedReachAudio.currentTime = 0;
+  void bedReachAudio.play().catch(() => undefined);
   bedScareVideoEl.currentTime = 0;
   bedScareVideoEl.playbackRate = 1;
   bedScareVideoEl.volume = 0.92;
@@ -874,6 +879,21 @@ function stopBedStruggleAudio(): void {
   bedStruggleAudio.currentTime = 0;
 }
 
+function stopBedReachAudio(): void {
+  bedReachAudio.pause();
+  bedReachAudio.currentTime = 0;
+}
+
+function resumeActiveBedEventAudio(): void {
+  if (hostAudioMuted) return;
+  if (bedEventPhase === 'reach' && bedReachAudio.paused) {
+    void bedReachAudio.play().catch(() => undefined);
+  }
+  if (bedEventPhase === 'struggle' && bedStruggleAudio.paused) {
+    void bedStruggleAudio.play().catch(() => undefined);
+  }
+}
+
 function resetBedEscapeFeedback(): void {
   bedInspectEl.classList.remove('struggling');
   bedInspectFrameEl.classList.remove('bed-shake-feedback');
@@ -894,6 +914,7 @@ function pulseBedStruggleFeedback(intensity: number): void {
 async function startBedStruggle(): Promise<void> {
   if (!bedGrabActive || bedEventPhase !== 'reach') return;
   bedEventPhase = 'struggle';
+  stopBedReachAudio();
   bedShakeScore = 0;
   bedShakeFeedbackStep = 0;
   bedStruggleVideoEl.currentTime = BED_STRUGGLE_START_AT;
@@ -930,6 +951,7 @@ function finishBedGrabSuccess(): void {
   bedGrabActive = false;
   bedEventPhase = 'idle';
   resetBedVideos();
+  stopBedReachAudio();
   stopBedStruggleAudio();
   resetBedEscapeFeedback();
   bedInspectEl.classList.remove('playing-scare');
@@ -964,7 +986,9 @@ async function resetGameAfterBedDeath(): Promise<void> {
   try {
     await clearSave();
   } finally {
+    sessionStorage.removeItem('corner-horror-prototype-room');
     const restartUrl = new URL(location.href);
+    restartUrl.searchParams.delete('room');
     restartUrl.searchParams.delete('inspect');
     location.replace(restartUrl.toString());
   }
@@ -974,6 +998,7 @@ function finishBedDeath(): void {
   if (!bedGrabActive || bedEventPhase !== 'death') return;
   bedEventPhase = 'resetting';
   bedDeathVideoEl.pause();
+  stopBedReachAudio();
   stopBedStruggleAudio();
   resetBedEscapeFeedback();
   restoreBedAmbient();
@@ -1112,6 +1137,8 @@ async function toggleHostAudio(): Promise<void> {
     hostAudioMuted = true;
     ambienceAudio.pause();
     ambienceAudio.muted = true;
+    bedReachAudio.pause();
+    bedStruggleAudio.pause();
     stopFootsteps();
     stopTapeNoise();
     if (hostAudioContext?.state === 'running') {
@@ -1140,6 +1167,7 @@ async function toggleHostAudio(): Promise<void> {
   }
   await loadHostAudioAssets(context).catch(() => undefined);
   await startAmbientAudio();
+  resumeActiveBedEventAudio();
   updateHostAudioButton();
   if (hostAudioBuffers.size !== Object.keys(hostSoundUrls).length) {
     showNotice('電腦音效載入失敗，請重新整理後再試。');
