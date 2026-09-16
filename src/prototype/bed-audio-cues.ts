@@ -3,7 +3,7 @@ export const BED_AUDIO_CUES = {
   monsterVoiceVolume: 0.04,
   monsterAppearanceVolume: 1,
   monsterDeathVolume: 0.7,
-  monsterDeathLoop: true,
+  monsterDeathLoop: false,
   playerScreamVolume: 0.92,
   playerScreamVideoTime: 4.45,
   deathAttackPlaybackRate: 1.35,

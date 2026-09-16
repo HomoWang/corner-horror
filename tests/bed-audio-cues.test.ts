@@ -19,9 +19,9 @@ describe('bed event audio cues', () => {
     expect(BED_AUDIO_CUES.monsterAppearanceVolume).toBe(1);
   });
 
-  it('loops the monster death scream until the player death completes', () => {
+  it('plays one sustained monster death scream without restarting it', () => {
     expect(BED_AUDIO_CUES.monsterDeathVolume).toBe(0.7);
-    expect(BED_AUDIO_CUES.monsterDeathLoop).toBe(true);
+    expect(BED_AUDIO_CUES.monsterDeathLoop).toBe(false);
   });
 
   it('starts the player scream only after the monster fills the death frame', () => {
