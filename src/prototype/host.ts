@@ -14,6 +14,7 @@ import {
   type TapeVoiceClipId,
 } from './chapter-one';
 import { addBedShakeProgress, BED_SHAKE_TARGET, hasEscapedBedGrab } from './bed-escape';
+import { BED_AUDIO_CUES } from './bed-audio-cues';
 import { PrototypeRoom2D, type RoomObjectId } from './room2d';
 import {
   advanceHorizontalCut,
@@ -260,6 +261,7 @@ let bedEventPhase: BedEventPhase = 'idle';
 let bedShakeScore = 0;
 let bedShakeFeedbackStep = 0;
 let bedDeathResetTimer: number | null = null;
+let bedPlayerScreamTimer: number | null = null;
 let bedReachCutFrame: number | null = null;
 let bedScarePreviousAmbientVolume: number | null = null;
 let tapePlayed = false;
@@ -275,10 +277,16 @@ let hostAudioMuted = false;
 const ambienceAudio = document.querySelector<HTMLAudioElement>('#ambient-audio')!;
 const bedReachAudio = document.querySelector<HTMLAudioElement>('#bed-reach-audio')!;
 const bedStruggleAudio = document.querySelector<HTMLAudioElement>('#bed-struggle-audio')!;
+const bedDeathAudio = document.querySelector<HTMLAudioElement>('#bed-death-audio')!;
+const bedPlayerScreamAudio = document.querySelector<HTMLAudioElement>(
+  '#bed-player-scream-audio',
+)!;
 ambienceAudio.volume = 0.26;
 ambienceAudio.loop = true;
-bedReachAudio.volume = 0.5;
-bedStruggleAudio.volume = 0.58;
+bedReachAudio.volume = BED_AUDIO_CUES.monsterVoiceVolume;
+bedStruggleAudio.volume = BED_AUDIO_CUES.monsterAppearanceVolume;
+bedDeathAudio.volume = BED_AUDIO_CUES.deathVolume;
+bedPlayerScreamAudio.volume = BED_AUDIO_CUES.playerScreamVolume;
 type HostSoundId =
   | 'keypad'
   | 'keypadUnlock'
@@ -343,7 +351,6 @@ const BED_STRUGGLE_START_AT = 0.88;
 const BED_STRUGGLE_BRANCH_AT = 3.68;
 const BED_DEATH_START_AT = 2.02;
 const BED_STRUGGLE_PLAYBACK_RATE = 0.72;
-const BED_STRUGGLE_AUDIO_START_AT = 21.35;
 const BED_BRANCH_ANCHOR_MS = 140;
 const bedEventVideos = [bedScareVideoEl, bedStruggleVideoEl, bedDeathVideoEl];
 [
@@ -849,7 +856,8 @@ async function playBedAntennaScare(): Promise<void> {
   bedAntennaHotspotEl.hidden = true;
   bedScarePreviousAmbientVolume = ambienceAudio.volume;
   void fadeMediaVolume(ambienceAudio, 0.035, 220);
-  bedReachAudio.currentTime = 0;
+  stopBedDeathAudio();
+  bedReachAudio.currentTime = BED_AUDIO_CUES.monsterVoiceStartAt;
   void bedReachAudio.play().catch(() => undefined);
   bedScareVideoEl.currentTime = 0;
   bedScareVideoEl.playbackRate = 1;
@@ -945,6 +953,28 @@ function stopBedStruggleAudio(): void {
   bedStruggleAudio.currentTime = 0;
 }
 
+function stopBedDeathAudio(): void {
+  if (bedPlayerScreamTimer !== null) {
+    window.clearTimeout(bedPlayerScreamTimer);
+    bedPlayerScreamTimer = null;
+  }
+  bedDeathAudio.pause();
+  bedDeathAudio.currentTime = 0;
+  bedPlayerScreamAudio.pause();
+  bedPlayerScreamAudio.currentTime = 0;
+}
+
+function playBedDeathAudio(): void {
+  stopBedDeathAudio();
+  if (hostAudioMuted) return;
+  void bedDeathAudio.play().catch(() => undefined);
+  bedPlayerScreamTimer = window.setTimeout(() => {
+    bedPlayerScreamTimer = null;
+    if (hostAudioMuted || bedEventPhase !== 'death') return;
+    void bedPlayerScreamAudio.play().catch(() => undefined);
+  }, BED_AUDIO_CUES.playerScreamDelayMs);
+}
+
 function stopBedReachAudio(): void {
   bedReachAudio.pause();
   bedReachAudio.currentTime = 0;
@@ -957,6 +987,9 @@ function resumeActiveBedEventAudio(): void {
   }
   if (bedEventPhase === 'struggle' && bedStruggleAudio.paused) {
     void bedStruggleAudio.play().catch(() => undefined);
+  }
+  if (bedEventPhase === 'death' && bedDeathAudio.paused) {
+    playBedDeathAudio();
   }
 }
 
@@ -994,9 +1027,8 @@ async function startBedStruggle(): Promise<void> {
   bedInspectEl.classList.add('struggling');
   bedEscapeProgressEl.style.width = '0%';
   bedEscapeCountdownEl.textContent = '在 4.0 秒內掙脫鬼手';
-  bedStruggleAudio.currentTime = BED_STRUGGLE_AUDIO_START_AT;
+  bedStruggleAudio.currentTime = 0;
   void bedStruggleAudio.play().catch(() => undefined);
-  void playHostSound('doorImpact', { volume: 0.86, playbackRate: 0.78 });
   vibrate([260, 45, 260, 45, 360]);
   try {
     await bedStruggleVideoEl.play();
@@ -1024,6 +1056,7 @@ function finishBedGrabSuccess(): void {
   resetBedVideos();
   stopBedReachAudio();
   stopBedStruggleAudio();
+  stopBedDeathAudio();
   resetBedEscapeFeedback();
   bedInspectEl.classList.remove('playing-scare');
   document.body.classList.remove('bed-grab-active');
@@ -1052,7 +1085,7 @@ async function startBedDeath(): Promise<void> {
   bedDeathVideoEl.playbackRate = 1;
   bedDeathVideoEl.volume = 1;
   setActiveBedVideo(bedDeathVideoEl);
-  void playHostSound('jumpscare', { volume: 1 });
+  playBedDeathAudio();
   vibrate([520, 70, 720]);
   try {
     await bedDeathVideoEl.play();
@@ -1224,6 +1257,8 @@ async function toggleHostAudio(): Promise<void> {
     ambienceAudio.muted = true;
     bedReachAudio.pause();
     bedStruggleAudio.pause();
+    bedDeathAudio.pause();
+    bedPlayerScreamAudio.pause();
     stopFootsteps();
     stopTapeNoise();
     if (hostAudioContext?.state === 'running') {

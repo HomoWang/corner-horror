@@ -22,6 +22,11 @@ music may be used in personal and commercial projects; attribution is not requir
 | `pencil-rubbing.mp3` | User-provided project audio (`鉛筆畫畫.mp3`, 2026-08-04) | Receipt rubbing while interaction is held and the cursor moves |
 | `player-walking.mp3` | User-provided project audio (`走路音效.mp3`, 2026-08-04) | Active looping player walking sound |
 | `ashes-under-glass-7min.mp3` | User-provided project audio (`Ash Under Glass-7分鐘版好聽.mp3`, 2026-08-20) | Looping Room 307 background score |
+| `room307-background-v1.mp3` | User-provided project audio (`背景音樂.mp3`, 2026-09-16) | Current looping Room 307 background music |
+| `bed-monster-voice-v1.mp3` | User-provided project audio (`怪物聲音.mp3`, 2026-09-16) | Under-bed reach ambience before the antenna is secured |
+| `bed-monster-appearance-v1.mp3` | User-provided project audio (`怪物出現.mp3`, 2026-09-16) | Loud monster appearance cue at the wrist grab |
+| `bed-death-impact-v1.mp3` | User-provided project audio (`死亡聲音.mp3`, 2026-09-16) | Continuous first layer of the failed escape death cue |
+| `bed-player-scream-v1.mp3` | User-provided project audio (`男主尖叫.mp3`, 2026-09-16) | Male protagonist scream layered after the death cue begins |
 | `voice/tape-girlfriend-01.m4a` | User-recorded character dialogue (`你每次都說，晚一步就會失去誰。.m4a`, 2026-08-25) | Opening tape: girlfriend's first two lines |
 | `voice/tape-girlfriend-02.m4a` | User-recorded character dialogue (`你每次都這樣說.m4a`, 2026-08-25) | Opening tape: girlfriend's reply |
 | `voice/tape-girlfriend-distorted-tail.m4a` | User-recorded character dialogue (`你沒有.m4a`, 2026-08-25) | Opening tape: altered final phrase |
