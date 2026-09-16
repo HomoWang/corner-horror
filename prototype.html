@@ -1288,6 +1288,58 @@
         gap: 0.42rem;
       }
 
+      #bed-death-menu {
+        position: absolute;
+        inset: 0;
+        z-index: 6;
+        display: none;
+        place-content: center;
+        justify-items: center;
+        gap: clamp(0.7rem, 1.8vh, 1.1rem);
+        color: #f2dfd8;
+        text-align: center;
+        text-shadow: 0 0.18rem 0.5rem #000, 0 0 1.4rem #240000;
+      }
+
+      #bed-death-menu.show {
+        display: grid;
+      }
+
+      #bed-death-menu strong {
+        margin-bottom: clamp(0.55rem, 1.5vh, 1rem);
+        color: #d9c4bc;
+        font: 700 clamp(2.2rem, 5vw, 4.5rem)/1 system-ui, sans-serif;
+        letter-spacing: 0;
+      }
+
+      .bed-death-action {
+        width: min(18rem, 54vw);
+        min-height: 3.15rem;
+        border: 1px solid rgba(213, 184, 172, 0.58);
+        border-radius: 4px;
+        background: rgba(11, 4, 4, 0.76);
+        color: #e4d3cc;
+        font: 600 clamp(1rem, 2.2vw, 1.35rem)/1.2 system-ui, sans-serif;
+        letter-spacing: 0;
+        box-shadow: 0 0.55rem 1.3rem rgba(0, 0, 0, 0.52);
+      }
+
+      .bed-death-action.active,
+      .bed-death-action:hover,
+      .bed-death-action:focus-visible {
+        border-color: #e0aaa0;
+        outline: 2px solid rgba(161, 31, 27, 0.8);
+        background: rgba(55, 8, 8, 0.88);
+      }
+
+      #bed-death-menu.closed strong {
+        font-size: clamp(1.55rem, 3.4vw, 2.6rem);
+      }
+
+      #bed-death-menu.closed .bed-death-action {
+        display: none;
+      }
+
       #bed-escape-prompt strong {
         font-size: clamp(1.4rem, 3.4vw, 2.65rem);
         letter-spacing: 0;
@@ -2078,6 +2130,23 @@
               <i id="bed-escape-progress"></i>
             </div>
           </div>
+          <section id="bed-death-menu" role="dialog" aria-modal="true" aria-label="死亡">
+            <strong>死亡</strong>
+            <button
+              class="bed-death-action selectable"
+              type="button"
+              data-bed-death-restart="true"
+            >
+              重新開始
+            </button>
+            <button
+              class="bed-death-action selectable"
+              type="button"
+              data-bed-death-close="true"
+            >
+              關閉遊戲
+            </button>
+          </section>
           <button
             id="bed-antenna-hotspot"
             class="selectable"

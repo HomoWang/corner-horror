@@ -86,6 +86,11 @@ function installPersistenceHandlers() {
     await rm(saveFilePath(), { force: true });
     return true;
   });
+
+  ipcMain.handle('room307:app:close', () => {
+    app.quit();
+    return true;
+  });
 }
 
 function safeAssetPath(root, pathname) {

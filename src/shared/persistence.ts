@@ -8,6 +8,7 @@ interface DesktopPersistenceBridge {
   loadSave(): Promise<unknown>;
   writeSave(value: unknown): Promise<boolean>;
   clearSave(): Promise<boolean>;
+  closeGame(): Promise<boolean>;
 }
 
 declare global {

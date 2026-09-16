@@ -15,6 +15,7 @@ import {
 } from './chapter-one';
 import { addBedShakeProgress, BED_SHAKE_TARGET, hasEscapedBedGrab } from './bed-escape';
 import { BED_AUDIO_CUES } from './bed-audio-cues';
+import { BED_BLOOD_HOLD_MS, buildBedDeathRestartUrl } from './bed-death-flow';
 import { PrototypeRoom2D, type RoomObjectId } from './room2d';
 import {
   advanceHorizontalCut,
@@ -189,6 +190,7 @@ const bedDeathVideoEl = document.querySelector<HTMLVideoElement>('#bed-death-vid
 const bedInspectFrameEl = document.querySelector<HTMLElement>('#bed-inspect-frame')!;
 const bedEscapeProgressEl = document.querySelector<HTMLElement>('#bed-escape-progress')!;
 const bedEscapeCountdownEl = document.querySelector<HTMLElement>('#bed-escape-countdown')!;
+const bedDeathMenuEl = document.querySelector<HTMLElement>('#bed-death-menu')!;
 const bedAntennaHotspotEl = document.querySelector<HTMLButtonElement>('#bed-antenna-hotspot')!;
 const radioInspectEl = document.querySelector<HTMLElement>('#radio-inspect')!;
 const radioInspectImageEl = document.querySelector<HTMLImageElement>('#radio-inspect-image')!;
@@ -204,11 +206,14 @@ const roomScene = document.querySelector<HTMLElement>('#room-scene')!;
 const chapterCompleteEl = document.querySelector<HTMLElement>('#chapter-complete')!;
 const room = new PrototypeRoom2D(roomScene);
 
+const locationParams = new URLSearchParams(location.search);
+const resumedAfterBedDeath = locationParams.get('restart') === 'death';
 const roomCode =
-  normalizeRoomCode(new URLSearchParams(location.search).get('room')) ??
+  normalizeRoomCode(locationParams.get('room')) ??
   normalizeRoomCode(sessionStorage.getItem('corner-horror-prototype-room')) ??
   createRoomCode();
 sessionStorage.setItem('corner-horror-prototype-room', roomCode);
+if (resumedAfterBedDeath) overlayEl.classList.add('hidden');
 
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -256,11 +261,14 @@ type BedEventPhase =
   | 'success'
   | 'death-transition'
   | 'death'
+  | 'death-hold'
+  | 'death-menu'
+  | 'closed'
   | 'resetting';
 let bedEventPhase: BedEventPhase = 'idle';
 let bedShakeScore = 0;
 let bedShakeFeedbackStep = 0;
-let bedDeathResetTimer: number | null = null;
+let bedDeathMenuTimer: number | null = null;
 let bedPlayerScreamTimer: number | null = null;
 let bedReachCutFrame: number | null = null;
 let bedScarePreviousAmbientVolume: number | null = null;
@@ -845,10 +853,11 @@ async function playHeavyDoorKnocks(): Promise<void> {
 
 async function playBedAntennaScare(): Promise<void> {
   if (bedGrabActive) return;
-  if (bedDeathResetTimer !== null) {
-    window.clearTimeout(bedDeathResetTimer);
-    bedDeathResetTimer = null;
+  if (bedDeathMenuTimer !== null) {
+    window.clearTimeout(bedDeathMenuTimer);
+    bedDeathMenuTimer = null;
   }
+  bedDeathMenuEl.classList.remove('show', 'closed');
   bedGrabActive = true;
   bedEventPhase = 'reach';
   bedShakeScore = 0;
@@ -1094,31 +1103,53 @@ async function startBedDeath(): Promise<void> {
   }
 }
 
-async function resetGameAfterBedDeath(): Promise<void> {
+async function restartGameAfterBedDeath(): Promise<void> {
+  if (bedEventPhase !== 'death-menu') return;
+  bedEventPhase = 'resetting';
   try {
     await clearSave();
   } finally {
-    sessionStorage.removeItem('corner-horror-prototype-room');
-    const restartUrl = new URL(location.href);
-    restartUrl.searchParams.delete('room');
-    restartUrl.searchParams.delete('inspect');
-    location.replace(restartUrl.toString());
+    sessionStorage.setItem('corner-horror-prototype-room', roomCode);
+    location.replace(buildBedDeathRestartUrl(location.href, roomCode));
   }
+}
+
+async function closeGameAfterBedDeath(): Promise<void> {
+  if (bedEventPhase !== 'death-menu') return;
+  bedEventPhase = 'closed';
+  reconnectEnabled = false;
+  if (window.room307Desktop) {
+    try {
+      await window.room307Desktop.closeGame();
+      return;
+    } catch {
+      // Keep the death screen usable if the desktop bridge cannot close the window.
+    }
+  }
+  bedDeathMenuEl.classList.add('closed');
+  const heading = bedDeathMenuEl.querySelector<HTMLElement>('strong');
+  if (heading) heading.textContent = '遊戲已關閉';
+}
+
+function showBedDeathMenu(): void {
+  if (!bedGrabActive || bedEventPhase !== 'death-hold') return;
+  bedEventPhase = 'death-menu';
+  bedDeathMenuEl.classList.add('show');
+  updatePointer(pointer.x, pointer.y);
 }
 
 function finishBedDeath(): void {
   if (!bedGrabActive || bedEventPhase !== 'death') return;
-  bedEventPhase = 'resetting';
+  bedEventPhase = 'death-hold';
   bedDeathVideoEl.pause();
   stopBedReachAudio();
   stopBedStruggleAudio();
   resetBedEscapeFeedback();
-  restoreBedAmbient();
-  if (bedDeathResetTimer !== null) window.clearTimeout(bedDeathResetTimer);
-  bedDeathResetTimer = window.setTimeout(() => {
-    bedDeathResetTimer = null;
-    void resetGameAfterBedDeath();
-  }, 650);
+  if (bedDeathMenuTimer !== null) window.clearTimeout(bedDeathMenuTimer);
+  bedDeathMenuTimer = window.setTimeout(() => {
+    bedDeathMenuTimer = null;
+    showBedDeathMenu();
+  }, BED_BLOOD_HOLD_MS);
 }
 
 bedScareVideoEl.addEventListener('timeupdate', () => {
@@ -1192,6 +1223,16 @@ bedStruggleVideoEl.addEventListener('error', () => {
 
 bedDeathVideoEl.addEventListener('ended', finishBedDeath);
 bedDeathVideoEl.addEventListener('error', finishBedDeath);
+bedDeathMenuEl.addEventListener('click', (event) => {
+  const action = (event.target as HTMLElement).closest<HTMLElement>(
+    '[data-bed-death-restart], [data-bed-death-close]',
+  );
+  if (action?.dataset.bedDeathRestart) {
+    void restartGameAfterBedDeath();
+    return;
+  }
+  if (action?.dataset.bedDeathClose) void closeGameAfterBedDeath();
+});
 
 bedEventVideos.forEach((video) => {
   video.addEventListener('loadedmetadata', () => {
@@ -1419,7 +1460,7 @@ function connect(): void {
         overlayEl.classList.add('hidden');
         setStatus('手機已連線。請校正中心。');
       } else {
-        overlayEl.classList.remove('hidden');
+        if (!resumedAfterBedDeath) overlayEl.classList.remove('hidden');
         setStatus('等待手機控制器。');
       }
     }
@@ -1471,7 +1512,8 @@ function connect(): void {
   socket.addEventListener('close', () => {
     if (ws === socket) ws = null;
     interactionHeld = false;
-    overlayEl.classList.remove('hidden');
+    if (resumedAfterBedDeath) overlayEl.classList.add('hidden');
+    else overlayEl.classList.remove('hidden');
     if (!reconnectEnabled) return;
     qrCanvas.style.visibility = 'hidden';
     joinUrlEl.textContent = '正在啟動手機連線服務，請稍候。';
@@ -1528,7 +1570,7 @@ function updateTarget(): void {
   target = null;
   for (const element of elements) {
     const candidate = element.closest<HTMLElement>(
-      '[data-object], [data-inventory-back], [data-safe-back], [data-safe-keypad], [data-safe-item], [data-photo-back], [data-photo-card], [data-desk-drawer-back], [data-desk-drawer-door], [data-desk-drawer-item], [data-cardboard-box-back], [data-cardboard-box-open], [data-cardboard-box-gear], [data-bed-antenna], [data-radio-device], [data-drawer-back], [data-drawer-digit], [data-drawer-clear], [data-drawer-reset], [data-drawer-delete], [data-drawer-submit]',
+      '[data-object], [data-inventory-back], [data-safe-back], [data-safe-keypad], [data-safe-item], [data-photo-back], [data-photo-card], [data-desk-drawer-back], [data-desk-drawer-door], [data-desk-drawer-item], [data-cardboard-box-back], [data-cardboard-box-open], [data-cardboard-box-gear], [data-bed-antenna], [data-bed-death-restart], [data-bed-death-close], [data-radio-device], [data-drawer-back], [data-drawer-digit], [data-drawer-clear], [data-drawer-reset], [data-drawer-delete], [data-drawer-submit]',
     );
     if (candidate) {
       target = candidate;
@@ -2272,6 +2314,16 @@ function closeBedInspect(): void {
 }
 
 function handleBedInspect(): void {
+  if (bedEventPhase === 'death-menu') {
+    if (target?.dataset.bedDeathRestart) {
+      void restartGameAfterBedDeath();
+      return;
+    }
+    if (target?.dataset.bedDeathClose) {
+      void closeGameAfterBedDeath();
+    }
+    return;
+  }
   if (bedGrabActive) return;
   if (collectedItems.has('antenna')) return;
   if (!target?.dataset.bedAntenna) {
