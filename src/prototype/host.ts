@@ -246,11 +246,21 @@ let deskDrawerOpened = false;
 let deskDrawerOpening = false;
 let pendantHoldTimer: number | null = null;
 let bedGrabActive = false;
-type BedEventPhase = 'idle' | 'reach' | 'struggle' | 'success' | 'death' | 'resetting';
+type BedEventPhase =
+  | 'idle'
+  | 'reach'
+  | 'grab-transition'
+  | 'struggle'
+  | 'branching'
+  | 'success'
+  | 'death-transition'
+  | 'death'
+  | 'resetting';
 let bedEventPhase: BedEventPhase = 'idle';
 let bedShakeScore = 0;
 let bedShakeFeedbackStep = 0;
 let bedDeathResetTimer: number | null = null;
+let bedReachCutFrame: number | null = null;
 let bedScarePreviousAmbientVolume: number | null = null;
 let tapePlayed = false;
 let antennaInstalled = false;
@@ -333,6 +343,8 @@ const BED_STRUGGLE_START_AT = 0.88;
 const BED_STRUGGLE_BRANCH_AT = 3.68;
 const BED_DEATH_START_AT = 2.02;
 const BED_STRUGGLE_PLAYBACK_RATE = 0.72;
+const BED_STRUGGLE_AUDIO_START_AT = 21.35;
+const BED_BRANCH_ANCHOR_MS = 140;
 const bedEventVideos = [bedScareVideoEl, bedStruggleVideoEl, bedDeathVideoEl];
 [
   ...Object.values(SAFE_INSPECT_IMAGES),
@@ -847,9 +859,62 @@ async function playBedAntennaScare(): Promise<void> {
   document.body.classList.add('bed-grab-active');
   try {
     await bedScareVideoEl.play();
+    monitorBedReachCut();
   } catch {
     void startBedStruggle();
   }
+}
+
+function stopBedReachCutMonitor(): void {
+  if (bedReachCutFrame === null) return;
+  cancelAnimationFrame(bedReachCutFrame);
+  bedReachCutFrame = null;
+}
+
+function monitorBedReachCut(): void {
+  stopBedReachCutMonitor();
+  const checkFrame = () => {
+    if (!bedGrabActive || bedEventPhase !== 'reach') {
+      bedReachCutFrame = null;
+      return;
+    }
+    if (bedScareVideoEl.currentTime >= BED_REACH_CUT_AT) {
+      bedScareVideoEl.pause();
+      bedReachCutFrame = null;
+      void startBedStruggle();
+      return;
+    }
+    bedReachCutFrame = requestAnimationFrame(checkFrame);
+  };
+  bedReachCutFrame = requestAnimationFrame(checkFrame);
+}
+
+function seekBedVideo(video: HTMLVideoElement, time: number): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      video.removeEventListener('seeked', finish);
+      video.removeEventListener('loadedmetadata', applySeek);
+      resolve();
+    };
+    const applySeek = () => {
+      try {
+        video.currentTime = time;
+      } catch {
+        finish();
+      }
+    };
+    const timeout = window.setTimeout(finish, 800);
+    video.addEventListener('seeked', finish, { once: true });
+    if (video.readyState === 0) {
+      video.addEventListener('loadedmetadata', applySeek, { once: true });
+    } else {
+      applySeek();
+    }
+  });
 }
 
 function setActiveBedVideo(activeVideo: HTMLVideoElement | null): void {
@@ -860,6 +925,7 @@ function setActiveBedVideo(activeVideo: HTMLVideoElement | null): void {
 }
 
 function resetBedVideos(): void {
+  stopBedReachCutMonitor();
   bedEventVideos.forEach((video) => {
     video.pause();
     video.currentTime = 0;
@@ -913,19 +979,24 @@ function pulseBedStruggleFeedback(intensity: number): void {
 
 async function startBedStruggle(): Promise<void> {
   if (!bedGrabActive || bedEventPhase !== 'reach') return;
-  bedEventPhase = 'struggle';
+  bedEventPhase = 'grab-transition';
+  stopBedReachCutMonitor();
+  bedScareVideoEl.pause();
   stopBedReachAudio();
   bedShakeScore = 0;
   bedShakeFeedbackStep = 0;
-  bedStruggleVideoEl.currentTime = BED_STRUGGLE_START_AT;
+  await seekBedVideo(bedStruggleVideoEl, BED_STRUGGLE_START_AT);
+  if (!bedGrabActive || bedEventPhase !== 'grab-transition') return;
+  bedEventPhase = 'struggle';
   bedStruggleVideoEl.playbackRate = BED_STRUGGLE_PLAYBACK_RATE;
   bedStruggleVideoEl.volume = 0.92;
   setActiveBedVideo(bedStruggleVideoEl);
   bedInspectEl.classList.add('struggling');
   bedEscapeProgressEl.style.width = '0%';
   bedEscapeCountdownEl.textContent = '在 4.0 秒內掙脫鬼手';
-  bedStruggleAudio.currentTime = 0;
+  bedStruggleAudio.currentTime = BED_STRUGGLE_AUDIO_START_AT;
   void bedStruggleAudio.play().catch(() => undefined);
+  void playHostSound('doorImpact', { volume: 0.86, playbackRate: 0.78 });
   vibrate([260, 45, 260, 45, 360]);
   try {
     await bedStruggleVideoEl.play();
@@ -965,11 +1036,19 @@ function finishBedGrabSuccess(): void {
 }
 
 async function startBedDeath(): Promise<void> {
-  if (!bedGrabActive || bedEventPhase !== 'struggle') return;
-  bedEventPhase = 'death';
+  if (
+    !bedGrabActive ||
+    (bedEventPhase !== 'struggle' && bedEventPhase !== 'branching')
+  ) return;
+  bedEventPhase = 'death-transition';
   stopBedStruggleAudio();
   resetBedEscapeFeedback();
-  bedDeathVideoEl.currentTime = BED_DEATH_START_AT;
+  await Promise.all([
+    seekBedVideo(bedDeathVideoEl, BED_DEATH_START_AT),
+    new Promise<void>((resolve) => window.setTimeout(resolve, BED_BRANCH_ANCHOR_MS)),
+  ]);
+  if (!bedGrabActive || bedEventPhase !== 'death-transition') return;
+  bedEventPhase = 'death';
   bedDeathVideoEl.playbackRate = 1;
   bedDeathVideoEl.volume = 1;
   setActiveBedVideo(bedDeathVideoEl);
@@ -1040,10 +1119,16 @@ bedStruggleVideoEl.addEventListener('timeupdate', () => {
     bedEventPhase !== 'struggle' ||
     bedStruggleVideoEl.currentTime < BED_STRUGGLE_BRANCH_AT
   ) return;
+  bedStruggleVideoEl.pause();
+  bedEventPhase = 'branching';
   if (hasEscapedBedGrab(bedShakeScore)) {
-    bedEventPhase = 'success';
-    bedStruggleVideoEl.playbackRate = 1;
-    vibrate([100, 35, 180]);
+    window.setTimeout(() => {
+      if (!bedGrabActive || bedEventPhase !== 'branching') return;
+      bedEventPhase = 'success';
+      bedStruggleVideoEl.playbackRate = 1;
+      vibrate([100, 35, 180]);
+      void bedStruggleVideoEl.play().catch(finishBedGrabSuccess);
+    }, BED_BRANCH_ANCHOR_MS);
     return;
   }
   void startBedDeath();
