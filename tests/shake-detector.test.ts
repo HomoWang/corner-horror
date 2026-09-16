@@ -30,6 +30,15 @@ describe('phone shake detector', () => {
     expect(result.intensity).toBeLessThanOrEqual(1);
   });
 
+  it('requires a forceful motion instead of an ordinary phone adjustment', () => {
+    const result = detectShakeImpulse(
+      createShakeDetectorState(),
+      { x: 6.8, y: 0.6, z: 0.4, time: 500 },
+      true,
+    );
+    expect(result.intensity).toBeNull();
+  });
+
   it('applies cooldown so one swing cannot count repeatedly', () => {
     let state: ShakeDetectorState = createShakeDetectorState();
     const first = detectShakeImpulse(state, { x: 10, y: 0, z: 0, time: 1000 }, true);

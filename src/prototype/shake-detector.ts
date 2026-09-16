@@ -16,9 +16,9 @@ export interface ShakeDetection {
 }
 
 const GRAVITY_BLEND = 0.82;
-const IMPULSE_THRESHOLD = 4.8;
-const MAX_IMPULSE = 15;
-const IMPULSE_COOLDOWN_MS = 115;
+const IMPULSE_THRESHOLD = 7.4;
+const MAX_IMPULSE = 22;
+const IMPULSE_COOLDOWN_MS = 140;
 
 export function createShakeDetectorState(): ShakeDetectorState {
   return { gravity: null, lastImpulseAt: -Infinity };

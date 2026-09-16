@@ -5,6 +5,7 @@ import {
   type ProtoItemId,
 } from '../shared/protocol';
 import { publicUrl } from '../shared/public-url';
+import { clearSave } from '../shared/persistence';
 import { buildWebSocketUrl, createRoomCode, normalizeRoomCode } from '../shared/session';
 import {
   SAFE_CODE,
@@ -184,6 +185,9 @@ const bedInspectImageEl = document.querySelector<HTMLImageElement>('#bed-inspect
 const bedScareVideoEl = document.querySelector<HTMLVideoElement>('#bed-scare-video')!;
 const bedStruggleVideoEl = document.querySelector<HTMLVideoElement>('#bed-struggle-video')!;
 const bedDeathVideoEl = document.querySelector<HTMLVideoElement>('#bed-death-video')!;
+const bedInspectFrameEl = document.querySelector<HTMLElement>('#bed-inspect-frame')!;
+const bedEscapeProgressEl = document.querySelector<HTMLElement>('#bed-escape-progress')!;
+const bedEscapeCountdownEl = document.querySelector<HTMLElement>('#bed-escape-countdown')!;
 const bedAntennaHotspotEl = document.querySelector<HTMLButtonElement>('#bed-antenna-hotspot')!;
 const radioInspectEl = document.querySelector<HTMLElement>('#radio-inspect')!;
 const radioInspectImageEl = document.querySelector<HTMLImageElement>('#radio-inspect-image')!;
@@ -259,8 +263,10 @@ let interactionHeld = false;
 let hostAudioContext: AudioContext | null = null;
 let hostAudioMuted = false;
 const ambienceAudio = document.querySelector<HTMLAudioElement>('#ambient-audio')!;
+const bedStruggleAudio = document.querySelector<HTMLAudioElement>('#bed-struggle-audio')!;
 ambienceAudio.volume = 0.26;
 ambienceAudio.loop = true;
+bedStruggleAudio.volume = 0.58;
 type HostSoundId =
   | 'keypad'
   | 'keypadUnlock'
@@ -321,9 +327,10 @@ const CARDBOARD_BOX_INSPECT_IMAGES = {
   opened: publicUrl('assets/room307/photos/cardboard-box-closeup-open-gear-v3-topdown.png'),
 } as const;
 const BED_REACH_CUT_AT = 6.3;
+const BED_STRUGGLE_START_AT = 0.88;
 const BED_STRUGGLE_BRANCH_AT = 3.68;
 const BED_DEATH_START_AT = 2.02;
-const BED_STRUGGLE_PLAYBACK_RATE = 0.85;
+const BED_STRUGGLE_PLAYBACK_RATE = 0.72;
 const bedEventVideos = [bedScareVideoEl, bedStruggleVideoEl, bedDeathVideoEl];
 [
   ...Object.values(SAFE_INSPECT_IMAGES),
@@ -349,8 +356,11 @@ function clearNotice(): void {
   noticeTimer = null;
 }
 
-function showNotice(_text: string, _duration = 2400): void {
+function showNotice(text: string, duration = 2400): void {
   clearNotice();
+  noticeEl.textContent = text;
+  noticeEl.classList.add('show');
+  noticeTimer = setTimeout(() => noticeEl.classList.remove('show'), duration);
 }
 
 function showRecorderSubtitle(text: string, duration = 2400): void {
@@ -859,16 +869,42 @@ function restoreBedAmbient(): void {
   bedScarePreviousAmbientVolume = null;
 }
 
+function stopBedStruggleAudio(): void {
+  bedStruggleAudio.pause();
+  bedStruggleAudio.currentTime = 0;
+}
+
+function resetBedEscapeFeedback(): void {
+  bedInspectEl.classList.remove('struggling');
+  bedInspectFrameEl.classList.remove('bed-shake-feedback');
+  bedEscapeProgressEl.style.width = '0%';
+  bedEscapeCountdownEl.textContent = '在 4.0 秒內掙脫鬼手';
+}
+
+function pulseBedStruggleFeedback(intensity: number): void {
+  const strength = 0.55 + Math.max(0, Math.min(1, intensity)) * 0.95;
+  bedInspectFrameEl.style.setProperty('--bed-shake-x', `${strength}%`);
+  bedInspectFrameEl.style.setProperty('--bed-shake-y', `${strength * 0.64}%`);
+  bedInspectFrameEl.style.setProperty('--bed-shake-angle', `${strength * 0.36}deg`);
+  bedInspectFrameEl.classList.remove('bed-shake-feedback');
+  void bedInspectFrameEl.offsetWidth;
+  bedInspectFrameEl.classList.add('bed-shake-feedback');
+}
+
 async function startBedStruggle(): Promise<void> {
   if (!bedGrabActive || bedEventPhase !== 'reach') return;
   bedEventPhase = 'struggle';
   bedShakeScore = 0;
   bedShakeFeedbackStep = 0;
-  bedStruggleVideoEl.currentTime = 0;
+  bedStruggleVideoEl.currentTime = BED_STRUGGLE_START_AT;
   bedStruggleVideoEl.playbackRate = BED_STRUGGLE_PLAYBACK_RATE;
   bedStruggleVideoEl.volume = 0.92;
   setActiveBedVideo(bedStruggleVideoEl);
-  showNotice('晃動手機，掙脫！', 4400);
+  bedInspectEl.classList.add('struggling');
+  bedEscapeProgressEl.style.width = '0%';
+  bedEscapeCountdownEl.textContent = '在 4.0 秒內掙脫鬼手';
+  bedStruggleAudio.currentTime = 0;
+  void bedStruggleAudio.play().catch(() => undefined);
   vibrate([260, 45, 260, 45, 360]);
   try {
     await bedStruggleVideoEl.play();
@@ -880,6 +916,9 @@ async function startBedStruggle(): Promise<void> {
 function registerBedShake(intensity: number): void {
   if (!bedGrabActive || bedEventPhase !== 'struggle') return;
   bedShakeScore = addBedShakeProgress(bedShakeScore, intensity);
+  const normalizedProgress = Math.min(1, bedShakeScore / BED_SHAKE_TARGET);
+  bedEscapeProgressEl.style.width = `${normalizedProgress * 100}%`;
+  pulseBedStruggleFeedback(intensity);
   const feedbackStep = Math.min(4, Math.floor((bedShakeScore / BED_SHAKE_TARGET) * 4));
   if (feedbackStep <= bedShakeFeedbackStep) return;
   bedShakeFeedbackStep = feedbackStep;
@@ -891,6 +930,8 @@ function finishBedGrabSuccess(): void {
   bedGrabActive = false;
   bedEventPhase = 'idle';
   resetBedVideos();
+  stopBedStruggleAudio();
+  resetBedEscapeFeedback();
   bedInspectEl.classList.remove('playing-scare');
   document.body.classList.remove('bed-grab-active');
   document.body.classList.add('bed-grab-released');
@@ -904,10 +945,13 @@ function finishBedGrabSuccess(): void {
 async function startBedDeath(): Promise<void> {
   if (!bedGrabActive || bedEventPhase !== 'struggle') return;
   bedEventPhase = 'death';
+  stopBedStruggleAudio();
+  resetBedEscapeFeedback();
   bedDeathVideoEl.currentTime = BED_DEATH_START_AT;
   bedDeathVideoEl.playbackRate = 1;
   bedDeathVideoEl.volume = 1;
   setActiveBedVideo(bedDeathVideoEl);
+  void playHostSound('jumpscare', { volume: 1 });
   vibrate([520, 70, 720]);
   try {
     await bedDeathVideoEl.play();
@@ -916,23 +960,28 @@ async function startBedDeath(): Promise<void> {
   }
 }
 
+async function resetGameAfterBedDeath(): Promise<void> {
+  try {
+    await clearSave();
+  } finally {
+    const restartUrl = new URL(location.href);
+    restartUrl.searchParams.delete('inspect');
+    location.replace(restartUrl.toString());
+  }
+}
+
 function finishBedDeath(): void {
   if (!bedGrabActive || bedEventPhase !== 'death') return;
   bedEventPhase = 'resetting';
   bedDeathVideoEl.pause();
+  stopBedStruggleAudio();
+  resetBedEscapeFeedback();
   restoreBedAmbient();
   if (bedDeathResetTimer !== null) window.clearTimeout(bedDeathResetTimer);
   bedDeathResetTimer = window.setTimeout(() => {
     bedDeathResetTimer = null;
-    bedGrabActive = false;
-    bedEventPhase = 'idle';
-    resetBedVideos();
-    bedInspectEl.classList.remove('playing-scare');
-    document.body.classList.remove('bed-grab-active');
-    closeBedInspect();
-    showNotice('你猛然驚醒，手臂仍停在床外。', 2600);
-    vibrate([90, 80, 90]);
-  }, 900);
+    void resetGameAfterBedDeath();
+  }, 650);
 }
 
 bedScareVideoEl.addEventListener('timeupdate', () => {
@@ -953,6 +1002,14 @@ bedScareVideoEl.addEventListener('error', () => {
 });
 
 bedStruggleVideoEl.addEventListener('timeupdate', () => {
+  if (bedGrabActive && bedEventPhase === 'struggle') {
+    const remainingSeconds = Math.max(
+      0,
+      (BED_STRUGGLE_BRANCH_AT - bedStruggleVideoEl.currentTime) /
+        BED_STRUGGLE_PLAYBACK_RATE,
+    );
+    bedEscapeCountdownEl.textContent = `在 ${remainingSeconds.toFixed(1)} 秒內掙脫鬼手`;
+  }
   if (
     !bedGrabActive ||
     bedEventPhase !== 'struggle' ||
@@ -1168,7 +1225,7 @@ async function showQr(): Promise<void> {
   );
   await QRCode.toCanvas(qrCanvas, url.toString(), {
     width: 300,
-    margin: 4,
+    margin: 1,
     errorCorrectionLevel: 'M',
     color: { dark: '#000000', light: '#ffffff' },
   });

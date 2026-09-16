@@ -693,7 +693,10 @@
         z-index: 30;
         display: grid;
         place-items: center;
-        background: rgba(0, 0, 0, 0.88);
+        background:
+          radial-gradient(circle at 50% 44%, rgba(9, 5, 4, 0.24) 0 18%, rgba(0, 0, 0, 0.9) 76%),
+          linear-gradient(rgba(2, 1, 1, 0.56), rgba(0, 0, 0, 0.84)),
+          url('/assets/room307/photos/under-bed-empty.png') center / cover no-repeat;
       }
 
       #overlay.hidden {
@@ -704,21 +707,23 @@
         display: grid;
         gap: 0.85rem;
         justify-items: center;
-        color: #82746e;
+        color: #c1ada4;
         text-align: center;
+        text-shadow: 0 2px 14px #000;
       }
 
       #qr {
-        padding: 0.5rem;
+        padding: 0.18rem;
         background: #fff;
         width: min(300px, 72vw);
         height: auto;
+        box-shadow: 0 0 2rem rgba(0, 0, 0, 0.8);
       }
 
       #join-url {
         max-width: min(34rem, 84vw);
         margin: 0;
-        color: #5d5652;
+        color: #8e817b;
         font: 0.72rem/1.5 ui-monospace, monospace;
         overflow-wrap: anywhere;
       }
@@ -1264,6 +1269,70 @@
         display: block;
       }
 
+      #bed-escape-prompt {
+        position: absolute;
+        left: 50%;
+        bottom: 7%;
+        z-index: 4;
+        display: none;
+        width: min(30rem, 78%);
+        transform: translateX(-50%);
+        color: #f2dfd8;
+        text-align: center;
+        text-shadow: 0 2px 12px #000;
+        pointer-events: none;
+      }
+
+      #bed-inspect.struggling #bed-escape-prompt {
+        display: grid;
+        gap: 0.42rem;
+      }
+
+      #bed-escape-prompt strong {
+        font-size: clamp(1.4rem, 3.4vw, 2.65rem);
+        letter-spacing: 0;
+        animation: bed-escape-warning 520ms steps(2, end) infinite;
+      }
+
+      #bed-escape-prompt span {
+        font-size: clamp(0.86rem, 1.65vw, 1.15rem);
+        letter-spacing: 0;
+      }
+
+      #bed-escape-meter {
+        width: 100%;
+        height: 0.48rem;
+        margin-top: 0.25rem;
+        overflow: hidden;
+        border: 1px solid rgba(229, 197, 185, 0.7);
+        background: rgba(0, 0, 0, 0.72);
+      }
+
+      #bed-escape-progress {
+        display: block;
+        width: 0%;
+        height: 100%;
+        background: #a52320;
+        box-shadow: 0 0 0.9rem rgba(212, 53, 45, 0.8);
+        transition: width 90ms linear;
+      }
+
+      #bed-inspect-frame.bed-shake-feedback {
+        animation: bed-shake-feedback 180ms linear;
+      }
+
+      @keyframes bed-shake-feedback {
+        0%, 100% { transform: translate(0, 0) rotate(0); }
+        18% { transform: translate(var(--bed-shake-x), calc(-1 * var(--bed-shake-y))) rotate(var(--bed-shake-angle)); }
+        42% { transform: translate(calc(-1 * var(--bed-shake-x)), var(--bed-shake-y)) rotate(calc(-1 * var(--bed-shake-angle))); }
+        68% { transform: translate(var(--bed-shake-y), var(--bed-shake-x)) rotate(var(--bed-shake-angle)); }
+      }
+
+      @keyframes bed-escape-warning {
+        0%, 100% { color: #f2dfd8; }
+        50% { color: #cf302a; }
+      }
+
       #cardboard-box-inspect.opened #cardboard-box-inspect-image {
         object-fit: cover;
       }
@@ -1722,6 +1791,14 @@
       playsinline
       hidden
     ></audio>
+    <audio
+      id="bed-struggle-audio"
+      src="/assets/audio/horror-score-piano-horror.mp3"
+      loop
+      preload="auto"
+      playsinline
+      hidden
+    ></audio>
     <main id="stage">
       <div id="room-scene" aria-label="307 房間"></div>
       <section id="inventory" aria-label="物品欄">
@@ -1974,6 +2051,13 @@
             preload="auto"
             playsinline
           ></video>
+          <div id="bed-escape-prompt" role="status" aria-live="assertive">
+            <strong>用力晃動手機！</strong>
+            <span id="bed-escape-countdown">在 4.0 秒內掙脫鬼手</span>
+            <div id="bed-escape-meter" aria-hidden="true">
+              <i id="bed-escape-progress"></i>
+            </div>
+          </div>
           <button
             id="bed-antenna-hotspot"
             class="selectable"
