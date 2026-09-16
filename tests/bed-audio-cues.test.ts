@@ -11,12 +11,8 @@ describe('bed event audio cues', () => {
     expect(BED_AUDIO_CUES.monsterVoiceStartAt).toBeLessThan(1);
   });
 
-  it('keeps the under-bed monster voice barely audible beneath the background mix', () => {
+  it('keeps the under-bed monster voice barely audible', () => {
     expect(BED_AUDIO_CUES.monsterVoiceVolume).toBe(0.04);
-    expect(BED_AUDIO_CUES.backgroundVolumeUnderBed).toBe(0.08);
-    expect(BED_AUDIO_CUES.monsterVoiceVolume).toBeLessThan(
-      BED_AUDIO_CUES.backgroundVolumeUnderBed,
-    );
   });
 
   it('plays the monster appearance cue at full volume', () => {

@@ -35,6 +35,7 @@ import {
   mergeFirefighterEquipmentOnCollect,
 } from './inventory-combination';
 import { installPendantBattery } from './inventory-actions';
+import { shouldRefreshControllerState } from './controller-sync';
 
 type ItemId = ProtoItemId;
 type StoryPhotoId = 'familyPhoto' | 'firefighterPhoto' | 'girlfriendPhoto';
@@ -279,7 +280,6 @@ let bedShakeFeedbackStep = 0;
 let bedDeathMenuTimer: number | null = null;
 let bedPlayerScreamStarted = false;
 let bedReachCutFrame: number | null = null;
-let bedScarePreviousAmbientVolume: number | null = null;
 let tapePlayed = false;
 let antennaInstalled = false;
 let radioBroadcastHeard = false;
@@ -963,18 +963,8 @@ function resetBedVideos(): void {
   });
 }
 
-function restoreBedAmbient(): void {
-  if (bedScarePreviousAmbientVolume === null) return;
-  void fadeMediaVolume(ambienceAudio, bedScarePreviousAmbientVolume, 650);
-  bedScarePreviousAmbientVolume = null;
-}
-
 function startBedInspectAudio(): void {
   if (collectedItems.has('antenna')) return;
-  if (bedScarePreviousAmbientVolume === null) {
-    bedScarePreviousAmbientVolume = ambienceAudio.volume;
-  }
-  void fadeMediaVolume(ambienceAudio, BED_AUDIO_CUES.backgroundVolumeUnderBed, 280);
   if (bedReachAudio.currentTime < BED_AUDIO_CUES.monsterVoiceStartAt) {
     bedReachAudio.currentTime = BED_AUDIO_CUES.monsterVoiceStartAt;
   }
@@ -1115,7 +1105,6 @@ function finishBedGrabSuccess(): void {
   document.body.classList.remove('bed-grab-active');
   document.body.classList.add('bed-grab-released');
   window.setTimeout(() => document.body.classList.remove('bed-grab-released'), 1900);
-  restoreBedAmbient();
   if (addItem('antenna')) room.collectObject('antenna');
   renderBedInspect();
   vibrate([360, 90, 110]);
@@ -1154,6 +1143,9 @@ async function restartGameAfterBedDeath(): Promise<void> {
   selectedItem = null;
   detailItem = null;
   inventoryOpen = false;
+  bedInspectOpen = false;
+  interactionHeld = false;
+  move = { x: 0, y: 0 };
   syncControllerState();
   await wait(120);
   try {
@@ -1518,8 +1510,8 @@ function connect(): void {
     if (msg.type === 'ready') {
       overlayEl.classList.add('hidden');
       setStatus('已同步 307。');
-      syncControllerState();
     }
+    if (shouldRefreshControllerState(msg)) syncControllerState();
     if (msg.type === 'proto-pointer') {
       pointerTarget = { x: msg.x, y: msg.y };
     }
@@ -2362,7 +2354,6 @@ function closeBedInspect(): void {
   move = { x: 0, y: 0 };
   bedInspectEl.classList.remove('open');
   stopBedReachAudio();
-  restoreBedAmbient();
   syncControllerState();
   updatePointer(pointer.x, pointer.y);
 }
