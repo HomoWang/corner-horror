@@ -14,7 +14,7 @@ import {
   type TapeVoiceClipId,
 } from './chapter-one';
 import { addBedShakeProgress, BED_SHAKE_TARGET, hasEscapedBedGrab } from './bed-escape';
-import { BED_AUDIO_CUES } from './bed-audio-cues';
+import { BED_AUDIO_CUES, shouldStartBedPlayerScream } from './bed-audio-cues';
 import {
   BED_BLOOD_HOLD_MS,
   buildBedDeathRestartUrl,
@@ -273,7 +273,7 @@ let bedEventPhase: BedEventPhase = 'idle';
 let bedShakeScore = 0;
 let bedShakeFeedbackStep = 0;
 let bedDeathMenuTimer: number | null = null;
-let bedPlayerScreamTimer: number | null = null;
+let bedPlayerScreamStarted = false;
 let bedReachCutFrame: number | null = null;
 let bedScarePreviousAmbientVolume: number | null = null;
 let tapePlayed = false;
@@ -984,10 +984,7 @@ function stopBedStruggleAudio(): void {
 }
 
 function stopBedDeathAudio(): void {
-  if (bedPlayerScreamTimer !== null) {
-    window.clearTimeout(bedPlayerScreamTimer);
-    bedPlayerScreamTimer = null;
-  }
+  bedPlayerScreamStarted = false;
   bedDeathAudio.pause();
   bedDeathAudio.currentTime = 0;
   bedPlayerScreamAudio.pause();
@@ -998,11 +995,20 @@ function playBedDeathAudio(): void {
   stopBedDeathAudio();
   if (hostAudioMuted) return;
   void bedDeathAudio.play().catch(() => undefined);
-  bedPlayerScreamTimer = window.setTimeout(() => {
-    bedPlayerScreamTimer = null;
-    if (hostAudioMuted || bedEventPhase !== 'death') return;
-    void bedPlayerScreamAudio.play().catch(() => undefined);
-  }, BED_AUDIO_CUES.playerScreamDelayMs);
+}
+
+function syncBedPlayerScreamToVideo(): void {
+  if (bedEventPhase !== 'death' || hostAudioMuted) return;
+  if (bedPlayerScreamStarted) {
+    if (bedPlayerScreamAudio.paused && !bedPlayerScreamAudio.ended) {
+      void bedPlayerScreamAudio.play().catch(() => undefined);
+    }
+    return;
+  }
+  if (!shouldStartBedPlayerScream(bedDeathVideoEl.currentTime, bedPlayerScreamStarted)) return;
+  bedPlayerScreamStarted = true;
+  bedPlayerScreamAudio.currentTime = 0;
+  void bedPlayerScreamAudio.play().catch(() => undefined);
 }
 
 function stopBedReachAudio(): void {
@@ -1023,8 +1029,9 @@ function resumeActiveBedEventAudio(): void {
     void bedStruggleAudio.play().catch(() => undefined);
   }
   if (bedEventPhase === 'death' && bedDeathAudio.paused) {
-    playBedDeathAudio();
+    void bedDeathAudio.play().catch(() => undefined);
   }
+  if (bedEventPhase === 'death') syncBedPlayerScreamToVideo();
 }
 
 function resetBedEscapeFeedback(): void {
@@ -1255,6 +1262,7 @@ bedStruggleVideoEl.addEventListener('error', () => {
 
 bedDeathVideoEl.addEventListener('ended', finishBedDeath);
 bedDeathVideoEl.addEventListener('error', finishBedDeath);
+bedDeathVideoEl.addEventListener('timeupdate', syncBedPlayerScreamToVideo);
 bedDeathMenuEl.addEventListener('click', (event) => {
   const action = (event.target as HTMLElement).closest<HTMLElement>(
     '[data-bed-death-restart], [data-bed-death-close]',

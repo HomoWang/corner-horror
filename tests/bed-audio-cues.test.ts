@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BED_AUDIO_CUES } from '../src/prototype/bed-audio-cues';
+import {
+  BED_AUDIO_CUES,
+  shouldStartBedPlayerScream,
+} from '../src/prototype/bed-audio-cues';
 
 describe('bed event audio cues', () => {
   it('starts the monster voice after the source file lead-in', () => {
@@ -8,7 +11,7 @@ describe('bed event audio cues', () => {
   });
 
   it('keeps the monster voice quiet but above the under-bed background mix', () => {
-    expect(BED_AUDIO_CUES.monsterVoiceVolume).toBe(0.2);
+    expect(BED_AUDIO_CUES.monsterVoiceVolume).toBe(0.12);
     expect(BED_AUDIO_CUES.backgroundVolumeUnderBed).toBe(0.08);
     expect(BED_AUDIO_CUES.monsterVoiceVolume).toBeGreaterThan(
       BED_AUDIO_CUES.backgroundVolumeUnderBed,
@@ -19,8 +22,10 @@ describe('bed event audio cues', () => {
     expect(BED_AUDIO_CUES.monsterAppearanceVolume).toBe(1);
   });
 
-  it('layers the player scream after the death sound has begun', () => {
-    expect(BED_AUDIO_CUES.playerScreamDelayMs).toBe(550);
-    expect(BED_AUDIO_CUES.playerScreamDelayMs).toBeGreaterThan(0);
+  it('starts the player scream only after the monster fills the death frame', () => {
+    expect(BED_AUDIO_CUES.playerScreamVideoTime).toBe(4.45);
+    expect(shouldStartBedPlayerScream(4.44, false)).toBe(false);
+    expect(shouldStartBedPlayerScream(4.45, false)).toBe(true);
+    expect(shouldStartBedPlayerScream(6, true)).toBe(false);
   });
 });
