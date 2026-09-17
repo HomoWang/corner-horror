@@ -313,6 +313,7 @@ type HostSoundId =
   | 'keypadReset'
   | 'footsteps'
   | 'doorImpact'
+  | 'wardrobeCreak'
   | 'jumpscare'
   | 'pendantMelody'
   | 'radioBroadcast'
@@ -326,6 +327,7 @@ const hostSoundUrls: Record<HostSoundId, string> = {
   keypadReset: publicUrl('assets/audio/password-reset.mp3'),
   footsteps: publicUrl('assets/audio/player-walking.mp3'),
   doorImpact: publicUrl('assets/audio/cinematic-deep-impact.mp3'),
+  wardrobeCreak: publicUrl('assets/audio/scary-door-opening.mp3'),
   jumpscare: publicUrl('assets/audio/jumpscare-scream.mp3'),
   pendantMelody: publicUrl('assets/audio/pendant-melody.mp3'),
   radioBroadcast: publicUrl('assets/audio/radio_broadcast_01.wav'),
@@ -716,7 +718,7 @@ function checkChapterExit(): void {
   doorUnlockAnnounced = true;
   window.setTimeout(() => {
     void playHostSound('keypadUnlock', { volume: 0.42, playbackRate: 0.72 });
-    showNotice('房門(聲音)：喀。', 3200);
+    showNotice('房門的鎖打開了。', 3200);
     vibrate([70, 90, 120]);
   }, 700);
 }
@@ -737,7 +739,7 @@ async function playTapeRecording(): Promise<void> {
   try {
     await playHostSound('keypadReset', { volume: 0.28, playbackRate: 0.72 });
     startTapeNoise();
-    showNotice('錄音機(聲音)：喀……滋……', 1900);
+    showNotice('錄音機開始播放。', 1900);
     await Promise.all([wait(1900), ambientFadeOut]);
 
     for (const line of tapeRecordingLines) {
@@ -824,7 +826,7 @@ async function playRadioBroadcast(): Promise<void> {
   await fadeMediaVolume(ambienceAudio, Math.min(previousAmbientVolume, 0.05), 1200);
 
   try {
-    showNotice('收錄音機(聲音)：滋……滋……', 2200);
+    showNotice('收錄音機傳出斷續雜訊。', 2200);
     await playHostSound('radioBroadcast', { volume: 0.86 });
     const duration = hostAudioBuffers.get('radioBroadcast')?.duration ?? 16.1;
     await wait(duration * 1000);
@@ -840,18 +842,18 @@ async function playRadioBroadcast(): Promise<void> {
 
 async function playDoorScare(): Promise<void> {
   if (doorScarePlayed) {
-    showNotice('提示(文字)：房門打不開。', 2200);
+    showNotice('房門打不開。', 2200);
     void playHeavyDoorKnocks();
     return;
   }
   doorScarePlayed = true;
-  showNotice('提示(文字)：房門打不開。', 2200);
+  showNotice('房門打不開。', 2200);
   void playHostSound('footsteps', { volume: 0.52, playbackRate: 1.16 });
   await wait(650);
   void playHeavyDoorKnocks();
   await wait(1750);
   void playHostSound('jumpscare', { volume: 0.92 });
-  showNotice('門外人聲(聲音)：啊啊啊啊啊！！！！！', 2600);
+  showNotice('門外人聲：啊啊啊啊啊！！！！！', 2600);
 }
 
 async function playHeavyDoorKnocks(): Promise<void> {
@@ -859,7 +861,7 @@ async function playHeavyDoorKnocks(): Promise<void> {
   void playHostSound('doorImpact', { volume: 0.78, playbackRate: 0.62, delay: 0.48 });
   void playHostSound('doorImpact', { volume: 0.92, playbackRate: 0.58, delay: 0.98 });
   vibrate([150, 180, 170, 180, 230]);
-  showNotice('房門(聲音)：咚！……咚！……咚！', 1800);
+  showNotice('房門傳來猛烈撞擊。', 1800);
 }
 
 async function playBedAntennaScare(): Promise<void> {
@@ -1314,7 +1316,7 @@ async function finishChapterOne(): Promise<void> {
   chapterCompleted = true;
   move = { x: 0, y: 0 };
   stopFootsteps();
-  showNotice('房門(聲音)：吱——', 1800);
+  showNotice('房門緩緩打開。', 1800);
   void playHostSound('doorImpact', { volume: 0.22, playbackRate: 0.48 });
   await wait(900);
   document.body.classList.add('chapter-ending');
@@ -1722,7 +1724,8 @@ function handleInteract(): void {
     switch (roomTarget) {
       case 'wardrobeLeft':
         if (room.openWardrobe('left')) {
-          showNotice('衣櫃左門(聲音)：吱……');
+          clearNotice();
+          void playHostSound('wardrobeCreak', { volume: 0.5, playbackRate: 0.92 });
           vibrate([45, 55, 75]);
         } else {
           showNotice('衣櫃左門已經打開了。');
@@ -1730,7 +1733,8 @@ function handleInteract(): void {
         return;
       case 'wardrobeMiddle':
         if (room.openWardrobe('middle')) {
-          showNotice('衣櫃中門(聲音)：吱……');
+          clearNotice();
+          void playHostSound('wardrobeCreak', { volume: 0.48, playbackRate: 1 });
           vibrate([45, 55, 75]);
         } else {
           showNotice('衣櫃中門已經打開了。');
@@ -1738,14 +1742,15 @@ function handleInteract(): void {
         return;
       case 'wardrobeRight':
         if (room.openWardrobe('right')) {
-          showNotice('衣櫃右門(聲音)：吱……');
+          clearNotice();
+          void playHostSound('wardrobeCreak', { volume: 0.52, playbackRate: 0.86 });
           vibrate([45, 55, 75]);
         } else {
           showNotice('衣櫃右門已經打開了。');
         }
         return;
       case 'wardrobe':
-        showNotice('衣櫃(文字)：三扇門可以分別打開。');
+        showNotice('三扇門可以分別打開。');
         return;
       case 'receipt':
         if (addItem('receipt')) room.collectObject('receipt');
@@ -1817,7 +1822,7 @@ function playPhotoMemoryReveal(): void {
   document.body.classList.add('photo-memory-playing');
   vibrate([55, 110, 80, 160, 120]);
   window.setTimeout(() => {
-    showNotice('商禾(記憶)：放這裡，回家就看得到。', 3600);
+    showNotice('商禾：放這裡，回家就看得到。', 3600);
   }, 2100);
   window.setTimeout(() => {
     document.body.classList.remove('photo-memory-playing');
@@ -1852,8 +1857,8 @@ function openSafeInspect(): void {
   renderSafeInspect();
   showNotice(
     safeUnlocked
-      ? '保險箱(文字)：門已經打開了。'
-      : '保險箱(文字)：門上裝著四位數字鎖。',
+      ? '門已經打開了。'
+      : '門上裝著四位數字鎖。',
   );
   syncControllerState();
   updatePointer(pointer.x, pointer.y);
@@ -1878,7 +1883,7 @@ function handleSafeInspect(): void {
   }
   if (target.dataset.safeKeypad) {
     if (safeUnlocked) {
-      showNotice('保險箱(文字)：門鎖已經解開。');
+      showNotice('門鎖已經解開。');
       return;
     }
     openDrawerPuzzle();
@@ -2404,10 +2409,10 @@ function openRadioInspect(): void {
   radioInspectEl.classList.add('open');
   showNotice(
     !room.hasTapeInRecorder()
-      ? '收錄音機(文字)：磁帶槽是空的。'
+      ? '磁帶槽是空的。'
       : !antennaInstalled
-        ? '收錄音機(文字)：磁帶已經裝入，天線接口仍是空的。'
-        : '收錄音機(聲音)：滋……',
+        ? '磁帶已經裝入，天線接口仍是空的。'
+        : '收錄音機傳出雜訊。',
     2600,
   );
   syncControllerState();
@@ -2432,7 +2437,7 @@ function handleRadioInspect(): void {
     room.insertTapeIntoRecorder();
     consumeItem('tape');
     renderRadioInspect();
-    showNotice('收錄音機(聲音)：喀。錄音帶卡進磁帶槽。', 1800);
+    showNotice('錄音帶卡進磁帶槽。', 1800);
     vibrate([45, 35, 75]);
     window.setTimeout(() => void playTapeRecording(), 650);
     return;
@@ -2442,25 +2447,25 @@ function handleRadioInspect(): void {
     antennaInstalled = true;
     consumeItem('antenna');
     renderRadioInspect();
-    showNotice('收錄音機(聲音)：喀。天線接上了。', 1800);
+    showNotice('天線接上了。', 1800);
     vibrate([45, 40, 80]);
     return;
   }
 
   if (!room.hasTapeInRecorder()) {
-    showNotice('提示(文字)：錄音機的磁帶槽是空的。');
+    showNotice('錄音機的磁帶槽是空的。');
     return;
   }
   if (!tapePlayed) {
-    showNotice('收錄音機(聲音)：磁帶正在轉動……');
+    showNotice('磁帶正在轉動……');
     return;
   }
   if (!antennaInstalled) {
-    showNotice('收錄音機(文字)：廣播天線的接口是空的。');
+    showNotice('廣播天線的接口是空的。');
     return;
   }
   if (radioBroadcastHeard) {
-    showNotice('收錄音機(聲音)：滋……滋……');
+    showNotice('只剩斷續雜訊。');
     return;
   }
   void playRadioBroadcast();
@@ -2551,9 +2556,9 @@ function handleDrawerInteract(): void {
     updateDrawerCodeDisplay();
     if (safeCodeFailures >= 2) {
       drawerPuzzleEl.classList.add('clue-boost');
-      showNotice('祈望(低聲)：手電筒照過去時，有幾枚暗紅色指印。', 4200);
+      showNotice('祈望：手電筒照過去時，有幾枚暗紅色指印。', 4200);
     } else {
-      showNotice('保險箱(聲音)：喀。');
+      clearNotice();
     }
     vibratePuzzleError();
     return;
@@ -2567,7 +2572,7 @@ function handleDrawerInteract(): void {
   closeDrawerPuzzle();
   room.openSafe();
   renderSafeInspect();
-  showNotice('保險箱(聲音)：喀……門鎖彈開了。');
+  showNotice('門鎖彈開了。');
   vibrate([80, 70, 80]);
   checkChapterExit();
 }
@@ -2654,7 +2659,7 @@ function openItemDetail(item: ItemId): void {
   }
   showNotice(
     item === 'receipt'
-      ? '便條紙(文字)：三組猜數字紀錄，最後一行已經看不清楚。'
+      ? '三組猜數字紀錄，最後一行已經看不清楚。'
       : `${itemLabels[item]}。${itemDetails[item].description}`,
   );
   syncControllerState();
