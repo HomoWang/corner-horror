@@ -7,9 +7,3 @@ export function pendantDescription(powered: boolean, activated: boolean): string
   }
   return '主角送給女友的錄音吊飾，背面的電池槽目前是空的。';
 }
-
-export function pendantSelectionNotice(powered: boolean, activated: boolean): string {
-  if (activated) return '使用中：錄音吊飾。';
-  if (powered) return '使用中：錄音吊飾。按住手機中央互動鍵，將它握緊。';
-  return '使用中：錄音吊飾。需要裝入一顆電池。';
-}

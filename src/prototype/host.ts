@@ -25,7 +25,12 @@ import {
   clearBedDeathInventory,
 } from './bed-death-flow';
 import { PrototypeRoom2D, type RoomObjectId } from './room2d';
-import { pendantDescription, pendantSelectionNotice } from './item-copy';
+import { pendantDescription } from './item-copy';
+import {
+  PENDANT_OBJECTIVE_LABELS,
+  nextPendantObjective,
+  type PendantObjectiveId,
+} from './pendant-objective';
 import {
   advanceHorizontalCut,
   beginHorizontalCut,
@@ -155,6 +160,9 @@ const statusEl = document.querySelector<HTMLElement>('#status')!;
 const targetEl = document.querySelector<HTMLElement>('#target')!;
 const heldItemEl = document.querySelector<HTMLElement>('#held-item')!;
 const noticeEl = document.querySelector<HTMLElement>('#notice')!;
+const storyObjectiveEl = document.querySelector<HTMLElement>('#story-objective')!;
+const storyObjectiveMarkEl = document.querySelector<HTMLElement>('#story-objective-mark')!;
+const storyObjectiveTextEl = document.querySelector<HTMLElement>('#story-objective-text')!;
 const audioEnableBtn = document.querySelector<HTMLButtonElement>('#audio-enable')!;
 const inventoryEl = document.querySelector<HTMLElement>('#inventory')!;
 const receiptPanelEl = document.querySelector<HTMLElement>('#receipt-panel')!;
@@ -292,8 +300,12 @@ let radioBroadcastHeard = false;
 let tapePlaybackActive = false;
 let doorUnlockAnnounced = false;
 let doorScarePlayed = false;
+let doorScareCompleted = false;
 let chapterCompleted = false;
 let interactionHeld = false;
+const pendantObjectiveCompletionQueue: PendantObjectiveId[] = [];
+let pendantObjectiveCompletionActive = false;
+let pendantObjectiveTimer: number | null = null;
 let hostAudioContext: AudioContext | null = null;
 let hostAudioMuted = false;
 const ambienceAudio = document.querySelector<HTMLAudioElement>('#ambient-audio')!;
@@ -409,6 +421,63 @@ function showNotice(text: string, duration = 2400): void {
   noticeEl.textContent = text;
   noticeEl.classList.add('show');
   noticeTimer = setTimeout(() => noticeEl.classList.remove('show'), duration);
+}
+
+function currentPendantObjective(): PendantObjectiveId | null {
+  return nextPendantObjective({
+    hasPendant: collectedItems.has('pendant'),
+    powered: pendantPowered,
+    doorScareCompleted,
+    activated: pendantActivated,
+  });
+}
+
+function hidePendantObjective(): void {
+  storyObjectiveEl.classList.remove('show', 'complete');
+  storyObjectiveMarkEl.textContent = '□';
+  storyObjectiveTextEl.textContent = '';
+}
+
+function refreshPendantObjective(): void {
+  if (pendantObjectiveCompletionActive || pendantObjectiveCompletionQueue.length > 0) return;
+  const objective = currentPendantObjective();
+  if (!objective) {
+    hidePendantObjective();
+    return;
+  }
+  storyObjectiveMarkEl.textContent = '□';
+  storyObjectiveTextEl.textContent = PENDANT_OBJECTIVE_LABELS[objective];
+  storyObjectiveEl.classList.remove('complete');
+  storyObjectiveEl.classList.add('show');
+}
+
+function showNextPendantObjectiveCompletion(): void {
+  if (pendantObjectiveCompletionActive) return;
+  const objective = pendantObjectiveCompletionQueue.shift();
+  if (!objective) {
+    refreshPendantObjective();
+    return;
+  }
+  pendantObjectiveCompletionActive = true;
+  storyObjectiveMarkEl.textContent = '■';
+  storyObjectiveTextEl.textContent = `${PENDANT_OBJECTIVE_LABELS[objective]}(完成)`;
+  storyObjectiveEl.classList.add('show', 'complete');
+  if (pendantObjectiveTimer !== null) window.clearTimeout(pendantObjectiveTimer);
+  pendantObjectiveTimer = window.setTimeout(() => {
+    pendantObjectiveTimer = null;
+    pendantObjectiveCompletionActive = false;
+    showNextPendantObjectiveCompletion();
+  }, 3000);
+}
+
+function completePendantObjective(objective: PendantObjectiveId): void {
+  if (
+    pendantObjectiveCompletionQueue.includes(objective) ||
+    (pendantObjectiveCompletionActive &&
+      storyObjectiveTextEl.textContent === `${PENDANT_OBJECTIVE_LABELS[objective]}(完成)`)
+  ) return;
+  pendantObjectiveCompletionQueue.push(objective);
+  showNextPendantObjectiveCompletion();
 }
 
 function showRecorderSubtitle(text: string, duration = 2400): void {
@@ -860,6 +929,9 @@ async function playDoorScare(): Promise<void> {
   await wait(1750);
   void playHostSound('jumpscare', { volume: 0.92 });
   showNotice('門外人聲：啊啊啊啊啊！！！！！', 2600);
+  await wait(2600);
+  doorScareCompleted = true;
+  refreshPendantObjective();
 }
 
 async function playHeavyDoorKnocks(): Promise<void> {
@@ -1296,6 +1368,7 @@ function beginPendantHold(): void {
   if (
     pendantActivated ||
     !pendantPowered ||
+    !doorScareCompleted ||
     pendantHoldTimer !== null ||
     selectedItem !== 'pendant'
   ) return;
@@ -1304,7 +1377,8 @@ function beginPendantHold(): void {
     if (!interactionHeld || selectedItem !== 'pendant') return;
     pendantActivated = true;
     void playHostSound('pendantMelody', { volume: 0.62 });
-    showNotice('吊飾響起一段熟悉的旋律。', 4200);
+    clearNotice();
+    completePendantObjective('use');
     vibrate([40, 80, 40, 120, 70]);
     checkChapterExit();
     updatePointer(pointer.x, pointer.y);
@@ -1684,6 +1758,7 @@ function addItem(item: ItemId): boolean {
   collectedItems.add(item);
   vibrate(80);
   syncControllerState();
+  if (item === 'pendant') completePendantObjective('find');
   return true;
 }
 
@@ -2617,11 +2692,12 @@ function handleItemAction(item: ItemId, action: ProtoItemAction): void {
     selectedItem = batteryInstallation.selectedItem;
     void playHostSound('keypadUnlock', { volume: 0.34, playbackRate: 1.25 });
     vibrate([35, 45, 80]);
+    clearNotice();
+    completePendantObjective('install');
     if (inventoryOpen) {
       openItemDetail('pendant');
     } else {
       detailItem = null;
-      showNotice('舊電池已裝入錄音吊飾。');
       syncControllerState();
     }
     return;
@@ -2629,17 +2705,15 @@ function handleItemAction(item: ItemId, action: ProtoItemAction): void {
   if (inventoryOpen && detailItem === item) {
     setInventoryOpen(false);
     if (item !== 'photo') {
-      showNotice(`已收起：${itemLabels[item]}`);
+      if (item === 'pendant' || item === 'oldBattery') clearNotice();
+      else showNotice(`已收起：${itemLabels[item]}`);
       return;
     }
   }
 
   selectedItem = item;
-  showNotice(
-    item === 'pendant'
-      ? pendantSelectionNotice(pendantPowered, pendantActivated)
-      : `使用中：${itemLabels[item]}`,
-  );
+  if (item === 'pendant' || item === 'oldBattery') clearNotice();
+  else showNotice(`使用中：${itemLabels[item]}`);
   syncControllerState();
 }
 
@@ -2664,11 +2738,14 @@ function openItemDetail(item: ItemId): void {
     genericItemNameEl.textContent = itemLabels[item];
     genericItemDescriptionEl.textContent = description;
   }
-  showNotice(
-    item === 'receipt'
-      ? '三組猜數字紀錄，最後一行已經看不清楚。'
-      : `${itemLabels[item]}。${currentItemDescription(item)}`,
-  );
+  if (item === 'pendant' || item === 'oldBattery') clearNotice();
+  else {
+    showNotice(
+      item === 'receipt'
+        ? '三組猜數字紀錄，最後一行已經看不清楚。'
+        : `${itemLabels[item]}。${currentItemDescription(item)}`,
+    );
+  }
   syncControllerState();
   updatePointer(pointer.x, pointer.y);
 }
@@ -2888,4 +2965,7 @@ if (import.meta.env.DEV) {
   }
 }
 
+if (!(import.meta.env.DEV && new URLSearchParams(location.search).has('inspect'))) {
+  refreshPendantObjective();
+}
 requestAnimationFrame(frame);

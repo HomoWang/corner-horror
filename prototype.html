@@ -662,6 +662,45 @@
         opacity: 1;
       }
 
+      #story-objective {
+        position: fixed;
+        left: 1.25rem;
+        top: 8rem;
+        z-index: 28;
+        display: flex;
+        align-items: baseline;
+        gap: 0.55rem;
+        max-width: min(28rem, 72vw);
+        color: #d7cec5;
+        font: 600 1rem/1.45 "Noto Sans TC", system-ui, sans-serif;
+        text-shadow: 0 2px 8px #000, 0 0 18px rgba(0, 0, 0, 0.92);
+        opacity: 0;
+        transform: translateX(-0.45rem);
+        transition: color 180ms ease, opacity 220ms ease, transform 220ms ease;
+        pointer-events: none;
+      }
+
+      #story-objective.show {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      #story-objective.complete {
+        color: #77c986;
+      }
+
+      #story-objective-mark {
+        flex: 0 0 auto;
+      }
+
+      #story-objective-text {
+        overflow-wrap: anywhere;
+      }
+
+      body.chapter-ending #story-objective {
+        opacity: 0;
+      }
+
       #audio-enable {
         position: fixed;
         top: 1rem;
@@ -2223,6 +2262,10 @@
         <div id="target" hidden></div>
         <div id="held-item">目前道具：無</div>
       </section>
+      <div id="story-objective" role="status" aria-live="polite" aria-atomic="true">
+        <span id="story-objective-mark">□</span>
+        <span id="story-objective-text"></span>
+      </div>
       <button id="audio-enable" type="button" aria-pressed="false">靜音</button>
       <div id="notice"></div>
       <section id="chapter-complete" aria-live="polite">
