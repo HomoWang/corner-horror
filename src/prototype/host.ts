@@ -5,7 +5,7 @@ import {
   type ProtoItemId,
 } from '../shared/protocol';
 import { publicUrl } from '../shared/public-url';
-import { clearSave } from '../shared/persistence';
+import { loadSave, writeSave } from '../shared/persistence';
 import { buildWebSocketUrl, createRoomCode, normalizeRoomCode } from '../shared/session';
 import {
   SAFE_CODE,
@@ -21,7 +21,6 @@ import {
 } from './bed-audio-cues';
 import {
   BED_BLOOD_HOLD_MS,
-  buildBedDeathRestartUrl,
   clearBedDeathInventory,
 } from './bed-death-flow';
 import { PrototypeRoom2D, type RoomObjectId } from './room2d';
@@ -42,6 +41,22 @@ import {
 } from './inventory-combination';
 import { installPendantBattery } from './inventory-actions';
 import { shouldRefreshControllerState } from './controller-sync';
+import {
+  loadGameSettings,
+  storeGameSettings,
+  type GameSettings,
+} from './game-settings';
+import {
+  chapterOneProgressPercent,
+  clearSaveSlot,
+  createEmptySaveArchive,
+  normalizeSaveArchive,
+  SAVE_SLOT_COUNT,
+  writeSaveSlot,
+  type ChapterOneSaveState,
+  type GameSaveArchive,
+  type GameSaveRecord,
+} from './save-system';
 
 type ItemId = ProtoItemId;
 type StoryPhotoId = 'familyPhoto' | 'firefighterPhoto' | 'girlfriendPhoto';
@@ -227,16 +242,27 @@ const quickSlotEl = document.querySelector<HTMLElement>('#quick-slot')!;
 const quickSlotLabelEl = document.querySelector<HTMLElement>('#quick-slot-label')!;
 const roomScene = document.querySelector<HTMLElement>('#room-scene')!;
 const chapterCompleteEl = document.querySelector<HTMLElement>('#chapter-complete')!;
+const frontMenuEl = document.querySelector<HTMLElement>('#front-menu')!;
+const frontLoadButtonEl = document.querySelector<HTMLButtonElement>('#front-load')!;
+const pauseMenuEl = document.querySelector<HTMLElement>('#pause-menu')!;
+const pauseButtonEl = document.querySelector<HTMLButtonElement>('#pause-button')!;
+const savePanelEl = document.querySelector<HTMLElement>('#save-panel')!;
+const savePanelTitleEl = document.querySelector<HTMLElement>('#save-panel-title')!;
+const savePanelHelpEl = document.querySelector<HTMLElement>('#save-panel-help')!;
+const saveSlotsEl = document.querySelector<HTMLElement>('#save-slots')!;
+const settingsPanelEl = document.querySelector<HTMLElement>('#settings-panel')!;
+const brightnessMaskEl = document.querySelector<HTMLElement>('#brightness-mask')!;
 const room = new PrototypeRoom2D(roomScene);
 
 const locationParams = new URLSearchParams(location.search);
 const resumedAfterBedDeath = locationParams.get('restart') === 'death';
+const resumedWithoutPairing = resumedAfterBedDeath || locationParams.get('restart') === 'load';
 const roomCode =
   normalizeRoomCode(locationParams.get('room')) ??
   normalizeRoomCode(sessionStorage.getItem('corner-horror-prototype-room')) ??
   createRoomCode();
 sessionStorage.setItem('corner-horror-prototype-room', roomCode);
-if (resumedAfterBedDeath) overlayEl.classList.add('hidden');
+if (resumedWithoutPairing) overlayEl.classList.add('hidden');
 
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -303,6 +329,14 @@ let doorScarePlayed = false;
 let doorScareCompleted = false;
 let chapterCompleted = false;
 let interactionHeld = false;
+let gameStarted = false;
+let gamePaused = false;
+let savePanelMode: 'load' | 'save' = 'load';
+let menuReturnTarget: 'front' | 'pause' = 'front';
+let saveArchive: GameSaveArchive = createEmptySaveArchive();
+let playtimeBaseMs = 0;
+let playtimeStartedAt = performance.now();
+let gameSettings: GameSettings = loadGameSettings(localStorage);
 const pendantObjectiveCompletionQueue: PendantObjectiveId[] = [];
 let pendantObjectiveCompletionActive = false;
 let pendantObjectiveTimer: number | null = null;
@@ -316,15 +350,18 @@ const bedDeathAudio = document.querySelector<HTMLAudioElement>('#bed-death-audio
 const bedPlayerScreamAudio = document.querySelector<HTMLAudioElement>(
   '#bed-player-scream-audio',
 )!;
-ambienceAudio.volume = 0.26;
+const AMBIENCE_BASE_VOLUME = 0.26;
+const BED_SCARE_VIDEO_BASE_VOLUME = 0.92;
+const BED_DEATH_VIDEO_BASE_VOLUME = 1;
+ambienceAudio.volume = AMBIENCE_BASE_VOLUME * gameSettings.masterVolume * gameSettings.musicVolume;
 ambienceAudio.loop = true;
-bedReachAudio.volume = BED_AUDIO_CUES.monsterVoiceVolume;
+bedReachAudio.volume = BED_AUDIO_CUES.monsterVoiceVolume * gameSettings.masterVolume * gameSettings.effectsVolume;
 bedReachAudio.loop = true;
-bedStruggleAudio.volume = BED_AUDIO_CUES.monsterAppearanceVolume;
+bedStruggleAudio.volume = BED_AUDIO_CUES.monsterAppearanceVolume * gameSettings.masterVolume * gameSettings.effectsVolume;
 bedStruggleAudio.loop = true;
-bedDeathAudio.volume = BED_AUDIO_CUES.monsterDeathVolume;
+bedDeathAudio.volume = BED_AUDIO_CUES.monsterDeathVolume * gameSettings.masterVolume * gameSettings.effectsVolume;
 bedDeathAudio.loop = BED_AUDIO_CUES.monsterDeathLoop;
-bedPlayerScreamAudio.volume = BED_AUDIO_CUES.playerScreamVolume;
+bedPlayerScreamAudio.volume = BED_AUDIO_CUES.playerScreamVolume * gameSettings.masterVolume * gameSettings.effectsVolume;
 type HostSoundId =
   | 'keypad'
   | 'keypadUnlock'
@@ -489,6 +526,10 @@ function showPendantObjective(objective: PendantObjectiveId, complete: boolean, 
 }
 
 function refreshPendantObjective(): void {
+  if (!gameStarted || gamePaused) {
+    hidePendantObjective();
+    return;
+  }
   if (!overlayEl.classList.contains('hidden') || bedGrabActive) {
     hidePendantObjective();
     return;
@@ -531,6 +572,7 @@ function completePendantObjective(objective: PendantObjectiveId): void {
 }
 
 function showRecorderSubtitle(text: string, duration = 2400): void {
+  if (!gameSettings.subtitles) return;
   noticeEl.textContent = text;
   noticeEl.classList.add('show');
   if (noticeTimer) clearTimeout(noticeTimer);
@@ -624,7 +666,7 @@ function playLoadedHostSound(
   const gain = context.createGain();
   source.buffer = buffer;
   source.playbackRate.value = options.playbackRate ?? 1;
-  gain.gain.value = options.volume ?? 1;
+  gain.gain.value = (options.volume ?? 1) * effectVolumeScale();
   source.connect(gain).connect(context.destination);
   source.start(context.currentTime + (options.delay ?? 0));
   return source;
@@ -671,7 +713,7 @@ function playCardboardCutSound(progress: number): void {
   bandpass.type = 'bandpass';
   bandpass.frequency.value = 1050 + progress * 520;
   bandpass.Q.value = 0.72;
-  gain.gain.setValueAtTime(0.055, context.currentTime);
+  gain.gain.setValueAtTime(0.055 * effectVolumeScale(), context.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
   source.buffer = buffer;
   source.connect(highpass);
@@ -702,7 +744,7 @@ function startFootsteps(): void {
     source.loopEnd = buffer.duration - 0.08;
   }
   gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(0.72, now + 0.14);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.72 * effectVolumeScale()), now + 0.14);
   source.connect(gain).connect(context.destination);
   source.start(now);
   footstepSource = source;
@@ -746,6 +788,514 @@ function updateFootsteps(movedDistance: number): void {
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+const PENDING_LOAD_KEY = 'room307-pending-load';
+
+function effectVolumeScale(): number {
+  return gameSettings.masterVolume * gameSettings.effectsVolume;
+}
+
+function applyAudioSettings(): void {
+  const effects = effectVolumeScale();
+  ambienceAudio.volume = AMBIENCE_BASE_VOLUME * gameSettings.masterVolume * gameSettings.musicVolume;
+  bedReachAudio.volume = BED_AUDIO_CUES.monsterVoiceVolume * effects;
+  bedStruggleAudio.volume = BED_AUDIO_CUES.monsterAppearanceVolume * effects;
+  bedDeathAudio.volume = BED_AUDIO_CUES.monsterDeathVolume * effects;
+  bedPlayerScreamAudio.volume = BED_AUDIO_CUES.playerScreamVolume * effects;
+  bedScareVideoEl.volume = BED_SCARE_VIDEO_BASE_VOLUME * effects;
+  bedStruggleVideoEl.volume = BED_SCARE_VIDEO_BASE_VOLUME * effects;
+  bedDeathVideoEl.volume = BED_DEATH_VIDEO_BASE_VOLUME * effects;
+}
+
+function applyGameSettings(): void {
+  applyAudioSettings();
+  brightnessMaskEl.style.opacity = String(Math.max(0, 1 - gameSettings.brightness));
+  document.documentElement.style.fontSize = `${gameSettings.interfaceScale * 100}%`;
+  document.body.classList.toggle('reduce-motion', gameSettings.reduceMotion);
+}
+
+function persistGameSettings(): void {
+  storeGameSettings(localStorage, gameSettings);
+  applyGameSettings();
+}
+
+function currentPlaytimeMs(): number {
+  const activeTime = gameStarted && !gamePaused ? performance.now() - playtimeStartedAt : 0;
+  return Math.max(0, Math.round(playtimeBaseMs + activeTime));
+}
+
+function captureChapterOneState(): ChapterOneSaveState {
+  return {
+    room: room.getPersistenceState(),
+    inventorySlots: [...inventorySlots],
+    collectedItems: [...collectedItems],
+    selectedItem,
+    safeUnlocked,
+    safeCodeFailures,
+    photoClueRead,
+    pendantActivated,
+    pendantPowered,
+    deskDrawerUnlocked,
+    deskDrawerOpened,
+    cardboardBoxOpened,
+    tapePlayed,
+    antennaInstalled,
+    radioBroadcastHeard,
+    doorUnlockAnnounced,
+    doorScarePlayed,
+    doorScareCompleted,
+  };
+}
+
+function createCurrentSaveRecord(playtimeMs = currentPlaytimeMs()): GameSaveRecord {
+  return {
+    version: 1,
+    chapter: 'chapter-1',
+    checkpoint: 'chapter-1-start',
+    savedAt: new Date().toISOString(),
+    playtimeMs,
+    state: captureChapterOneState(),
+  };
+}
+
+async function persistSaveArchive(): Promise<void> {
+  await writeSave(saveArchive);
+}
+
+function resetTransientGameState(): void {
+  inventoryOpen = false;
+  safeInspectOpen = false;
+  photoInspectOpen = false;
+  photoFlipped = false;
+  storyPhotoPreview = null;
+  staticWallPreview = false;
+  deskDrawerInspectOpen = false;
+  cardboardBoxInspectOpen = false;
+  cardboardBoxCutGesture = null;
+  bedInspectOpen = false;
+  radioInspectOpen = false;
+  drawerPuzzleOpen = false;
+  detailItem = null;
+  drawerCode = '';
+  photoMemoryActive = false;
+  tapePlaybackActive = false;
+  bedGrabActive = false;
+  bedEventPhase = 'idle';
+  interactionHeld = false;
+  move = { x: 0, y: 0 };
+  target = null;
+  roomTarget = null;
+  chapterCompleted = false;
+  cancelPendantHold();
+  cancelCardboardBoxCut(false);
+  stopFootsteps();
+  stopTapeNoise();
+  stopRadioFlicker();
+  resetBedVideos();
+  stopBedReachAudio();
+  stopBedStruggleAudio();
+  stopBedDeathAudio();
+  resetBedEscapeFeedback();
+  inventoryEl.classList.remove('open');
+  safeInspectEl.classList.remove('open');
+  photoInspectEl.classList.remove('open', 'flipped');
+  deskDrawerInspectEl.classList.remove('open');
+  cardboardBoxInspectEl.classList.remove('open', 'cutting');
+  bedInspectEl.classList.remove('open', 'playing-scare', 'struggling');
+  radioInspectEl.classList.remove('open');
+  drawerPuzzleEl.classList.remove('open', 'clue-boost');
+  bedDeathMenuEl.classList.remove('show', 'closed');
+  document.body.classList.remove(
+    'photo-memory-playing',
+    'tape-playing',
+    'tape-distorted',
+    'radio-broadcast-playing',
+    'bed-grab-active',
+    'bed-grab-released',
+    'chapter-ending',
+  );
+  chapterCompleteEl.classList.remove('show');
+  clearNotice();
+}
+
+function applyChapterOneState(record: GameSaveRecord): void {
+  resetTransientGameState();
+  const state = record.state;
+  room.restorePersistenceState(state.room);
+  inventorySlots.splice(0, inventorySlots.length, ...state.inventorySlots);
+  collectedItems.clear();
+  state.collectedItems.forEach((item) => collectedItems.add(item));
+  selectedItem = state.selectedItem && inventorySlots.includes(state.selectedItem)
+    ? state.selectedItem
+    : null;
+  safeUnlocked = state.safeUnlocked;
+  safeCodeFailures = state.safeCodeFailures;
+  photoClueRead = state.photoClueRead;
+  pendantActivated = state.pendantActivated;
+  pendantPowered = state.pendantPowered;
+  deskDrawerUnlocked = state.deskDrawerUnlocked;
+  deskDrawerOpened = state.deskDrawerOpened;
+  cardboardBoxOpened = state.cardboardBoxOpened;
+  tapePlayed = state.tapePlayed;
+  antennaInstalled = state.antennaInstalled;
+  radioBroadcastHeard = state.radioBroadcastHeard;
+  doorUnlockAnnounced = state.doorUnlockAnnounced;
+  doorScarePlayed = state.doorScarePlayed;
+  doorScareCompleted = state.doorScareCompleted;
+  playtimeBaseMs = record.playtimeMs;
+  playtimeStartedAt = performance.now();
+  renderSafeInspect();
+  renderDeskDrawerInspect();
+  renderCardboardBoxInspect();
+  renderBedInspect();
+  renderRadioInspect();
+  updateDrawerCodeDisplay();
+  syncControllerState();
+  refreshPendantObjective();
+  updatePointer(0, 0);
+}
+
+function formatPlaytime(milliseconds: number): string {
+  const totalMinutes = Math.max(0, Math.floor(milliseconds / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours} 小時 ${minutes} 分` : `${minutes} 分鐘`;
+}
+
+function formatSaveTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '時間不明';
+  return new Intl.DateTimeFormat('zh-TW', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
+function renderSaveSlots(): void {
+  saveSlotsEl.replaceChildren();
+  saveArchive.slots.forEach((record, index) => {
+    const row = document.createElement('div');
+    row.className = 'save-slot';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'slot-button';
+    button.dataset.slotIndex = String(index);
+    button.dataset.slotAction = savePanelMode;
+    if (!record && savePanelMode === 'load') button.disabled = true;
+
+    const number = document.createElement('span');
+    number.className = 'slot-number';
+    number.textContent = String(index + 1).padStart(2, '0');
+    const summary = document.createElement('span');
+    summary.className = 'slot-summary';
+    const title = document.createElement('strong');
+    const detail = document.createElement('span');
+    if (record) {
+      title.textContent = `第一章｜開端 ${chapterOneProgressPercent(record.state)}%`;
+      detail.textContent = `遊玩 ${formatPlaytime(record.playtimeMs)}`;
+    } else {
+      title.textContent = '空白存檔';
+      detail.textContent = savePanelMode === 'save' ? '選擇此位置儲存' : '沒有可讀取的進度';
+    }
+    summary.append(title, detail);
+    const time = document.createElement('span');
+    time.className = 'slot-time';
+    time.textContent = record ? formatSaveTime(record.savedAt) : '';
+    button.append(number, summary, time);
+    row.append(button);
+
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'slot-delete';
+    deleteButton.dataset.slotDelete = String(index);
+    deleteButton.textContent = '刪除';
+    deleteButton.disabled = !record;
+    row.append(deleteButton);
+    saveSlotsEl.append(row);
+  });
+  frontLoadButtonEl.disabled = !saveArchive.slots.some(Boolean);
+}
+
+function closeMenuPanels(): void {
+  frontMenuEl.classList.remove('open');
+  pauseMenuEl.classList.remove('open');
+  savePanelEl.classList.remove('open');
+  settingsPanelEl.classList.remove('open');
+}
+
+function updateMenuCursorState(): void {
+  const menuOpen = [frontMenuEl, pauseMenuEl, savePanelEl, settingsPanelEl]
+    .some((panel) => panel.classList.contains('open'));
+  document.body.classList.toggle('menu-open', menuOpen);
+}
+
+function openSavePanel(mode: 'load' | 'save', from: 'front' | 'pause'): void {
+  savePanelMode = mode;
+  menuReturnTarget = from;
+  frontMenuEl.classList.remove('open');
+  pauseMenuEl.classList.remove('open');
+  settingsPanelEl.classList.remove('open');
+  savePanelEl.classList.add('open');
+  savePanelTitleEl.textContent = mode === 'save' ? '儲存遊戲' : '讀取存檔';
+  savePanelHelpEl.textContent = mode === 'save'
+    ? '存檔會記錄目前安全狀態；進行中的影片、聲音與按住操作不會保存。'
+    : '讀取後會回到存檔時的房間進度。';
+  renderSaveSlots();
+  updateMenuCursorState();
+}
+
+function closeSavePanel(): void {
+  savePanelEl.classList.remove('open');
+  (menuReturnTarget === 'front' ? frontMenuEl : pauseMenuEl).classList.add('open');
+  updateMenuCursorState();
+}
+
+function openSettingsPanel(from: 'front' | 'pause'): void {
+  menuReturnTarget = from;
+  frontMenuEl.classList.remove('open');
+  pauseMenuEl.classList.remove('open');
+  savePanelEl.classList.remove('open');
+  settingsPanelEl.classList.add('open');
+  syncSettingsControls();
+  updateMenuCursorState();
+}
+
+function closeSettingsPanel(): void {
+  settingsPanelEl.classList.remove('open');
+  (menuReturnTarget === 'front' ? frontMenuEl : pauseMenuEl).classList.add('open');
+  updateMenuCursorState();
+}
+
+function canPauseNow(): boolean {
+  return gameStarted &&
+    overlayEl.classList.contains('hidden') &&
+    !bedGrabActive &&
+    !tapePlaybackActive &&
+    !photoMemoryActive &&
+    !chapterCompleted;
+}
+
+async function openPauseMenu(): Promise<void> {
+  if (gamePaused || !canPauseNow()) return;
+  playtimeBaseMs = currentPlaytimeMs();
+  gamePaused = true;
+  playtimeStartedAt = performance.now();
+  move = { x: 0, y: 0 };
+  interactionHeld = false;
+  stopFootsteps();
+  ambienceAudio.pause();
+  if (hostAudioContext?.state === 'running') await hostAudioContext.suspend().catch(() => undefined);
+  pauseMenuEl.classList.add('open');
+  updateMenuCursorState();
+  syncControllerState();
+}
+
+async function resumeGame(): Promise<void> {
+  if (!gamePaused) return;
+  closeMenuPanels();
+  gamePaused = false;
+  playtimeStartedAt = performance.now();
+  updateMenuCursorState();
+  const context = ensureHostAudioContext();
+  if (!hostAudioMuted && context?.state === 'suspended') await context.resume().catch(() => undefined);
+  if (!hostAudioMuted) await startAmbientAudio();
+  syncControllerState();
+  updatePointer(pointer.x, pointer.y);
+}
+
+async function saveToSlot(index: number): Promise<void> {
+  if (!gameStarted || !gamePaused) return;
+  if (saveArchive.slots[index] && !window.confirm(`覆寫存檔 ${index + 1}？`)) return;
+  returnToRoom();
+  const record = createCurrentSaveRecord();
+  saveArchive = writeSaveSlot(saveArchive, index, record);
+  await persistSaveArchive();
+  renderSaveSlots();
+  savePanelHelpEl.textContent = `已儲存至存檔 ${index + 1}。`;
+}
+
+function requestReloadWithRecord(source: `slot:${number}` | 'checkpoint'): void {
+  sessionStorage.setItem(PENDING_LOAD_KEY, source);
+  sessionStorage.setItem('corner-horror-prototype-room', roomCode);
+  const restartUrl = new URL(location.href);
+  restartUrl.searchParams.set('room', roomCode);
+  restartUrl.searchParams.set('restart', source === 'checkpoint' ? 'death' : 'load');
+  restartUrl.searchParams.delete('inspect');
+  location.replace(restartUrl.toString());
+}
+
+async function startNewGame(): Promise<void> {
+  playtimeBaseMs = 0;
+  playtimeStartedAt = performance.now();
+  saveArchive = { ...saveArchive, checkpoint: createCurrentSaveRecord(0) };
+  await persistSaveArchive();
+  beginGame(false);
+}
+
+function beginGame(skipQr: boolean): void {
+  gameStarted = true;
+  gamePaused = false;
+  document.body.classList.add('game-started');
+  document.body.classList.toggle('waiting-controller', !skipQr);
+  closeMenuPanels();
+  updateMenuCursorState();
+  if (skipQr) overlayEl.classList.add('hidden');
+  else overlayEl.classList.remove('hidden');
+  qrCanvas.style.visibility = 'hidden';
+  joinUrlEl.textContent = '正在啟動手機連線服務，請稍候。';
+  connect();
+  updateHostAudioButton();
+  ambienceAudio.load();
+  void startAmbientAudio();
+  const context = ensureHostAudioContext();
+  if (context) void loadHostAudioAssets(context).then(updateHostAudioButton).catch(updateHostAudioButton);
+  refreshPendantObjective();
+}
+
+async function loadSlot(index: number): Promise<void> {
+  const record = saveArchive.slots[index];
+  if (!record) return;
+  if (gameStarted) {
+    requestReloadWithRecord(`slot:${index}`);
+    return;
+  }
+  if (!saveArchive.checkpoint) {
+    saveArchive = { ...saveArchive, checkpoint: createCurrentSaveRecord(0) };
+    await persistSaveArchive();
+  }
+  applyChapterOneState(record);
+  beginGame(false);
+}
+
+async function deleteSlot(index: number): Promise<void> {
+  if (!saveArchive.slots[index]) return;
+  if (!window.confirm(`刪除存檔 ${index + 1}？`)) return;
+  saveArchive = clearSaveSlot(saveArchive, index);
+  await persistSaveArchive();
+  renderSaveSlots();
+  savePanelHelpEl.textContent = `存檔 ${index + 1} 已刪除。`;
+}
+
+async function closeGame(): Promise<void> {
+  reconnectEnabled = false;
+  if (window.room307Desktop) {
+    await window.room307Desktop.closeGame().catch(() => false);
+    return;
+  }
+  window.close();
+}
+
+function settingInput(id: string): HTMLInputElement {
+  return document.querySelector<HTMLInputElement>(`#${id}`)!;
+}
+
+function updateRangeControl(id: string, value: number, suffix = '%'): void {
+  const input = settingInput(id);
+  input.value = String(Math.round(value * 100));
+  const output = input.parentElement?.querySelector<HTMLOutputElement>('output');
+  if (output) output.textContent = `${input.value}${suffix}`;
+}
+
+function syncSettingsControls(): void {
+  updateRangeControl('setting-master-volume', gameSettings.masterVolume);
+  updateRangeControl('setting-music-volume', gameSettings.musicVolume);
+  updateRangeControl('setting-effects-volume', gameSettings.effectsVolume);
+  updateRangeControl('setting-brightness', gameSettings.brightness);
+  updateRangeControl('setting-sensitivity', gameSettings.sensitivity);
+  updateRangeControl('setting-interface-scale', gameSettings.interfaceScale);
+  settingInput('setting-subtitles').checked = gameSettings.subtitles;
+  settingInput('setting-reduce-motion').checked = gameSettings.reduceMotion;
+}
+
+function bindRangeSetting(
+  id: string,
+  key: 'masterVolume' | 'musicVolume' | 'effectsVolume' | 'brightness' | 'sensitivity' | 'interfaceScale',
+): void {
+  const input = settingInput(id);
+  input.addEventListener('input', () => {
+    gameSettings = { ...gameSettings, [key]: Number(input.value) / 100 };
+    const output = input.parentElement?.querySelector<HTMLOutputElement>('output');
+    if (output) output.textContent = `${input.value}%`;
+    persistGameSettings();
+  });
+}
+
+function bindSettingsControls(): void {
+  bindRangeSetting('setting-master-volume', 'masterVolume');
+  bindRangeSetting('setting-music-volume', 'musicVolume');
+  bindRangeSetting('setting-effects-volume', 'effectsVolume');
+  bindRangeSetting('setting-brightness', 'brightness');
+  bindRangeSetting('setting-sensitivity', 'sensitivity');
+  bindRangeSetting('setting-interface-scale', 'interfaceScale');
+  settingInput('setting-subtitles').addEventListener('change', (event) => {
+    gameSettings = { ...gameSettings, subtitles: (event.currentTarget as HTMLInputElement).checked };
+    persistGameSettings();
+  });
+  settingInput('setting-reduce-motion').addEventListener('change', (event) => {
+    gameSettings = { ...gameSettings, reduceMotion: (event.currentTarget as HTMLInputElement).checked };
+    persistGameSettings();
+  });
+  document.querySelector<HTMLButtonElement>('#settings-fullscreen')!.addEventListener('click', () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void document.documentElement.requestFullscreen().catch(() => undefined);
+  });
+}
+
+function returnToTitle(): void {
+  sessionStorage.removeItem(PENDING_LOAD_KEY);
+  const titleUrl = new URL(location.href);
+  titleUrl.searchParams.delete('restart');
+  titleUrl.searchParams.delete('inspect');
+  location.replace(titleUrl.toString());
+}
+
+async function initializeGameShell(): Promise<void> {
+  applyGameSettings();
+  syncSettingsControls();
+  const stored = await loadSave<GameSaveArchive>();
+  saveArchive = normalizeSaveArchive(stored?.data);
+  renderSaveSlots();
+
+  const pending = sessionStorage.getItem(PENDING_LOAD_KEY);
+  sessionStorage.removeItem(PENDING_LOAD_KEY);
+  let pendingRecord: GameSaveRecord | null = null;
+  if (pending === 'checkpoint') pendingRecord = saveArchive.checkpoint;
+  else if (pending?.startsWith('slot:')) {
+    const index = Number(pending.slice(5));
+    pendingRecord = Number.isInteger(index) ? saveArchive.slots[index] ?? null : null;
+  }
+
+  if (pendingRecord) {
+    if (!saveArchive.checkpoint) {
+      saveArchive = { ...saveArchive, checkpoint: createCurrentSaveRecord(0) };
+      await persistSaveArchive();
+    }
+    applyChapterOneState(pendingRecord);
+    beginGame(true);
+    return;
+  }
+
+  if (resumedAfterBedDeath) {
+    playtimeBaseMs = 0;
+    playtimeStartedAt = performance.now();
+    saveArchive = { ...saveArchive, checkpoint: createCurrentSaveRecord(0) };
+    await persistSaveArchive();
+    beginGame(true);
+    return;
+  }
+
+  if (import.meta.env.DEV && locationParams.get('inspect')) {
+    beginGame(true);
+    return;
+  }
+
+  document.body.classList.add('menu-open');
+  frontMenuEl.classList.add('open');
+  overlayEl.classList.add('hidden');
 }
 
 function fadeMediaVolume(
@@ -1014,7 +1564,7 @@ async function playBedAntennaScare(): Promise<void> {
   }
   bedScareVideoEl.currentTime = 0;
   bedScareVideoEl.playbackRate = 1;
-  bedScareVideoEl.volume = 0.92;
+  bedScareVideoEl.volume = BED_SCARE_VIDEO_BASE_VOLUME * effectVolumeScale();
   setActiveBedVideo(bedScareVideoEl);
   bedInspectEl.classList.add('playing-scare');
   document.body.classList.add('bed-grab-active');
@@ -1174,6 +1724,7 @@ function resetBedEscapeFeedback(): void {
 }
 
 function pulseBedStruggleFeedback(intensity: number): void {
+  if (gameSettings.reduceMotion) return;
   const strength = 0.55 + Math.max(0, Math.min(1, intensity)) * 0.95;
   bedInspectFrameEl.style.setProperty('--bed-shake-x', `${strength}%`);
   bedInspectFrameEl.style.setProperty('--bed-shake-y', `${strength * 0.64}%`);
@@ -1195,7 +1746,7 @@ async function startBedStruggle(): Promise<void> {
   if (!bedGrabActive || bedEventPhase !== 'grab-transition') return;
   bedEventPhase = 'struggle';
   bedStruggleVideoEl.playbackRate = BED_STRUGGLE_PLAYBACK_RATE;
-  bedStruggleVideoEl.volume = 0.92;
+  bedStruggleVideoEl.volume = BED_SCARE_VIDEO_BASE_VOLUME * effectVolumeScale();
   setActiveBedVideo(bedStruggleVideoEl);
   bedInspectEl.classList.add('struggling');
   bedEscapeProgressEl.style.width = '0%';
@@ -1256,7 +1807,7 @@ async function startBedDeath(): Promise<void> {
   if (!bedGrabActive || bedEventPhase !== 'death-transition') return;
   bedEventPhase = 'death';
   bedDeathVideoEl.playbackRate = BED_AUDIO_CUES.deathAttackPlaybackRate;
-  bedDeathVideoEl.volume = 1;
+  bedDeathVideoEl.volume = BED_DEATH_VIDEO_BASE_VOLUME * effectVolumeScale();
   setActiveBedVideo(bedDeathVideoEl);
   playBedDeathAudio();
   vibrate([520, 70, 720]);
@@ -1280,26 +1831,13 @@ async function restartGameAfterBedDeath(): Promise<void> {
   move = { x: 0, y: 0 };
   syncControllerState();
   await wait(120);
-  try {
-    await clearSave();
-  } finally {
-    sessionStorage.setItem('corner-horror-prototype-room', roomCode);
-    location.replace(buildBedDeathRestartUrl(location.href, roomCode));
-  }
+  requestReloadWithRecord('checkpoint');
 }
 
 async function closeGameAfterBedDeath(): Promise<void> {
   if (bedEventPhase !== 'death-menu') return;
   bedEventPhase = 'closed';
-  reconnectEnabled = false;
-  if (window.room307Desktop) {
-    try {
-      await window.room307Desktop.closeGame();
-      return;
-    } catch {
-      // Keep the death screen usable if the desktop bridge cannot close the window.
-    }
-  }
+  await closeGame();
   bedDeathMenuEl.classList.add('closed');
   const heading = bedDeathMenuEl.querySelector<HTMLElement>('strong');
   if (heading) heading.textContent = '遊戲已關閉';
@@ -1412,7 +1950,9 @@ bedDeathMenuEl.addEventListener('click', (event) => {
 
 bedEventVideos.forEach((video) => {
   video.addEventListener('loadedmetadata', () => {
-    video.volume = video === bedDeathVideoEl ? 1 : 0.92;
+    video.volume = (video === bedDeathVideoEl
+      ? BED_DEATH_VIDEO_BASE_VOLUME
+      : BED_SCARE_VIDEO_BASE_VOLUME) * effectVolumeScale();
   });
 });
 
@@ -1541,13 +2081,14 @@ function hasClosableInterfaceOpen(): boolean {
 }
 
 function isInterfaceOpen(): boolean {
-  return hasClosableInterfaceOpen();
+  return hasClosableInterfaceOpen() || gamePaused || !gameStarted;
 }
 
 function syncControllerState(): void {
   send({
     type: 'proto-controller-state',
     inventoryOpen: inventoryOpen || safeInspectOpen || photoInspectOpen || deskDrawerInspectOpen || cardboardBoxInspectOpen || bedInspectOpen || radioInspectOpen || drawerPuzzleOpen,
+    paused: gamePaused,
     slots: [...inventorySlots],
     ...(selectedItem ? { selectedItem } : {}),
     ...(detailItem ? { detailItem } : {}),
@@ -1588,7 +2129,7 @@ async function showQr(): Promise<void> {
   url.searchParams.set('room', roomCode);
   url.searchParams.set(
     'v',
-    import.meta.env.VITE_CONTROLLER_VERSION?.trim() || 'room307-connect-30',
+    import.meta.env.VITE_CONTROLLER_VERSION?.trim() || 'room307-connect-31',
   );
   await QRCode.toCanvas(qrCanvas, url.toString(), {
     width: 300,
@@ -1635,32 +2176,46 @@ function connect(): void {
         interactionHeld = false;
       }
       if (msg.controller) {
+        document.body.classList.remove('waiting-controller');
         overlayEl.classList.add('hidden');
         setStatus('手機已連線。請校正中心。');
         refreshPendantObjective();
       } else {
-        if (!resumedAfterBedDeath) overlayEl.classList.remove('hidden');
+        if (!resumedWithoutPairing) {
+          document.body.classList.add('waiting-controller');
+          overlayEl.classList.remove('hidden');
+        }
         setStatus('等待手機控制器。');
         refreshPendantObjective();
       }
     }
     if (msg.type === 'ready') {
+      document.body.classList.remove('waiting-controller');
       overlayEl.classList.add('hidden');
       setStatus('已同步 307。');
       refreshPendantObjective();
     }
     if (shouldRefreshControllerState(msg)) syncControllerState();
     if (msg.type === 'proto-pointer') {
-      pointerTarget = { x: msg.x, y: msg.y };
+      pointerTarget = {
+        x: Math.max(-1, Math.min(1, msg.x * gameSettings.sensitivity)),
+        y: Math.max(-1, Math.min(1, msg.y * gameSettings.sensitivity)),
+      };
     }
     if (msg.type === 'proto-move') {
+      if (gamePaused) return;
       move = { x: msg.x, y: msg.y };
     }
     if (msg.type === 'proto-shake') {
       registerBedShake(msg.intensity);
     }
+    if (msg.type === 'proto-pause') {
+      if (gamePaused) void resumeGame();
+      else void openPauseMenu();
+    }
     if (msg.type === 'proto-navigate') {
       move = { x: 0, y: 0 };
+      if (gamePaused) return;
       if (photoMemoryActive) return;
       if (bedGrabActive) {
         return;
@@ -1675,6 +2230,7 @@ function connect(): void {
       handleInteract();
     }
     if (msg.type === 'proto-use') {
+      if (gamePaused) return;
       interactionHeld = msg.pressed;
       if (interactionHeld) {
         beginPendantHold();
@@ -1686,6 +2242,7 @@ function connect(): void {
       }
     }
     if (msg.type === 'proto-item-action') {
+      if (gamePaused) return;
       handleItemAction(msg.item, msg.action);
     }
   });
@@ -1693,7 +2250,7 @@ function connect(): void {
   socket.addEventListener('close', () => {
     if (ws === socket) ws = null;
     interactionHeld = false;
-    if (resumedAfterBedDeath) overlayEl.classList.add('hidden');
+    if (resumedWithoutPairing || gamePaused) overlayEl.classList.add('hidden');
     else overlayEl.classList.remove('hidden');
     refreshPendantObjective();
     if (!reconnectEnabled) return;
@@ -1827,6 +2384,7 @@ function consumeItem(item: ItemId): void {
 }
 
 function handleInteract(): void {
+  if (!gameStarted || gamePaused) return;
   if (tapePlaybackActive || photoMemoryActive || chapterCompleted) return;
   if (drawerPuzzleOpen) {
     handleDrawerInteract();
@@ -2851,8 +3409,68 @@ window.addEventListener('resize', () => room.resize());
 window.addEventListener('pointerdown', unlockHostAudio, { capture: true });
 window.addEventListener('keydown', unlockHostAudio, { capture: true });
 audioEnableBtn.addEventListener('click', () => void toggleHostAudio());
+pauseButtonEl.addEventListener('click', () => void openPauseMenu());
 ambienceAudio.addEventListener('playing', updateHostAudioButton);
 ambienceAudio.addEventListener('pause', updateHostAudioButton);
+
+frontMenuEl.addEventListener('click', (event) => {
+  const action = (event.target as HTMLElement).closest<HTMLElement>('[data-front-action]')
+    ?.dataset.frontAction;
+  if (action === 'new') void startNewGame();
+  else if (action === 'load') openSavePanel('load', 'front');
+  else if (action === 'settings') openSettingsPanel('front');
+  else if (action === 'quit') void closeGame();
+});
+
+pauseMenuEl.addEventListener('click', (event) => {
+  const action = (event.target as HTMLElement).closest<HTMLElement>('[data-pause-action]')
+    ?.dataset.pauseAction;
+  if (action === 'resume') void resumeGame();
+  else if (action === 'save') openSavePanel('save', 'pause');
+  else if (action === 'load') openSavePanel('load', 'pause');
+  else if (action === 'settings') openSettingsPanel('pause');
+  else if (action === 'title') returnToTitle();
+  else if (action === 'quit') void closeGame();
+});
+
+savePanelEl.addEventListener('click', (event) => {
+  const element = event.target as HTMLElement;
+  if (element.closest('[data-save-action="back"]')) {
+    closeSavePanel();
+    return;
+  }
+  const deleteButton = element.closest<HTMLElement>('[data-slot-delete]');
+  if (deleteButton) {
+    void deleteSlot(Number(deleteButton.dataset.slotDelete));
+    return;
+  }
+  const slotButton = element.closest<HTMLElement>('[data-slot-index]');
+  if (!slotButton) return;
+  const index = Number(slotButton.dataset.slotIndex);
+  if (slotButton.dataset.slotAction === 'save') void saveToSlot(index);
+  else void loadSlot(index);
+});
+
+settingsPanelEl.addEventListener('click', (event) => {
+  if ((event.target as HTMLElement).closest('[data-settings-action="back"]')) {
+    closeSettingsPanel();
+  }
+});
+
+window.addEventListener('keydown', (event) => {
+  if (event.repeat) return;
+  if (event.key !== 'Escape' && event.key.toLowerCase() !== 'p') return;
+  if (settingsPanelEl.classList.contains('open')) {
+    closeSettingsPanel();
+    return;
+  }
+  if (savePanelEl.classList.contains('open')) {
+    closeSavePanel();
+    return;
+  }
+  if (gamePaused) void resumeGame();
+  else void openPauseMenu();
+});
 
 window.addEventListener('mousemove', (event) => {
   if (ws) return;
@@ -2863,16 +3481,9 @@ window.addEventListener('mousemove', (event) => {
   updatePointer(pointerTarget.x, pointerTarget.y);
 });
 
+bindSettingsControls();
 qrCanvas.style.visibility = 'hidden';
 joinUrlEl.textContent = '正在啟動手機連線服務，請稍候。';
-connect();
-updateHostAudioButton();
-ambienceAudio.load();
-void startAmbientAudio();
-const initialAudioContext = ensureHostAudioContext();
-if (initialAudioContext) {
-  void loadHostAudioAssets(initialAudioContext).then(updateHostAudioButton).catch(updateHostAudioButton);
-}
 
 if (import.meta.env.DEV) {
   const inspection = new URLSearchParams(location.search).get('inspect');
@@ -3021,5 +3632,5 @@ if (import.meta.env.DEV) {
   }
 }
 
-refreshPendantObjective();
 requestAnimationFrame(frame);
+void initializeGameShell();

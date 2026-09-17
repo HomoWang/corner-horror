@@ -90,10 +90,24 @@
       }
 
       #top {
+        position: relative;
         display: grid;
         gap: 0.45rem;
         justify-items: center;
         text-align: center;
+      }
+
+      #pause {
+        position: absolute;
+        top: 0;
+        right: 0;
+        min-width: 3.8rem;
+        min-height: 2rem;
+        border: 1px solid rgba(117, 91, 82, 0.4);
+        border-radius: 0.3rem;
+        background: rgba(18, 10, 8, 0.88);
+        color: #8f7e77;
+        font-size: 0.72rem;
       }
 
       #status {
@@ -374,6 +388,7 @@
   <body>
     <main id="app">
       <header id="top">
+        <button id="pause" type="button">暫停</button>
         <p id="status">等待同步。</p>
         <p id="sensor-status" data-state="idle">方向感應：尚未啟用</p>
         <p id="selected">目前道具：無</p>

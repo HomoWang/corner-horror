@@ -23,9 +23,18 @@ export type RoomObjectId =
   | 'recorder'
   | 'door';
 
-type WardrobeSection = 'left' | 'middle' | 'right';
-type ViewId = 'wardrobe' | 'desk' | 'back' | 'bed';
+export type WardrobeSection = 'left' | 'middle' | 'right';
+export type ViewId = 'wardrobe' | 'desk' | 'back' | 'bed';
 type NavigationDirection = 'left' | 'right' | 'forward' | 'back';
+
+export interface PrototypeRoomState {
+  view: ViewId;
+  wardrobeOpen: WardrobeSection[];
+  safeOpen: boolean;
+  tapeInserted: boolean;
+  couplePhotoMounted: boolean;
+  collected: RoomObjectId[];
+}
 
 interface VectorInput {
   x: number;
@@ -197,6 +206,33 @@ export class PrototypeRoom2D {
 
   hasMountedCouplePhoto(): boolean {
     return this.couplePhotoMounted;
+  }
+
+  getPersistenceState(): PrototypeRoomState {
+    return {
+      view: this.view,
+      wardrobeOpen: [...this.wardrobeOpen],
+      safeOpen: this.safeOpen,
+      tapeInserted: this.tapeInserted,
+      couplePhotoMounted: this.couplePhotoMounted,
+      collected: [...this.collected],
+    };
+  }
+
+  restorePersistenceState(state: PrototypeRoomState): void {
+    this.view = state.view;
+    this.wardrobeOpen = new Set(state.wardrobeOpen);
+    this.safeOpen = state.safeOpen;
+    this.tapeInserted = state.tapeInserted;
+    this.couplePhotoMounted = state.couplePhotoMounted;
+    this.collected = new Set(state.collected);
+    this.focused = false;
+    this.focusedTarget = null;
+    this.dragOffset = { x: 0, y: 0 };
+    this.targetObject = null;
+    this.transitionSeconds = 0;
+    this.root.classList.remove('focused', 'dragging', 'switching-wall');
+    this.renderView(false);
   }
 
   collectObject(objectId: RoomObjectId): void {

@@ -57,6 +57,10 @@ export interface ProtoInventoryMsg {
   type: 'proto-inventory';
 }
 
+export interface ProtoPauseMsg {
+  type: 'proto-pause';
+}
+
 export type ProtoItemId =
   | 'receipt'
   | 'smallKey'
@@ -83,6 +87,7 @@ export interface ProtoControllerStateMsg {
   selectedItem?: ProtoItemId;
   detailItem?: ProtoItemId;
   inventoryOpen: boolean;
+  paused?: boolean;
 }
 
 export interface ProtoVibrateMsg {
@@ -102,6 +107,7 @@ export type Msg =
   | ProtoInteractMsg
   | ProtoUseMsg
   | ProtoInventoryMsg
+  | ProtoPauseMsg
   | ProtoItemActionMsg
   | ProtoControllerStateMsg
   | ProtoVibrateMsg;
@@ -199,6 +205,8 @@ export function parseMessage(raw: unknown): Msg | null {
         : null;
     case 'proto-inventory':
       return { type: 'proto-inventory' };
+    case 'proto-pause':
+      return { type: 'proto-pause' };
     case 'proto-item-action':
       return typeof message.item === 'string' &&
         PROTO_ITEM_IDS.has(message.item as ProtoItemId) &&
@@ -212,6 +220,7 @@ export function parseMessage(raw: unknown): Msg | null {
         : null;
     case 'proto-controller-state':
       return typeof message.inventoryOpen === 'boolean' &&
+        (message.paused === undefined || typeof message.paused === 'boolean') &&
         Array.isArray(message.slots) &&
         message.slots.length === 12 &&
         message.slots.every(
@@ -228,6 +237,7 @@ export function parseMessage(raw: unknown): Msg | null {
         ? {
             type: 'proto-controller-state',
             inventoryOpen: message.inventoryOpen,
+            ...(typeof message.paused === 'boolean' ? { paused: message.paused } : {}),
             slots: message.slots,
             ...(typeof message.selectedItem === 'string'
               ? { selectedItem: message.selectedItem as ProtoItemId }

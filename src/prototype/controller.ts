@@ -11,6 +11,7 @@ const inventoryGridEl = document.querySelector<HTMLDivElement>('#phone-inventory
 const joystickEl = document.querySelector<HTMLDivElement>('#joystick')!;
 const stickEl = document.querySelector<HTMLDivElement>('#stick')!;
 const calibrateBtn = document.querySelector<HTMLButtonElement>('#calibrate')!;
+const pauseBtn = document.querySelector<HTMLButtonElement>('#pause')!;
 const INVENTORY_SLOT_COUNT = 12;
 
 const itemPresentation: Record<ProtoItemId, { label: string; image: string }> = {
@@ -137,6 +138,7 @@ let controllerSlots: Array<ProtoItemId | null> = Array.from(
 let selectedItem: ProtoItemId | null = null;
 let detailItem: ProtoItemId | null = null;
 let interfaceWasOpen = false;
+let controllerPaused = false;
 let smoothedPointer = { x: 0, y: 0 };
 const viewPointerResponse = {
   x: { range: 24, deadZone: 0.1, curve: 1.08 },
@@ -327,11 +329,16 @@ function connect(): void {
       if (isPuzzleErrorPattern(msg.pattern)) playPuzzleErrorFeedback();
     }
     if (msg.type === 'proto-controller-state') {
+      const wasPaused = controllerPaused;
       interfaceWasOpen = msg.inventoryOpen;
+      controllerPaused = msg.paused === true;
       controllerSlots = [...msg.slots];
       selectedItem = msg.selectedItem ?? null;
       detailItem = msg.detailItem ?? null;
       document.body.dataset.inventory = String(msg.inventoryOpen);
+      pauseBtn.textContent = controllerPaused ? '繼續' : '暫停';
+      if (controllerPaused) setStatus('遊戲已暫停。');
+      else if (wasPaused) setStatus('已同步 307。');
       renderPhoneInventory();
     }
   });
@@ -610,6 +617,10 @@ function resetJoystick(): void {
 }
 
 startBtn.addEventListener('click', () => void start());
+pauseBtn.addEventListener('click', () => {
+  triggerHaptic(24, false);
+  send({ type: 'proto-pause' });
+});
 calibrateBtn.addEventListener('click', () => {
   void (async () => {
     bindSensorListeners();
@@ -671,6 +682,7 @@ inventoryGridEl.addEventListener('pointerup', finishItemPress);
 inventoryGridEl.addEventListener('pointercancel', finishItemPress);
 
 joystickEl.addEventListener('pointerdown', (event) => {
+  if (controllerPaused) return;
   if (joystickPointerId !== null) return;
   event.preventDefault();
   const rect = joystickEl.getBoundingClientRect();

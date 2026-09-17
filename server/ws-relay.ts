@@ -51,6 +51,7 @@ export class WsRelay {
           msg.type === 'proto-interact' ||
           msg.type === 'proto-use' ||
           msg.type === 'proto-inventory' ||
+          msg.type === 'proto-pause' ||
           msg.type === 'proto-item-action')
       ) {
         if (this.host) safeSend(this.host, JSON.stringify(msg));

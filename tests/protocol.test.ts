@@ -42,6 +42,9 @@ describe('parseMessage', () => {
       type: 'proto-use',
       pressed: true,
     });
+    expect(parseMessage(JSON.stringify({ type: 'proto-pause' }))).toEqual({
+      type: 'proto-pause',
+    });
     expect(parseMessage(JSON.stringify({ type: 'proto-shake', intensity: 'high', t: 20 }))).toBeNull();
     expect(
       parseMessage(JSON.stringify({ type: 'proto-navigate', direction: 'diagonal' })),
@@ -64,6 +67,7 @@ describe('parseMessage', () => {
         JSON.stringify({
           type: 'proto-controller-state',
           inventoryOpen: true,
+          paused: true,
           slots: ['receipt', 'tape', null, null, null, null, null, null, null, null, null, null],
           selectedItem: 'tape',
           detailItem: 'receipt',
@@ -72,6 +76,7 @@ describe('parseMessage', () => {
     ).toEqual({
       type: 'proto-controller-state',
       inventoryOpen: true,
+      paused: true,
       slots: ['receipt', 'tape', null, null, null, null, null, null, null, null, null, null],
       selectedItem: 'tape',
       detailItem: 'receipt',

@@ -55,6 +55,7 @@ describe('WsRelay', () => {
       'message',
       JSON.stringify({ type: 'proto-item-action', item: 'receipt', action: 'inspect' }),
     );
+    controller.emit('message', JSON.stringify({ type: 'proto-pause' }));
     host.emit('message', JSON.stringify({ type: 'proto-vibrate', pattern: [35] }));
     host.emit(
       'message',
@@ -69,6 +70,7 @@ describe('WsRelay', () => {
       { type: 'proto-interact' },
       { type: 'proto-shake', intensity: 0.8, t: 1_750_000_000_000 },
       { type: 'proto-item-action', item: 'receipt', action: 'inspect' },
+      { type: 'proto-pause' },
     ]);
     expect(controller.messages()).toEqual([
       { type: 'proto-vibrate', pattern: [35] },

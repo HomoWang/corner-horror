@@ -31,7 +31,7 @@ function isSaveEnvelope(value: unknown): value is SaveEnvelope {
   );
 }
 
-export async function loadSave<TData extends Record<string, unknown>>() {
+export async function loadSave<TData extends object>() {
   let value: unknown = null;
   if (window.room307Desktop) {
     value = await window.room307Desktop.loadSave();
@@ -48,7 +48,7 @@ export async function loadSave<TData extends Record<string, unknown>>() {
   return isSaveEnvelope(value) ? (value as SaveEnvelope<TData>) : null;
 }
 
-export async function writeSave<TData extends Record<string, unknown>>(data: TData) {
+export async function writeSave<TData extends object>(data: TData) {
   const envelope: SaveEnvelope<TData> = {
     version: 1,
     updatedAt: new Date().toISOString(),
