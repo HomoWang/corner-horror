@@ -25,6 +25,7 @@ import {
   clearBedDeathInventory,
 } from './bed-death-flow';
 import { PrototypeRoom2D, type RoomObjectId } from './room2d';
+import { pendantDescription, pendantSelectionNotice } from './item-copy';
 import {
   advanceHorizontalCut,
   beginHorizontalCut,
@@ -78,7 +79,7 @@ const itemDetails: Record<ItemId, { image: string; description: string }> = {
   },
   pendant: {
     image: publicUrl('assets/inventory-icons/pendant-user.png'),
-    description: '主角送給女友的錄音吊飾，但背面的電池槽目前是空的。',
+    description: pendantDescription(false, false),
   },
   photo: {
     image: publicUrl('assets/room307/photos/男女主角照片.png'),
@@ -105,6 +106,11 @@ const itemDetails: Record<ItemId, { image: string; description: string }> = {
     description: '消防衣褲、頭盔與面罩已整理成一套完整的消防裝備。',
   },
 };
+
+function currentItemDescription(item: ItemId): string {
+  if (item === 'pendant') return pendantDescription(pendantPowered, pendantActivated);
+  return itemDetails[item].description;
+}
 
 const couplePhotoImage = publicUrl('assets/room307/photos/男女主角照片.png');
 const firefighterAwardsImage = publicUrl('assets/room307/photos/祈彥殉職褒揚狀-v1.png');
@@ -2609,10 +2615,15 @@ function handleItemAction(item: ItemId, action: ProtoItemAction): void {
     inventorySlots.splice(0, inventorySlots.length, ...batteryInstallation.slots);
     pendantPowered = true;
     selectedItem = batteryInstallation.selectedItem;
-    detailItem = null;
     void playHostSound('keypadUnlock', { volume: 0.34, playbackRate: 1.25 });
     vibrate([35, 45, 80]);
-    syncControllerState();
+    if (inventoryOpen) {
+      openItemDetail('pendant');
+    } else {
+      detailItem = null;
+      showNotice('舊電池已裝入錄音吊飾。');
+      syncControllerState();
+    }
     return;
   }
   if (inventoryOpen && detailItem === item) {
@@ -2625,8 +2636,8 @@ function handleItemAction(item: ItemId, action: ProtoItemAction): void {
 
   selectedItem = item;
   showNotice(
-    item === 'pendant' && !pendantActivated
-      ? '使用中：錄音吊飾。按住手機中央互動鍵，將它握緊。'
+    item === 'pendant'
+      ? pendantSelectionNotice(pendantPowered, pendantActivated)
       : `使用中：${itemLabels[item]}`,
   );
   syncControllerState();
@@ -2647,20 +2658,16 @@ function openItemDetail(item: ItemId): void {
   const useGenericPanel = item !== 'receipt';
   genericItemPanelEl.classList.toggle('open', useGenericPanel);
   if (useGenericPanel) {
+    const description = currentItemDescription(item);
     genericItemPreviewImage.src = itemDetails[item].image;
     genericItemPreviewImage.alt = itemLabels[item];
     genericItemNameEl.textContent = itemLabels[item];
-    genericItemDescriptionEl.textContent =
-      item === 'pendant' && pendantActivated
-        ? '電池仍有微弱電力。握緊後，吊飾播放了熟悉的旋律。'
-        : item === 'pendant' && pendantPowered
-          ? '已裝入舊電池。握住吊飾時，按住手機中央互動鍵。'
-        : itemDetails[item].description;
+    genericItemDescriptionEl.textContent = description;
   }
   showNotice(
     item === 'receipt'
       ? '三組猜數字紀錄，最後一行已經看不清楚。'
-      : `${itemLabels[item]}。${itemDetails[item].description}`,
+      : `${itemLabels[item]}。${currentItemDescription(item)}`,
   );
   syncControllerState();
   updatePointer(pointer.x, pointer.y);

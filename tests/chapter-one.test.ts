@@ -52,7 +52,13 @@ describe('chapter one room progression', () => {
   });
 
   it('ends the tape with the protagonist rejecting the altered recording', () => {
-    expect(tapeRecordingLines.at(-1)?.source).toBe('主角(聲音)');
+    expect(tapeRecordingLines.at(-1)?.source).toBe('祈望');
     expect(tapeRecordingLines.at(-1)?.text).toContain('後面不是這句');
+  });
+
+  it('uses plain speaker labels without production annotations', () => {
+    expect(tapeRecordingLines[0]?.source).toBe('女聲');
+    expect(tapeRecordingLines[2]?.source).toBe('男聲');
+    expect(tapeRecordingLines.every((line) => !/[()（）]/.test(line.source))).toBe(true);
   });
 });

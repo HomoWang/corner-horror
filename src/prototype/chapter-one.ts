@@ -27,31 +27,31 @@ interface TapeRecordingLine {
 
 export const tapeRecordingLines: readonly TapeRecordingLine[] = [
   {
-    source: '女友(錄音)',
+    source: '女聲',
     text: '你每次都說，晚一步就會失去誰。',
     duration: 4400,
     clip: 'girlfriendIntro',
   },
   {
-    source: '女友(錄音)',
+    source: '女聲',
     text: '可是你有沒有想過，如果你回不來，留下來的人怎麼辦？',
     duration: 7600,
   },
-  { source: '男主(錄音)', text: '我會回來。', duration: 2200 },
+  { source: '男聲', text: '我會回來。', duration: 2200 },
   {
-    source: '女友(錄音)',
+    source: '女聲',
     text: '你每次都這樣說。',
     duration: 3200,
     clip: 'girlfriendReply',
   },
   {
-    source: '收錄音機(失真聲音)',
+    source: '女聲',
     text: '可是這一次……你沒有。',
     duration: 6000,
     clip: 'girlfriendDistortedTail',
     distorted: true,
   },
-  { source: '主角(聲音)', text: '不對……後面不是這句。', duration: 3000 },
+  { source: '祈望', text: '不對……後面不是這句。', duration: 3000 },
 ];
 
 export function canUnlockRoomDoor(progress: ChapterOneRoomProgress): boolean {
