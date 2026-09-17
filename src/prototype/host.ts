@@ -306,6 +306,7 @@ let interactionHeld = false;
 const pendantObjectiveCompletionQueue: PendantObjectiveId[] = [];
 let pendantObjectiveCompletionActive = false;
 let pendantObjectiveTimer: number | null = null;
+let pendantObjectiveTransitionTimer: number | null = null;
 let hostAudioContext: AudioContext | null = null;
 let hostAudioMuted = false;
 const ambienceAudio = document.querySelector<HTMLAudioElement>('#ambient-audio')!;
@@ -432,10 +433,59 @@ function currentPendantObjective(): PendantObjectiveId | null {
   });
 }
 
+function clearPendantObjectiveTransition(): void {
+  if (pendantObjectiveTransitionTimer === null) return;
+  window.clearTimeout(pendantObjectiveTransitionTimer);
+  pendantObjectiveTransitionTimer = null;
+}
+
 function hidePendantObjective(): void {
-  storyObjectiveEl.classList.remove('show', 'complete');
-  storyObjectiveMarkEl.textContent = '□';
-  storyObjectiveTextEl.textContent = '';
+  clearPendantObjectiveTransition();
+  storyObjectiveEl.classList.remove('show');
+  pendantObjectiveTransitionTimer = window.setTimeout(() => {
+    pendantObjectiveTransitionTimer = null;
+    storyObjectiveEl.classList.remove('complete');
+    storyObjectiveEl.removeAttribute('data-objective');
+    storyObjectiveMarkEl.textContent = '□';
+    storyObjectiveTextEl.textContent = '';
+  }, 420);
+}
+
+function showPendantObjective(objective: PendantObjectiveId, complete: boolean, onShown?: () => void): void {
+  const state = complete ? 'complete' : 'active';
+  if (
+    storyObjectiveEl.classList.contains('show') &&
+    storyObjectiveEl.dataset.objective === objective &&
+    storyObjectiveEl.dataset.state === state
+  ) {
+    onShown?.();
+    return;
+  }
+
+  const wasVisible = storyObjectiveEl.classList.contains('show');
+  clearPendantObjectiveTransition();
+  storyObjectiveEl.classList.remove('show');
+
+  const reveal = () => {
+    pendantObjectiveTransitionTimer = null;
+    storyObjectiveEl.dataset.objective = objective;
+    storyObjectiveEl.dataset.state = state;
+    storyObjectiveMarkEl.textContent = complete ? '■' : '□';
+    storyObjectiveTextEl.textContent = complete
+      ? `${PENDANT_OBJECTIVE_LABELS[objective]}(完成)`
+      : PENDANT_OBJECTIVE_LABELS[objective];
+    storyObjectiveEl.classList.toggle('complete', complete);
+    window.requestAnimationFrame(() => {
+      storyObjectiveEl.classList.add('show');
+      onShown?.();
+    });
+  };
+
+  if (wasVisible) {
+    pendantObjectiveTransitionTimer = window.setTimeout(reveal, 420);
+  } else {
+    reveal();
+  }
 }
 
 function refreshPendantObjective(): void {
@@ -445,10 +495,7 @@ function refreshPendantObjective(): void {
     hidePendantObjective();
     return;
   }
-  storyObjectiveMarkEl.textContent = '□';
-  storyObjectiveTextEl.textContent = PENDANT_OBJECTIVE_LABELS[objective];
-  storyObjectiveEl.classList.remove('complete');
-  storyObjectiveEl.classList.add('show');
+  showPendantObjective(objective, false);
 }
 
 function showNextPendantObjectiveCompletion(): void {
@@ -459,15 +506,14 @@ function showNextPendantObjectiveCompletion(): void {
     return;
   }
   pendantObjectiveCompletionActive = true;
-  storyObjectiveMarkEl.textContent = '■';
-  storyObjectiveTextEl.textContent = `${PENDANT_OBJECTIVE_LABELS[objective]}(完成)`;
-  storyObjectiveEl.classList.add('show', 'complete');
   if (pendantObjectiveTimer !== null) window.clearTimeout(pendantObjectiveTimer);
-  pendantObjectiveTimer = window.setTimeout(() => {
-    pendantObjectiveTimer = null;
-    pendantObjectiveCompletionActive = false;
-    showNextPendantObjectiveCompletion();
-  }, 3000);
+  showPendantObjective(objective, true, () => {
+    pendantObjectiveTimer = window.setTimeout(() => {
+      pendantObjectiveTimer = null;
+      pendantObjectiveCompletionActive = false;
+      showNextPendantObjectiveCompletion();
+    }, 3000);
+  });
 }
 
 function completePendantObjective(objective: PendantObjectiveId): void {
@@ -2965,7 +3011,5 @@ if (import.meta.env.DEV) {
   }
 }
 
-if (!(import.meta.env.DEV && new URLSearchParams(location.search).has('inspect'))) {
-  refreshPendantObjective();
-}
+refreshPendantObjective();
 requestAnimationFrame(frame);

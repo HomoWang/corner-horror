@@ -630,15 +630,7 @@
       }
 
       #hud {
-        position: fixed;
-        left: 1rem;
-        top: 1rem;
-        z-index: 20;
-        max-width: 28rem;
-        color: #8e7f78;
-        font-size: 0.86rem;
-        line-height: 1.6;
-        text-shadow: 0 2px 10px #000;
+        display: none;
       }
 
       #notice {
@@ -665,24 +657,32 @@
       #story-objective {
         position: fixed;
         left: 1.25rem;
-        top: 8rem;
-        z-index: 28;
+        top: 25vh;
+        z-index: 47;
         display: flex;
         align-items: baseline;
         gap: 0.55rem;
         max-width: min(28rem, 72vw);
         color: #d7cec5;
         font: 600 1rem/1.45 "Noto Sans TC", system-ui, sans-serif;
+        letter-spacing: 0;
         text-shadow: 0 2px 8px #000, 0 0 18px rgba(0, 0, 0, 0.92);
         opacity: 0;
-        transform: translateX(-0.45rem);
-        transition: color 180ms ease, opacity 220ms ease, transform 220ms ease;
+        filter: blur(0.16rem);
+        transform: translate(-1.2rem, 0.4rem);
+        transition:
+          color 180ms ease,
+          filter 360ms ease,
+          opacity 360ms ease,
+          transform 420ms cubic-bezier(0.2, 0.78, 0.22, 1);
+        will-change: opacity, filter, transform;
         pointer-events: none;
       }
 
       #story-objective.show {
         opacity: 1;
-        transform: translateX(0);
+        filter: blur(0);
+        transform: translate(0, 0);
       }
 
       #story-objective.complete {

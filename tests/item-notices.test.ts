@@ -31,4 +31,14 @@ describe('item interaction notices', () => {
     expect(hostSource).not.toContain('使用中：錄音吊飾');
     expect(hostSource).not.toContain('使用中：舊電池');
   });
+
+  it('keeps the objective above close-up views and animates its entrance and exit', () => {
+    expect(prototypeSource).toMatch(/#hud\s*{\s*display:\s*none;/);
+    expect(prototypeSource).toContain('top: 25vh;');
+    expect(prototypeSource).toContain('z-index: 47;');
+    expect(prototypeSource).toContain('filter: blur(0.16rem);');
+    expect(prototypeSource).toContain('transition:');
+    expect(hostSource).toContain("storyObjectiveEl.classList.remove('show')");
+    expect(hostSource).toContain('window.setTimeout(reveal, 420)');
+  });
 });
