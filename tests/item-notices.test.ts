@@ -43,9 +43,20 @@ describe('item interaction notices', () => {
   });
 
   it('does not show the objective over the QR connection screen', () => {
-    expect(hostSource).toContain("if (!overlayEl.classList.contains('hidden'))");
+    expect(hostSource).toContain("if (!overlayEl.classList.contains('hidden') || bedGrabActive)");
     expect(hostSource).toMatch(
       /overlayEl\.classList\.add\('hidden'\);\s*setStatus\('手機已連線。請校正中心。'\);\s*refreshPendantObjective\(\);/,
+    );
+  });
+
+  it('hides the objective throughout the monster encounter and death flow', () => {
+    expect(prototypeSource).toContain('body.bed-grab-active #story-objective');
+    expect(hostSource).toContain("if (!overlayEl.classList.contains('hidden') || bedGrabActive)");
+    expect(hostSource).toMatch(
+      /bedGrabActive = true;\s*bedEventPhase = 'reach';\s*hidePendantObjective\(\);/,
+    );
+    expect(hostSource).toMatch(
+      /function finishBedGrabSuccess\(\)[\s\S]*?bedGrabActive = false;[\s\S]*?refreshPendantObjective\(\);/,
     );
   });
 });

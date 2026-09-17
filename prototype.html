@@ -697,8 +697,11 @@
         overflow-wrap: anywhere;
       }
 
-      body.chapter-ending #story-objective {
+      body.chapter-ending #story-objective,
+      body.bed-grab-active #story-objective {
         opacity: 0;
+        filter: blur(0.16rem);
+        transform: translate(-1.2rem, 0.4rem);
       }
 
       #audio-enable {

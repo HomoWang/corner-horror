@@ -489,7 +489,7 @@ function showPendantObjective(objective: PendantObjectiveId, complete: boolean, 
 }
 
 function refreshPendantObjective(): void {
-  if (!overlayEl.classList.contains('hidden')) {
+  if (!overlayEl.classList.contains('hidden') || bedGrabActive) {
     hidePendantObjective();
     return;
   }
@@ -1001,6 +1001,7 @@ async function playBedAntennaScare(): Promise<void> {
   bedDeathMenuEl.classList.remove('show', 'closed');
   bedGrabActive = true;
   bedEventPhase = 'reach';
+  hidePendantObjective();
   bedShakeScore = 0;
   bedShakeFeedbackStep = 0;
   bedAntennaHotspotEl.hidden = true;
@@ -1237,6 +1238,7 @@ function finishBedGrabSuccess(): void {
   if (addItem('antenna')) room.collectObject('antenna');
   renderBedInspect();
   vibrate([360, 90, 110]);
+  refreshPendantObjective();
 }
 
 async function startBedDeath(): Promise<void> {
