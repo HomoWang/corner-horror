@@ -41,4 +41,11 @@ describe('item interaction notices', () => {
     expect(hostSource).toContain("storyObjectiveEl.classList.remove('show')");
     expect(hostSource).toContain('window.setTimeout(reveal, 420)');
   });
+
+  it('does not show the objective over the QR connection screen', () => {
+    expect(hostSource).toContain("if (!overlayEl.classList.contains('hidden'))");
+    expect(hostSource).toMatch(
+      /overlayEl\.classList\.add\('hidden'\);\s*setStatus\('手機已連線。請校正中心。'\);\s*refreshPendantObjective\(\);/,
+    );
+  });
 });

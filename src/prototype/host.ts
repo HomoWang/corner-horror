@@ -489,6 +489,10 @@ function showPendantObjective(objective: PendantObjectiveId, complete: boolean, 
 }
 
 function refreshPendantObjective(): void {
+  if (!overlayEl.classList.contains('hidden')) {
+    hidePendantObjective();
+    return;
+  }
   if (pendantObjectiveCompletionActive || pendantObjectiveCompletionQueue.length > 0) return;
   const objective = currentPendantObjective();
   if (!objective) {
@@ -1631,14 +1635,17 @@ function connect(): void {
       if (msg.controller) {
         overlayEl.classList.add('hidden');
         setStatus('手機已連線。請校正中心。');
+        refreshPendantObjective();
       } else {
         if (!resumedAfterBedDeath) overlayEl.classList.remove('hidden');
         setStatus('等待手機控制器。');
+        refreshPendantObjective();
       }
     }
     if (msg.type === 'ready') {
       overlayEl.classList.add('hidden');
       setStatus('已同步 307。');
+      refreshPendantObjective();
     }
     if (shouldRefreshControllerState(msg)) syncControllerState();
     if (msg.type === 'proto-pointer') {
@@ -1686,6 +1693,7 @@ function connect(): void {
     interactionHeld = false;
     if (resumedAfterBedDeath) overlayEl.classList.add('hidden');
     else overlayEl.classList.remove('hidden');
+    refreshPendantObjective();
     if (!reconnectEnabled) return;
     qrCanvas.style.visibility = 'hidden';
     joinUrlEl.textContent = '正在啟動手機連線服務，請稍候。';
