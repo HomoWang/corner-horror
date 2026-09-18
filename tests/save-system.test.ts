@@ -59,6 +59,19 @@ describe('save archive', () => {
     expect(clearSaveSlot(saved, 2).slots.every((slot) => slot === null)).toBe(true);
   });
 
+  it('overwrites an occupied slot while preserving the other slots', () => {
+    const first = record();
+    const second = { ...record(), savedAt: '2026-09-18T08:30:00.000Z', playtimeMs: 42000 };
+    const other = { ...record(), playtimeMs: 9000 };
+    const withTwoSlots = writeSaveSlot(writeSaveSlot(createEmptySaveArchive(), 0, first), 1, other);
+    const overwritten = writeSaveSlot(withTwoSlots, 0, second);
+
+    expect(overwritten.slots[0]?.savedAt).toBe(second.savedAt);
+    expect(overwritten.slots[0]?.playtimeMs).toBe(42000);
+    expect(overwritten.slots[1]?.playtimeMs).toBe(9000);
+    expect(overwritten.slots.filter(Boolean)).toHaveLength(2);
+  });
+
   it('rejects malformed saves instead of loading partial state', () => {
     const archive = normalizeSaveArchive({
       schemaVersion: 1,

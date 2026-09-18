@@ -1974,7 +1974,9 @@
         background: rgba(43, 19, 16, 0.94);
       }
 
-      .menu-button:disabled {
+      .menu-button:disabled,
+      .slot-button:disabled,
+      .slot-delete:disabled {
         color: #5f5753;
         border-color: rgba(83, 72, 67, 0.25);
         cursor: default;
@@ -2060,8 +2062,11 @@
       .slot-delete {
         width: 3.5rem;
         min-height: 3.25rem;
-        color: #987a70;
         font-size: 0.78rem;
+      }
+
+      .slot-delete {
+        color: #987a70;
       }
 
       .settings-list {
@@ -2136,6 +2141,7 @@
         .slot-time {
           grid-column: 2;
         }
+
       }
     </style>
   </head>

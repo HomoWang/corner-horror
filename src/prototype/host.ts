@@ -998,7 +998,9 @@ function renderSaveSlots(): void {
     const detail = document.createElement('span');
     if (record) {
       title.textContent = `第一章｜開端 ${chapterOneProgressPercent(record.state)}%`;
-      detail.textContent = `遊玩 ${formatPlaytime(record.playtimeMs)}`;
+      detail.textContent = savePanelMode === 'save'
+        ? `遊玩 ${formatPlaytime(record.playtimeMs)}｜點擊此欄覆蓋`
+        : `遊玩 ${formatPlaytime(record.playtimeMs)}`;
     } else {
       title.textContent = '空白存檔';
       detail.textContent = savePanelMode === 'save' ? '選擇此位置儲存' : '沒有可讀取的進度';
@@ -1298,6 +1300,12 @@ async function initializeGameShell(): Promise<void> {
 
   if (import.meta.env.DEV && locationParams.get('inspect')) {
     beginGame(true);
+    if (locationParams.get('inspect') === 'save-panel') {
+      gamePaused = true;
+      const previewRecord = createCurrentSaveRecord(12 * 60 * 1000);
+      saveArchive = writeSaveSlot(saveArchive, 0, previewRecord);
+      openSavePanel('save', 'pause');
+    }
     return;
   }
 
