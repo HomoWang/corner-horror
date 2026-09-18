@@ -17,6 +17,7 @@ import { addBedShakeProgress, BED_SHAKE_TARGET, hasEscapedBedGrab } from './bed-
 import {
   BED_AUDIO_CUES,
   bedDeathPlaybackRate,
+  shouldReplayBedStruggleRoar,
   shouldStartBedPlayerScream,
 } from './bed-audio-cues';
 import {
@@ -332,7 +333,7 @@ let interactionHeld = false;
 let gameStarted = false;
 let gamePaused = false;
 let savePanelMode: 'load' | 'save' = 'load';
-let menuReturnTarget: 'front' | 'pause' = 'front';
+let menuReturnTarget: 'front' | 'pause' | 'death' = 'front';
 let saveArchive: GameSaveArchive = createEmptySaveArchive();
 let playtimeBaseMs = 0;
 let playtimeStartedAt = performance.now();
@@ -343,6 +344,7 @@ let pendantObjectiveTimer: number | null = null;
 let pendantObjectiveTransitionTimer: number | null = null;
 let hostAudioContext: AudioContext | null = null;
 let hostAudioMuted = false;
+let bedStruggleRoarPlayCount = 0;
 const ambienceAudio = document.querySelector<HTMLAudioElement>('#ambient-audio')!;
 const bedReachAudio = document.querySelector<HTMLAudioElement>('#bed-reach-audio')!;
 const bedStruggleAudio = document.querySelector<HTMLAudioElement>('#bed-struggle-audio')!;
@@ -358,7 +360,7 @@ ambienceAudio.loop = true;
 bedReachAudio.volume = BED_AUDIO_CUES.monsterVoiceVolume * gameSettings.masterVolume * gameSettings.effectsVolume;
 bedReachAudio.loop = true;
 bedStruggleAudio.volume = BED_AUDIO_CUES.monsterAppearanceVolume * gameSettings.masterVolume * gameSettings.effectsVolume;
-bedStruggleAudio.loop = true;
+bedStruggleAudio.loop = false;
 bedDeathAudio.volume = BED_AUDIO_CUES.monsterDeathVolume * gameSettings.masterVolume * gameSettings.effectsVolume;
 bedDeathAudio.loop = BED_AUDIO_CUES.monsterDeathLoop;
 bedPlayerScreamAudio.volume = BED_AUDIO_CUES.playerScreamVolume * gameSettings.masterVolume * gameSettings.effectsVolume;
@@ -1033,12 +1035,13 @@ function updateMenuCursorState(): void {
   document.body.classList.toggle('menu-open', menuOpen);
 }
 
-function openSavePanel(mode: 'load' | 'save', from: 'front' | 'pause'): void {
+function openSavePanel(mode: 'load' | 'save', from: 'front' | 'pause' | 'death'): void {
   savePanelMode = mode;
   menuReturnTarget = from;
   frontMenuEl.classList.remove('open');
   pauseMenuEl.classList.remove('open');
   settingsPanelEl.classList.remove('open');
+  if (from === 'death') bedDeathMenuEl.classList.remove('show');
   savePanelEl.classList.add('open');
   savePanelTitleEl.textContent = mode === 'save' ? '儲存遊戲' : '讀取存檔';
   savePanelHelpEl.textContent = mode === 'save'
@@ -1050,7 +1053,12 @@ function openSavePanel(mode: 'load' | 'save', from: 'front' | 'pause'): void {
 
 function closeSavePanel(): void {
   savePanelEl.classList.remove('open');
-  (menuReturnTarget === 'front' ? frontMenuEl : pauseMenuEl).classList.add('open');
+  if (menuReturnTarget === 'death') {
+    bedDeathMenuEl.classList.add('show');
+    updatePointer(pointer.x, pointer.y);
+  } else {
+    (menuReturnTarget === 'front' ? frontMenuEl : pauseMenuEl).classList.add('open');
+  }
   updateMenuCursorState();
 }
 
@@ -1658,6 +1666,14 @@ function startBedInspectAudio(): void {
 function stopBedStruggleAudio(): void {
   bedStruggleAudio.pause();
   bedStruggleAudio.currentTime = 0;
+  bedStruggleRoarPlayCount = 0;
+}
+
+function playBedStruggleRoar(): void {
+  if (hostAudioMuted) return;
+  bedStruggleRoarPlayCount += 1;
+  bedStruggleAudio.currentTime = 0;
+  void bedStruggleAudio.play().catch(() => undefined);
 }
 
 function stopBedDeathAudio(): void {
@@ -1751,8 +1767,8 @@ async function startBedStruggle(): Promise<void> {
   bedInspectEl.classList.add('struggling');
   bedEscapeProgressEl.style.width = '0%';
   bedEscapeCountdownEl.textContent = '在 4.0 秒內掙脫鬼手';
-  bedStruggleAudio.currentTime = 0;
-  void bedStruggleAudio.play().catch(() => undefined);
+  bedStruggleRoarPlayCount = 0;
+  playBedStruggleRoar();
   vibrate([260, 45, 260, 45, 360]);
   try {
     await bedStruggleVideoEl.play();
@@ -1899,6 +1915,7 @@ bedStruggleVideoEl.addEventListener('timeupdate', () => {
   bedStruggleVideoEl.pause();
   bedEventPhase = 'branching';
   if (hasEscapedBedGrab(bedShakeScore)) {
+    stopBedStruggleAudio();
     window.setTimeout(() => {
       if (!bedGrabActive || bedEventPhase !== 'branching') return;
       bedEventPhase = 'success';
@@ -1939,13 +1956,25 @@ bedDeathVideoEl.addEventListener('error', finishBedDeath);
 bedDeathVideoEl.addEventListener('timeupdate', syncBedPlayerScreamToVideo);
 bedDeathMenuEl.addEventListener('click', (event) => {
   const action = (event.target as HTMLElement).closest<HTMLElement>(
-    '[data-bed-death-restart], [data-bed-death-close]',
+    '[data-bed-death-restart], [data-bed-death-load], [data-bed-death-close]',
   );
   if (action?.dataset.bedDeathRestart) {
     void restartGameAfterBedDeath();
     return;
   }
+  if (action?.dataset.bedDeathLoad) {
+    openSavePanel('load', 'death');
+    return;
+  }
   if (action?.dataset.bedDeathClose) void closeGameAfterBedDeath();
+});
+
+bedStruggleAudio.addEventListener('ended', () => {
+  if (!shouldReplayBedStruggleRoar(
+    bedStruggleRoarPlayCount,
+    bedGrabActive && bedEventPhase === 'struggle',
+  )) return;
+  playBedStruggleRoar();
 });
 
 bedEventVideos.forEach((video) => {
@@ -2309,7 +2338,7 @@ function updateTarget(): void {
   target = null;
   for (const element of elements) {
     const candidate = element.closest<HTMLElement>(
-      '[data-object], [data-inventory-back], [data-safe-back], [data-safe-keypad], [data-safe-item], [data-photo-back], [data-photo-card], [data-desk-drawer-back], [data-desk-drawer-door], [data-desk-drawer-item], [data-cardboard-box-back], [data-cardboard-box-open], [data-cardboard-box-gear], [data-bed-antenna], [data-bed-death-restart], [data-bed-death-close], [data-radio-device], [data-drawer-back], [data-drawer-digit], [data-drawer-clear], [data-drawer-reset], [data-drawer-delete], [data-drawer-submit]',
+      '[data-object], [data-inventory-back], [data-safe-back], [data-safe-keypad], [data-safe-item], [data-photo-back], [data-photo-card], [data-desk-drawer-back], [data-desk-drawer-door], [data-desk-drawer-item], [data-cardboard-box-back], [data-cardboard-box-open], [data-cardboard-box-gear], [data-bed-antenna], [data-bed-death-restart], [data-bed-death-load], [data-bed-death-close], [data-radio-device], [data-drawer-back], [data-drawer-digit], [data-drawer-clear], [data-drawer-reset], [data-drawer-delete], [data-drawer-submit]',
     );
     if (candidate) {
       target = candidate;
@@ -3065,6 +3094,10 @@ function handleBedInspect(): void {
       void restartGameAfterBedDeath();
       return;
     }
+    if (target?.dataset.bedDeathLoad) {
+      openSavePanel('load', 'death');
+      return;
+    }
     if (target?.dataset.bedDeathClose) {
       void closeGameAfterBedDeath();
     }
@@ -3488,6 +3521,18 @@ joinUrlEl.textContent = '正在啟動手機連線服務，請稍候。';
 if (import.meta.env.DEV) {
   const inspection = new URLSearchParams(location.search).get('inspect');
   if (inspection) {
+    hostAudioMuted = true;
+    [
+      ambienceAudio,
+      bedReachAudio,
+      bedStruggleAudio,
+      bedDeathAudio,
+      bedPlayerScreamAudio,
+      ...bedEventVideos,
+    ].forEach((media) => {
+      media.muted = true;
+      media.pause();
+    });
     overlayEl.classList.add('hidden');
     window.setTimeout(() => overlayEl.classList.add('hidden'), 250);
   }
@@ -3595,6 +3640,28 @@ if (import.meta.env.DEV) {
     openItemDetail('completeFirefighterGear');
   } else if (inspection === 'bed') {
     openBedInspect();
+  } else if (inspection === 'death-menu') {
+    bedGrabActive = true;
+    bedEventPhase = 'death-menu';
+    openBedInspect();
+    bedInspectEl.classList.add('playing-scare');
+    setActiveBedVideo(bedDeathVideoEl);
+    const showDeathHoldFrame = () => {
+      bedDeathVideoEl.currentTime =
+        Number.isFinite(bedDeathVideoEl.duration) && bedDeathVideoEl.duration > 0
+          ? Math.max(0, bedDeathVideoEl.duration - 0.05)
+          : 6.2;
+      bedDeathVideoEl.pause();
+    };
+    if (bedDeathVideoEl.readyState === 0) {
+      bedDeathVideoEl.addEventListener('loadedmetadata', showDeathHoldFrame, {
+        once: true,
+      });
+    } else {
+      showDeathHoldFrame();
+    }
+    bedDeathMenuEl.classList.add('show');
+    updatePointer(pointer.x, pointer.y);
   } else if (inspection === 'bed-grab' || inspection === 'bed-grab-success') {
     collectedItems.delete('antenna');
     bedEventVideos.forEach((video) => {

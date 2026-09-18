@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BED_AUDIO_CUES,
   bedDeathPlaybackRate,
+  shouldReplayBedStruggleRoar,
   shouldStartBedPlayerScream,
 } from '../src/prototype/bed-audio-cues';
 
@@ -17,6 +18,13 @@ describe('bed event audio cues', () => {
 
   it('plays the monster appearance cue at full volume', () => {
     expect(BED_AUDIO_CUES.monsterAppearanceVolume).toBe(1);
+  });
+
+  it('limits the struggle roar to two plays and stops it on success', () => {
+    expect(BED_AUDIO_CUES.monsterStruggleRoarCount).toBe(2);
+    expect(shouldReplayBedStruggleRoar(1, true)).toBe(true);
+    expect(shouldReplayBedStruggleRoar(2, true)).toBe(false);
+    expect(shouldReplayBedStruggleRoar(1, false)).toBe(false);
   });
 
   it('plays one sustained monster death scream without restarting it', () => {

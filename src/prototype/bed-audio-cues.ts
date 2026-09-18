@@ -2,12 +2,20 @@ export const BED_AUDIO_CUES = {
   monsterVoiceStartAt: 0.82,
   monsterVoiceVolume: 0.04,
   monsterAppearanceVolume: 1,
+  monsterStruggleRoarCount: 2,
   monsterDeathVolume: 0.7,
   monsterDeathLoop: false,
   playerScreamVolume: 0.92,
   playerScreamVideoTime: 4.45,
   deathAttackPlaybackRate: 1.35,
 } as const;
+
+export function shouldReplayBedStruggleRoar(
+  completedPlayCount: number,
+  isStruggling: boolean,
+): boolean {
+  return isStruggling && completedPlayCount < BED_AUDIO_CUES.monsterStruggleRoarCount;
+}
 
 export function shouldStartBedPlayerScream(
   videoTime: number,
