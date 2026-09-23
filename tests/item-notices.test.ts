@@ -26,10 +26,18 @@ describe('item interaction notices', () => {
     expect(hostSource).toContain("completePendantObjective('find')");
     expect(hostSource).toContain("completePendantObjective('install')");
     expect(hostSource).toContain("completePendantObjective('use')");
+    expect(hostSource).toContain("completePendantObjective('equipFirefighterGear')");
     expect(hostSource).not.toContain('舊電池已裝入錄音吊飾。');
     expect(hostSource).not.toContain('吊飾響起一段熟悉的旋律。');
     expect(hostSource).not.toContain('使用中：錄音吊飾');
     expect(hostSource).not.toContain('使用中：舊電池');
+  });
+
+  it('hides the objective during an unprotected corridor smoke death', () => {
+    expect(prototypeSource).toContain('id="smoke-death"');
+    expect(hostSource).toMatch(
+      /function startCorridorSmokeDeath\(\)[\s\S]*?hidePendantObjective\(\);[\s\S]*?smokeDeathEl\.classList\.add\('show'\);/,
+    );
   });
 
   it('keeps the objective above close-up views and animates its entrance and exit', () => {
@@ -43,7 +51,9 @@ describe('item interaction notices', () => {
   });
 
   it('does not show the objective over the QR connection screen', () => {
-    expect(hostSource).toContain("if (!overlayEl.classList.contains('hidden') || bedGrabActive)");
+    expect(hostSource).toContain(
+      "if (!overlayEl.classList.contains('hidden') || bedGrabActive || smokeDeathActive)",
+    );
     expect(hostSource).toMatch(
       /overlayEl\.classList\.add\('hidden'\);\s*setStatus\('手機已連線。請校正中心。'\);\s*refreshPendantObjective\(\);/,
     );
@@ -51,7 +61,9 @@ describe('item interaction notices', () => {
 
   it('hides the objective throughout the monster encounter and death flow', () => {
     expect(prototypeSource).toContain('body.bed-grab-active #story-objective');
-    expect(hostSource).toContain("if (!overlayEl.classList.contains('hidden') || bedGrabActive)");
+    expect(hostSource).toContain(
+      "if (!overlayEl.classList.contains('hidden') || bedGrabActive || smokeDeathActive)",
+    );
     expect(hostSource).toMatch(
       /bedGrabActive = true;\s*bedEventPhase = 'reach';\s*hidePendantObjective\(\);/,
     );

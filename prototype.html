@@ -429,6 +429,143 @@
         font-size: 0.9rem;
       }
 
+      #smoke-death {
+        position: fixed;
+        inset: 0;
+        z-index: 89;
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        overflow: hidden;
+        background: rgba(4, 4, 4, 0);
+        color: #cec8c2;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms linear, background-color 1500ms ease-in;
+      }
+
+      #smoke-death::before,
+      #smoke-death::after {
+        content: '';
+        position: absolute;
+        width: 145vmax;
+        height: 60vmax;
+        border-radius: 50%;
+        background: rgba(8, 8, 8, 0.94);
+        filter: blur(3.5rem);
+        opacity: 0;
+      }
+
+      #smoke-death::before {
+        top: -26vmax;
+        left: -20vmax;
+        animation: none;
+      }
+
+      #smoke-death::after {
+        right: -24vmax;
+        bottom: -28vmax;
+        animation: none;
+      }
+
+      #smoke-death.show {
+        opacity: 1;
+        pointer-events: auto;
+        background: rgba(2, 2, 2, 0.78);
+      }
+
+      #smoke-death.show::before {
+        animation: smoke-death-roll-left 1.8s ease-in forwards;
+      }
+
+      #smoke-death.show::after {
+        animation: smoke-death-roll-right 1.8s ease-in forwards;
+      }
+
+      #smoke-death.fatal {
+        background: #020202;
+      }
+
+      #smoke-death-status {
+        position: relative;
+        z-index: 1;
+        color: #b9b3ae;
+        font: 600 clamp(1rem, 2vw, 1.35rem)/1.5 system-ui, sans-serif;
+        letter-spacing: 0;
+        opacity: 0;
+        animation: none;
+      }
+
+      #smoke-death.show #smoke-death-status {
+        animation: smoke-death-cough 1.45s ease-in 180ms forwards;
+      }
+
+      #smoke-death.fatal #smoke-death-status {
+        display: none;
+      }
+
+      #smoke-death-menu {
+        position: relative;
+        z-index: 2;
+        display: none;
+        place-content: center;
+        justify-items: center;
+        gap: clamp(0.7rem, 1.8vh, 1.1rem);
+        text-align: center;
+      }
+
+      #smoke-death-menu.show {
+        display: grid;
+      }
+
+      #smoke-death-menu strong {
+        margin-bottom: clamp(0.55rem, 1.5vh, 1rem);
+        color: #d9c4bc;
+        font: 700 clamp(2.2rem, 5vw, 4.5rem)/1 system-ui, sans-serif;
+        letter-spacing: 0;
+      }
+
+      #smoke-death-menu.closed .smoke-death-action {
+        display: none;
+      }
+
+      .smoke-death-action {
+        width: min(18rem, 54vw);
+        min-height: 3.15rem;
+        border: 1px solid rgba(213, 184, 172, 0.58);
+        border-radius: 4px;
+        background: rgba(11, 4, 4, 0.76);
+        color: #e4d3cc;
+        font: 600 clamp(1rem, 2.2vw, 1.35rem)/1.2 system-ui, sans-serif;
+        letter-spacing: 0;
+      }
+
+      .smoke-death-action.active,
+      .smoke-death-action:hover,
+      .smoke-death-action:focus-visible {
+        border-color: #e0aaa0;
+        outline: 2px solid rgba(161, 31, 27, 0.8);
+        background: rgba(55, 8, 8, 0.88);
+      }
+
+      @keyframes smoke-death-roll-left {
+        0% { opacity: 0; transform: translate3d(-18%, -18%, 0) scale(0.72); }
+        100% { opacity: 1; transform: translate3d(8%, 30%, 0) scale(1.2); }
+      }
+
+      @keyframes smoke-death-roll-right {
+        0% { opacity: 0; transform: translate3d(18%, 18%, 0) scale(0.7); }
+        100% { opacity: 1; transform: translate3d(-8%, -34%, 0) scale(1.22); }
+      }
+
+      @keyframes smoke-death-cough {
+        0% { opacity: 0; transform: translateY(0); }
+        28% { opacity: 1; transform: translateY(-0.4rem); }
+        42% { transform: translateY(0.35rem); }
+        68% { opacity: 0.86; transform: translateY(-0.25rem); }
+        100% { opacity: 0; transform: translateY(0.6rem); }
+      }
+
       #room {
         position: fixed;
         inset: 0;
@@ -2626,6 +2763,21 @@
       <section id="chapter-complete" aria-live="polite">
         <strong>第一章｜開端</strong>
         <span>完成</span>
+      </section>
+      <section id="smoke-death" aria-live="assertive">
+        <div id="smoke-death-status">濃煙灌入肺部，呼吸正在停止。</div>
+        <div id="smoke-death-menu" role="dialog" aria-modal="true" aria-label="死亡">
+          <strong>死亡</strong>
+          <button class="smoke-death-action selectable" type="button" data-smoke-death-restart="true">
+            從章節起點重新開始
+          </button>
+          <button class="smoke-death-action selectable" type="button" data-smoke-death-load="true">
+            讀取存檔
+          </button>
+          <button class="smoke-death-action selectable" type="button" data-smoke-death-close="true">
+            關閉遊戲
+          </button>
+        </div>
       </section>
       <section id="overlay" class="hidden">
         <div id="qr-panel">

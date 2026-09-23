@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextPendantObjective } from '../src/prototype/pendant-objective';
+import { nextPendantObjective, nextStoryObjective } from '../src/prototype/pendant-objective';
 
 describe('pendant story objective', () => {
   it('advances through finding and powering the pendant', () => {
@@ -49,5 +49,28 @@ describe('pendant story objective', () => {
         activated: true,
       }),
     ).toBeNull();
+  });
+});
+
+describe('firefighter equipment story objective', () => {
+  const pendantComplete = {
+    hasPendant: true,
+    powered: true,
+    doorScareCompleted: true,
+    activated: true,
+  };
+
+  it('asks the player to actively equip complete gear', () => {
+    expect(nextStoryObjective(pendantComplete, {
+      hasCompleteGear: true,
+      equipped: false,
+    })).toBe('equipFirefighterGear');
+  });
+
+  it('clears the equipment objective only after the gear is worn', () => {
+    expect(nextStoryObjective(pendantComplete, {
+      hasCompleteGear: true,
+      equipped: true,
+    })).toBeNull();
   });
 });

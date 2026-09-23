@@ -42,6 +42,7 @@ function record(): GameSaveRecord {
       doorUnlockAnnounced: false,
       doorScarePlayed: false,
       doorScareCompleted: false,
+      firefighterGearEquipped: false,
     },
   };
 }
@@ -82,6 +83,18 @@ describe('save archive', () => {
     expect(archive.slots.every((slot) => slot === null)).toBe(true);
   });
 
+  it('keeps old saves valid when they predate the equipped-state field', () => {
+    const legacyRecord = record();
+    delete legacyRecord.state.firefighterGearEquipped;
+    const archive = normalizeSaveArchive({
+      schemaVersion: 1,
+      checkpoint: legacyRecord,
+      slots: [legacyRecord],
+    });
+    expect(archive.checkpoint).not.toBeNull();
+    expect(archive.slots[0]).not.toBeNull();
+  });
+
   it('calculates chapter progress from persistent milestones', () => {
     const save = record();
     expect(chapterOneProgressPercent(save.state)).toBe(0);
@@ -92,6 +105,8 @@ describe('save archive', () => {
     save.state.tapePlayed = true;
     save.state.antennaInstalled = true;
     save.state.radioBroadcastHeard = true;
+    save.state.collectedItems.push('completeFirefighterGear');
+    save.state.firefighterGearEquipped = true;
     expect(chapterOneProgressPercent(save.state)).toBe(100);
   });
 });

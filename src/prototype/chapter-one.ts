@@ -4,6 +4,7 @@ export interface ChapterOneRoomProgress {
   tapePlayed: boolean;
   pendantActivated: boolean;
   radioBroadcastHeard: boolean;
+  firefighterGearCollected: boolean;
 }
 
 export const SAFE_CODE = '4826';
@@ -60,6 +61,7 @@ export function canUnlockRoomDoor(progress: ChapterOneRoomProgress): boolean {
     progress.photoMounted &&
     progress.tapePlayed &&
     progress.pendantActivated &&
-    progress.radioBroadcastHeard
+    progress.radioBroadcastHeard &&
+    progress.firefighterGearCollected
   );
 }

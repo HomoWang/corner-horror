@@ -24,6 +24,7 @@ export interface ChapterOneSaveState {
   doorUnlockAnnounced: boolean;
   doorScarePlayed: boolean;
   doorScareCompleted: boolean;
+  firefighterGearEquipped?: boolean;
 }
 
 export interface GameSaveRecord {
@@ -139,6 +140,7 @@ function isChapterOneState(value: unknown): value is ChapterOneSaveState {
     Number.isInteger(value.safeCodeFailures) &&
     (value.safeCodeFailures as number) >= 0 &&
     booleanKeys.every((key) => isBoolean(value[key]))
+    && (value.firefighterGearEquipped === undefined || isBoolean(value.firefighterGearEquipped))
   );
 }
 
@@ -205,6 +207,8 @@ export function chapterOneProgressPercent(state: ChapterOneSaveState): number {
     state.tapePlayed,
     state.antennaInstalled,
     state.radioBroadcastHeard,
+    state.collectedItems.includes('completeFirefighterGear'),
+    state.firefighterGearEquipped === true,
   ];
   const complete = milestones.filter(Boolean).length;
   return Math.round((complete / milestones.length) * 100);

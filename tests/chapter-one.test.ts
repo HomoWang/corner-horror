@@ -14,6 +14,7 @@ describe('chapter one room progression', () => {
     tapePlayed: true,
     pendantActivated: true,
     radioBroadcastHeard: true,
+    firefighterGearCollected: true,
   };
 
   it('keeps the door locked while any required memory is missing', () => {
@@ -22,7 +23,7 @@ describe('chapter one room progression', () => {
     }
   });
 
-  it('unlocks the door after all five room events are complete', () => {
+  it('unlocks the door after all room events and the complete gear are collected', () => {
     expect(canUnlockRoomDoor(complete)).toBe(true);
   });
 

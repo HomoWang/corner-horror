@@ -27,10 +27,14 @@ import {
 import { PrototypeRoom2D, type RoomObjectId } from './room2d';
 import { pendantDescription } from './item-copy';
 import {
-  PENDANT_OBJECTIVE_LABELS,
-  nextPendantObjective,
-  type PendantObjectiveId,
+  STORY_OBJECTIVE_LABELS,
+  nextStoryObjective,
+  type StoryObjectiveId,
 } from './pendant-objective';
+import {
+  corridorEntryOutcome,
+  UNPROTECTED_CORRIDOR_DEATH_MS,
+} from './firefighter-equipment';
 import {
   advanceHorizontalCut,
   beginHorizontalCut,
@@ -130,6 +134,9 @@ const itemDetails: Record<ItemId, { image: string; description: string }> = {
 
 function currentItemDescription(item: ItemId): string {
   if (item === 'pendant') return pendantDescription(pendantPowered, pendantActivated);
+  if (item === 'completeFirefighterGear' && firefighterGearEquipped) {
+    return '消防衣褲、頭盔與面罩已穿戴完成。';
+  }
   return itemDetails[item].description;
 }
 
@@ -230,6 +237,8 @@ const bedInspectFrameEl = document.querySelector<HTMLElement>('#bed-inspect-fram
 const bedEscapeProgressEl = document.querySelector<HTMLElement>('#bed-escape-progress')!;
 const bedEscapeCountdownEl = document.querySelector<HTMLElement>('#bed-escape-countdown')!;
 const bedDeathMenuEl = document.querySelector<HTMLElement>('#bed-death-menu')!;
+const smokeDeathEl = document.querySelector<HTMLElement>('#smoke-death')!;
+const smokeDeathMenuEl = document.querySelector<HTMLElement>('#smoke-death-menu')!;
 const bedAntennaHotspotEl = document.querySelector<HTMLButtonElement>('#bed-antenna-hotspot')!;
 const radioInspectEl = document.querySelector<HTMLElement>('#radio-inspect')!;
 const radioInspectImageEl = document.querySelector<HTMLImageElement>('#radio-inspect-image')!;
@@ -257,7 +266,9 @@ const room = new PrototypeRoom2D(roomScene);
 
 const locationParams = new URLSearchParams(location.search);
 const resumedAfterBedDeath = locationParams.get('restart') === 'death';
-const resumedWithoutPairing = resumedAfterBedDeath || locationParams.get('restart') === 'load';
+const inspectionMode = import.meta.env.DEV && Boolean(locationParams.get('inspect'));
+const resumedWithoutPairing =
+  resumedAfterBedDeath || locationParams.get('restart') === 'load' || inspectionMode;
 const roomCode =
   normalizeRoomCode(locationParams.get('room')) ??
   normalizeRoomCode(sessionStorage.getItem('corner-horror-prototype-room')) ??
@@ -328,17 +339,20 @@ let tapePlaybackActive = false;
 let doorUnlockAnnounced = false;
 let doorScarePlayed = false;
 let doorScareCompleted = false;
+let firefighterGearEquipped = false;
 let chapterCompleted = false;
+let smokeDeathActive = false;
+let smokeDeathMenuTimer: number | null = null;
 let interactionHeld = false;
 let gameStarted = false;
 let gamePaused = false;
 let savePanelMode: 'load' | 'save' = 'load';
-let menuReturnTarget: 'front' | 'pause' | 'death' = 'front';
+let menuReturnTarget: 'front' | 'pause' | 'death' | 'smoke-death' = 'front';
 let saveArchive: GameSaveArchive = createEmptySaveArchive();
 let playtimeBaseMs = 0;
 let playtimeStartedAt = performance.now();
 let gameSettings: GameSettings = loadGameSettings(localStorage);
-const pendantObjectiveCompletionQueue: PendantObjectiveId[] = [];
+const pendantObjectiveCompletionQueue: StoryObjectiveId[] = [];
 let pendantObjectiveCompletionActive = false;
 let pendantObjectiveTimer: number | null = null;
 let pendantObjectiveTransitionTimer: number | null = null;
@@ -463,13 +477,19 @@ function showNotice(text: string, duration = 2400): void {
   noticeTimer = setTimeout(() => noticeEl.classList.remove('show'), duration);
 }
 
-function currentPendantObjective(): PendantObjectiveId | null {
-  return nextPendantObjective({
-    hasPendant: collectedItems.has('pendant'),
-    powered: pendantPowered,
-    doorScareCompleted,
-    activated: pendantActivated,
-  });
+function currentPendantObjective(): StoryObjectiveId | null {
+  return nextStoryObjective(
+    {
+      hasPendant: collectedItems.has('pendant'),
+      powered: pendantPowered,
+      doorScareCompleted,
+      activated: pendantActivated,
+    },
+    {
+      hasCompleteGear: collectedItems.has('completeFirefighterGear'),
+      equipped: firefighterGearEquipped,
+    },
+  );
 }
 
 function clearPendantObjectiveTransition(): void {
@@ -490,7 +510,7 @@ function hidePendantObjective(): void {
   }, 420);
 }
 
-function showPendantObjective(objective: PendantObjectiveId, complete: boolean, onShown?: () => void): void {
+function showPendantObjective(objective: StoryObjectiveId, complete: boolean, onShown?: () => void): void {
   const state = complete ? 'complete' : 'active';
   if (
     storyObjectiveEl.classList.contains('show') &&
@@ -511,8 +531,8 @@ function showPendantObjective(objective: PendantObjectiveId, complete: boolean, 
     storyObjectiveEl.dataset.state = state;
     storyObjectiveMarkEl.textContent = complete ? '■' : '□';
     storyObjectiveTextEl.textContent = complete
-      ? `${PENDANT_OBJECTIVE_LABELS[objective]}(完成)`
-      : PENDANT_OBJECTIVE_LABELS[objective];
+      ? `${STORY_OBJECTIVE_LABELS[objective]}(完成)`
+      : STORY_OBJECTIVE_LABELS[objective];
     storyObjectiveEl.classList.toggle('complete', complete);
     window.requestAnimationFrame(() => {
       storyObjectiveEl.classList.add('show');
@@ -532,7 +552,7 @@ function refreshPendantObjective(): void {
     hidePendantObjective();
     return;
   }
-  if (!overlayEl.classList.contains('hidden') || bedGrabActive) {
+  if (!overlayEl.classList.contains('hidden') || bedGrabActive || smokeDeathActive) {
     hidePendantObjective();
     return;
   }
@@ -563,11 +583,11 @@ function showNextPendantObjectiveCompletion(): void {
   });
 }
 
-function completePendantObjective(objective: PendantObjectiveId): void {
+function completePendantObjective(objective: StoryObjectiveId): void {
   if (
     pendantObjectiveCompletionQueue.includes(objective) ||
     (pendantObjectiveCompletionActive &&
-      storyObjectiveTextEl.textContent === `${PENDANT_OBJECTIVE_LABELS[objective]}(完成)`)
+      storyObjectiveTextEl.textContent === `${STORY_OBJECTIVE_LABELS[objective]}(完成)`)
   ) return;
   pendantObjectiveCompletionQueue.push(objective);
   showNextPendantObjectiveCompletion();
@@ -847,6 +867,7 @@ function captureChapterOneState(): ChapterOneSaveState {
     doorUnlockAnnounced,
     doorScarePlayed,
     doorScareCompleted,
+    firefighterGearEquipped,
   };
 }
 
@@ -884,6 +905,11 @@ function resetTransientGameState(): void {
   tapePlaybackActive = false;
   bedGrabActive = false;
   bedEventPhase = 'idle';
+  smokeDeathActive = false;
+  if (smokeDeathMenuTimer !== null) {
+    window.clearTimeout(smokeDeathMenuTimer);
+    smokeDeathMenuTimer = null;
+  }
   interactionHeld = false;
   move = { x: 0, y: 0 };
   target = null;
@@ -908,6 +934,8 @@ function resetTransientGameState(): void {
   radioInspectEl.classList.remove('open');
   drawerPuzzleEl.classList.remove('open', 'clue-boost');
   bedDeathMenuEl.classList.remove('show', 'closed');
+  smokeDeathEl.classList.remove('show', 'fatal');
+  smokeDeathMenuEl.classList.remove('show', 'closed');
   document.body.classList.remove(
     'photo-memory-playing',
     'tape-playing',
@@ -916,6 +944,7 @@ function resetTransientGameState(): void {
     'bed-grab-active',
     'bed-grab-released',
     'chapter-ending',
+    'corridor-smoke-death',
   );
   chapterCompleteEl.classList.remove('show');
   clearNotice();
@@ -945,6 +974,7 @@ function applyChapterOneState(record: GameSaveRecord): void {
   doorUnlockAnnounced = state.doorUnlockAnnounced;
   doorScarePlayed = state.doorScarePlayed;
   doorScareCompleted = state.doorScareCompleted;
+  firefighterGearEquipped = state.firefighterGearEquipped ?? false;
   playtimeBaseMs = record.playtimeMs;
   playtimeStartedAt = performance.now();
   renderSafeInspect();
@@ -1037,13 +1067,17 @@ function updateMenuCursorState(): void {
   document.body.classList.toggle('menu-open', menuOpen);
 }
 
-function openSavePanel(mode: 'load' | 'save', from: 'front' | 'pause' | 'death'): void {
+function openSavePanel(
+  mode: 'load' | 'save',
+  from: 'front' | 'pause' | 'death' | 'smoke-death',
+): void {
   savePanelMode = mode;
   menuReturnTarget = from;
   frontMenuEl.classList.remove('open');
   pauseMenuEl.classList.remove('open');
   settingsPanelEl.classList.remove('open');
   if (from === 'death') bedDeathMenuEl.classList.remove('show');
+  if (from === 'smoke-death') smokeDeathMenuEl.classList.remove('show');
   savePanelEl.classList.add('open');
   savePanelTitleEl.textContent = mode === 'save' ? '儲存遊戲' : '讀取存檔';
   savePanelHelpEl.textContent = mode === 'save'
@@ -1057,6 +1091,9 @@ function closeSavePanel(): void {
   savePanelEl.classList.remove('open');
   if (menuReturnTarget === 'death') {
     bedDeathMenuEl.classList.add('show');
+    updatePointer(pointer.x, pointer.y);
+  } else if (menuReturnTarget === 'smoke-death') {
+    smokeDeathMenuEl.classList.add('show');
     updatePointer(pointer.x, pointer.y);
   } else {
     (menuReturnTarget === 'front' ? frontMenuEl : pauseMenuEl).classList.add('open');
@@ -1401,6 +1438,7 @@ function checkChapterExit(): void {
       tapePlayed,
       pendantActivated,
       radioBroadcastHeard,
+      firefighterGearCollected: collectedItems.has('completeFirefighterGear'),
     })
   ) {
     return;
@@ -1976,6 +2014,20 @@ bedDeathMenuEl.addEventListener('click', (event) => {
   }
   if (action?.dataset.bedDeathClose) void closeGameAfterBedDeath();
 });
+smokeDeathMenuEl.addEventListener('click', (event) => {
+  const action = (event.target as HTMLElement).closest<HTMLElement>(
+    '[data-smoke-death-restart], [data-smoke-death-load], [data-smoke-death-close]',
+  );
+  if (action?.dataset.smokeDeathRestart) {
+    requestReloadWithRecord('checkpoint');
+    return;
+  }
+  if (action?.dataset.smokeDeathLoad) {
+    openSavePanel('load', 'smoke-death');
+    return;
+  }
+  if (action?.dataset.smokeDeathClose) void closeGame();
+});
 
 bedStruggleAudio.addEventListener('ended', () => {
   if (!shouldReplayBedStruggleRoar(
@@ -2022,6 +2074,10 @@ function cancelPendantHold(): void {
 
 async function finishChapterOne(): Promise<void> {
   if (chapterCompleted) return;
+  if (corridorEntryOutcome(firefighterGearEquipped) === 'smoke-death') {
+    startCorridorSmokeDeath();
+    return;
+  }
   chapterCompleted = true;
   move = { x: 0, y: 0 };
   stopFootsteps();
@@ -2032,6 +2088,41 @@ async function finishChapterOne(): Promise<void> {
   await wait(950);
   chapterCompleteEl.classList.add('show');
   syncControllerState();
+}
+
+function startCorridorSmokeDeath(): void {
+  if (smokeDeathActive) return;
+  smokeDeathActive = true;
+  chapterCompleted = true;
+  interactionHeld = false;
+  move = { x: 0, y: 0 };
+  stopFootsteps();
+  clearNotice();
+  hidePendantObjective();
+  document.body.classList.add('corridor-smoke-death');
+  smokeDeathEl.classList.add('show');
+  vibrate([120, 80, 180, 60, 260]);
+  syncControllerState();
+  smokeDeathMenuTimer = window.setTimeout(() => {
+    smokeDeathMenuTimer = null;
+    smokeDeathEl.classList.add('fatal');
+    smokeDeathMenuEl.classList.add('show');
+    vibrate(420);
+    updatePointer(pointer.x, pointer.y);
+  }, UNPROTECTED_CORRIDOR_DEATH_MS);
+}
+
+function handleSmokeDeathMenu(): void {
+  if (!smokeDeathMenuEl.classList.contains('show')) return;
+  if (target?.dataset.smokeDeathRestart) {
+    requestReloadWithRecord('checkpoint');
+    return;
+  }
+  if (target?.dataset.smokeDeathLoad) {
+    openSavePanel('load', 'smoke-death');
+    return;
+  }
+  if (target?.dataset.smokeDeathClose) void closeGame();
 }
 
 function updateHostAudioButton(): void {
@@ -2118,13 +2209,13 @@ function hasClosableInterfaceOpen(): boolean {
 }
 
 function isInterfaceOpen(): boolean {
-  return hasClosableInterfaceOpen() || gamePaused || !gameStarted;
+  return hasClosableInterfaceOpen() || smokeDeathActive || gamePaused || !gameStarted;
 }
 
 function syncControllerState(): void {
   send({
     type: 'proto-controller-state',
-    inventoryOpen: inventoryOpen || safeInspectOpen || photoInspectOpen || deskDrawerInspectOpen || cardboardBoxInspectOpen || bedInspectOpen || radioInspectOpen || drawerPuzzleOpen,
+    inventoryOpen: inventoryOpen || safeInspectOpen || photoInspectOpen || deskDrawerInspectOpen || cardboardBoxInspectOpen || bedInspectOpen || radioInspectOpen || drawerPuzzleOpen || smokeDeathActive,
     paused: gamePaused,
     slots: [...inventorySlots],
     ...(selectedItem ? { selectedItem } : {}),
@@ -2346,7 +2437,7 @@ function updateTarget(): void {
   target = null;
   for (const element of elements) {
     const candidate = element.closest<HTMLElement>(
-      '[data-object], [data-inventory-back], [data-safe-back], [data-safe-keypad], [data-safe-item], [data-photo-back], [data-photo-card], [data-desk-drawer-back], [data-desk-drawer-door], [data-desk-drawer-item], [data-cardboard-box-back], [data-cardboard-box-open], [data-cardboard-box-gear], [data-bed-antenna], [data-bed-death-restart], [data-bed-death-load], [data-bed-death-close], [data-radio-device], [data-drawer-back], [data-drawer-digit], [data-drawer-clear], [data-drawer-reset], [data-drawer-delete], [data-drawer-submit]',
+      '[data-object], [data-inventory-back], [data-safe-back], [data-safe-keypad], [data-safe-item], [data-photo-back], [data-photo-card], [data-desk-drawer-back], [data-desk-drawer-door], [data-desk-drawer-item], [data-cardboard-box-back], [data-cardboard-box-open], [data-cardboard-box-gear], [data-bed-antenna], [data-bed-death-restart], [data-bed-death-load], [data-bed-death-close], [data-smoke-death-restart], [data-smoke-death-load], [data-smoke-death-close], [data-radio-device], [data-drawer-back], [data-drawer-digit], [data-drawer-clear], [data-drawer-reset], [data-drawer-delete], [data-drawer-submit]',
     );
     if (candidate) {
       target = candidate;
@@ -2398,6 +2489,8 @@ function addItem(item: ItemId): boolean {
     void playHostSound('keypadUnlock', { volume: 0.34, playbackRate: 0.82 });
     vibrate([35, 40, 85]);
     syncControllerState();
+    refreshPendantObjective();
+    checkChapterExit();
     return true;
   }
   const emptySlot = inventorySlots.indexOf(null);
@@ -2409,6 +2502,10 @@ function addItem(item: ItemId): boolean {
   vibrate(80);
   syncControllerState();
   if (item === 'pendant') completePendantObjective('find');
+  if (item === 'completeFirefighterGear') {
+    refreshPendantObjective();
+    checkChapterExit();
+  }
   return true;
 }
 
@@ -2422,6 +2519,10 @@ function consumeItem(item: ItemId): void {
 
 function handleInteract(): void {
   if (!gameStarted || gamePaused) return;
+  if (smokeDeathActive) {
+    handleSmokeDeathMenu();
+    return;
+  }
   if (tapePlaybackActive || photoMemoryActive || chapterCompleted) return;
   if (drawerPuzzleOpen) {
     handleDrawerInteract();
@@ -3324,6 +3425,19 @@ function handleItemAction(item: ItemId, action: ProtoItemAction): void {
     openItemDetail(item);
     return;
   }
+  if (item === 'completeFirefighterGear') {
+    if (firefighterGearEquipped) return;
+    firefighterGearEquipped = true;
+    selectedItem = item;
+    detailItem = null;
+    clearNotice();
+    if (inventoryOpen) setInventoryOpen(false);
+    else syncControllerState();
+    completePendantObjective('equipFirefighterGear');
+    vibrate([70, 50, 90, 50, 140]);
+    checkChapterExit();
+    return;
+  }
   const combination = combineFirefighterEquipment(inventorySlots, selectedItem, item);
   if (combination) {
     inventorySlots.splice(0, inventorySlots.length, ...combination.slots);
@@ -3333,6 +3447,8 @@ function handleItemAction(item: ItemId, action: ProtoItemAction): void {
     void playHostSound('keypadUnlock', { volume: 0.34, playbackRate: 0.82 });
     vibrate([35, 40, 85]);
     syncControllerState();
+    refreshPendantObjective();
+    checkChapterExit();
     return;
   }
   const batteryInstallation = installPendantBattery(
@@ -3646,6 +3762,11 @@ if (import.meta.env.DEV) {
     addItem('firefighterMask');
     room.collectObject('firefighterMask');
     openItemDetail('completeFirefighterGear');
+  } else if (inspection === 'firefighter-equip-objective') {
+    addItem('completeFirefighterGear');
+  } else if (inspection === 'firefighter-smoke-death') {
+    addItem('completeFirefighterGear');
+    window.setTimeout(startCorridorSmokeDeath, 350);
   } else if (inspection === 'bed') {
     openBedInspect();
   } else if (inspection === 'death-menu') {
