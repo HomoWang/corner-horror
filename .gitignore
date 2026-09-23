@@ -17,3 +17,21 @@ production/video-pilot/source/
 release/
 .desktop-stage/
 production/archive/assets/
+
+# This repository uses npm; keep alternate package-manager metadata local.
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
+# Local corridor verification captures.
+qa/*.png
+
+# Retired corridor references and generated visual experiments kept locally.
+public/assets/corridor-preview/corridor-reference-01.png
+public/assets/corridor-preview/fire-cabinet-interior-v1.png
+public/assets/corridor-preview/fire-damage-material-atlas-v1.png
+public/assets/corridor-preview/firefighter-mask-interior-v1.png
+public/assets/corridor-preview/firefighter-mask-interior-v2.png
+public/assets/corridor-preview/firefighter-mask-interior-v3.png
+public/assets/corridor-preview/firefighter-mask-interior-v4.png
+public/assets/corridor-preview/firefighter-mask-interior-v5.png
+public/assets/corridor-preview/firefighter-mask-interior-v6.png
