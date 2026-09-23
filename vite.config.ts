@@ -25,6 +25,7 @@ export default defineConfig({
         controller: fileURLToPath(new URL('controller.html', import.meta.url)),
         prototype: fileURLToPath(new URL('prototype.html', import.meta.url)),
         'controller-prototype': fileURLToPath(new URL('controller-prototype.html', import.meta.url)),
+        'corridor-3d-preview': fileURLToPath(new URL('corridor-3d-preview.html', import.meta.url)),
       },
     },
   },

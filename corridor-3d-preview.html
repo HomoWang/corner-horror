@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Room 307 - 三樓走廊模型</title>
+  </head>
+  <body>
+    <main id="corridor-preview" aria-label="Room 307 三樓走廊模型"></main>
+    <div id="scene-fade" aria-hidden="true"></div>
+    <div id="mask-overlay" aria-hidden="true">
+      <img class="mask-interior" src="/assets/corridor-preview/firefighter-mask-interior-v7.png" alt="" />
+      <div class="mask-glass"></div>
+      <div class="mask-condensation"></div>
+    </div>
+    <div id="story-objective" role="status" aria-live="polite">
+      <span class="objective-box">□</span><span class="objective-label">穿上消防裝備</span>
+    </div>
+    <div id="crosshair" aria-hidden="true"></div>
+    <section id="pairing-overlay" aria-label="手機控制器連線">
+      <div class="pairing-content">
+        <h1>掃描手機控制器</h1>
+        <canvas id="qr-code" width="256" height="256"></canvas>
+        <p id="pairing-status">正在建立連線</p>
+      </div>
+    </section>
+    <button id="desktop-equip" type="button">穿戴裝備</button>
+    <script type="module" src="/src/corridor-preview.ts"></script>
+  </body>
+</html>

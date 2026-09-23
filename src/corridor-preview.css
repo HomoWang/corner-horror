@@ -1,0 +1,281 @@
+:root {
+  color-scheme: dark;
+  background: #020202;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --condensation: 0;
+  --hypoxia: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#corridor-preview {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #020202;
+}
+
+body {
+  cursor: crosshair;
+  user-select: none;
+}
+
+canvas {
+  display: block;
+}
+
+#corridor-preview canvas {
+  width: 100%;
+  height: 100%;
+}
+
+#corridor-preview::after {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  content: "";
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 48%, transparent 56%, rgb(0 0 0 / 12%) 79%, rgb(0 0 0 / 48%) 100%),
+    linear-gradient(to bottom, rgb(0 0 0 / 12%), transparent 24%, rgb(0 0 0 / 8%));
+}
+
+#scene-fade {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  background: #000;
+  opacity: 1;
+  transition: opacity 1.35s ease;
+}
+
+body.scene-ready #scene-fade {
+  opacity: 0;
+}
+
+#mask-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 800ms ease;
+}
+
+body.gear-equipped #mask-overlay {
+  opacity: 1;
+}
+
+.mask-glass,
+.mask-condensation {
+  position: absolute;
+}
+
+.mask-interior {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.7) saturate(0.7) contrast(1.12);
+}
+
+.mask-glass {
+  inset: 3% 5% 19%;
+  border-radius: 24% 24% 34% 34% / 18% 18% 28% 28%;
+  background:
+    linear-gradient(115deg, transparent 18%, rgb(255 240 218 / 4%) 34%, transparent 48%),
+    linear-gradient(to bottom, rgb(235 225 211 / 3%), transparent 30%, rgb(10 8 7 / 6%));
+  box-shadow:
+    inset 0 0 28px rgb(0 0 0 / 32%),
+    inset 0 -22px 48px rgb(0 0 0 / 24%);
+}
+
+.mask-condensation {
+  inset: 5% 6% 18%;
+  border-radius: 24% 24% 32% 32%;
+  opacity: calc(var(--condensation) * 0.86);
+  background:
+    radial-gradient(ellipse at 48% 82%, rgb(228 225 214 / 34%) 0 7%, transparent 28%),
+    radial-gradient(ellipse at 18% 76%, rgb(214 217 211 / 22%), transparent 26%),
+    radial-gradient(ellipse at 83% 72%, rgb(214 217 211 / 19%), transparent 24%),
+    linear-gradient(to bottom, transparent 38%, rgb(195 198 192 / 16%) 100%);
+  filter: blur(calc(1px + var(--condensation) * 5px));
+}
+
+#mask-overlay::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: var(--hypoxia);
+  background: radial-gradient(circle at 50% 48%, transparent 8%, rgb(0 0 0 / 92%) 84%);
+}
+
+#story-objective {
+  position: fixed;
+  top: 25vh;
+  left: clamp(18px, 3vw, 52px);
+  z-index: 12;
+  display: flex;
+  gap: 0.62rem;
+  align-items: center;
+  max-width: min(76vw, 410px);
+  color: rgb(238 235 227 / 94%);
+  font-size: clamp(17px, 1.35vw, 23px);
+  font-weight: 650;
+  text-shadow: 0 2px 8px #000, 0 0 18px #000;
+  letter-spacing: 0;
+  opacity: 0;
+  transform: translateX(-18px);
+  filter: blur(5px);
+  transition: opacity 450ms ease, transform 520ms ease, filter 520ms ease, color 320ms ease;
+}
+
+body.scene-ready:not(.pairing) #story-objective {
+  opacity: 1;
+  transform: translateX(0);
+  filter: blur(0);
+}
+
+#story-objective.complete {
+  color: rgb(117 207 127 / 98%);
+}
+
+.objective-box {
+  width: 1.1em;
+  flex: 0 0 1.1em;
+  text-align: center;
+}
+
+#crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 8;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgb(240 235 222 / 68%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 44%);
+}
+
+#crosshair::before,
+#crosshair::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  content: "";
+  background: rgb(240 235 222 / 78%);
+  transform: translate(-50%, -50%);
+}
+
+#crosshair::before {
+  width: 24px;
+  height: 1px;
+}
+
+#crosshair::after {
+  width: 1px;
+  height: 24px;
+}
+
+#pairing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 24;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 72%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 400ms ease;
+  backdrop-filter: blur(3px);
+}
+
+body.pairing #pairing-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pairing-content {
+  width: min(86vw, 410px);
+  text-align: center;
+}
+
+.pairing-content h1 {
+  margin: 0 0 1.15rem;
+  color: rgb(229 221 211 / 92%);
+  font-size: clamp(22px, 2.2vw, 32px);
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+#qr-code {
+  width: min(58vw, 256px);
+  height: auto;
+  margin: 0 auto;
+  padding: 6px;
+  background: #fff;
+}
+
+#pairing-status {
+  min-height: 1.5em;
+  margin: 0.85rem 0 0;
+  color: rgb(190 182 171 / 78%);
+  font-size: 14px;
+}
+
+#desktop-equip {
+  display: none;
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 14;
+  min-height: 40px;
+  padding: 0 0.9rem;
+  border: 1px solid rgb(185 165 141 / 34%);
+  border-radius: 5px;
+  color: rgb(231 220 207 / 90%);
+  background: rgb(8 7 6 / 80%);
+  font: 600 14px/1 system-ui, sans-serif;
+  letter-spacing: 0;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+body.debug-preview:not(.gear-equipped) #desktop-equip {
+  display: block;
+}
+
+body.gear-equipped #desktop-equip,
+body.pairing #desktop-equip {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  #story-objective {
+    top: 24vh;
+  }
+
+  #desktop-equip {
+    right: 12px;
+    bottom: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 1ms !important;
+  }
+}
