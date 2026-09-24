@@ -7,6 +7,7 @@
 | `cabinet-rust-rough-1k.jpg` | 同上 Roughness 1k | CC0 | 鐵件粗糙度（程式內壓成霧面） |
 | `fire-cabinet-exterior-v1.jpg` | 以 Codex CLI（gpt-5.6-sol）生成，背板圖為色彩參考：`output/imagegen/cabinet-exterior-paint-a1.png`，縮為 1024² JPG | 專案自製 | 消防箱外殼與捲盤烤漆 |
 | `fire-hose-jacket-v1.jpg` | 以 Codex CLI（gpt-5.6-sol）生成：`output/imagegen/fire-hose-jacket-b1.png`，轉存 JPG | 專案自製 | 消防水帶帆布表面 |
+| `charred-trauma-face-v1.png` | 以 Codex 內建 ImageGen 依第二章 T13 定案規格生成 | 專案自製 | 303 房門創傷殘像的焦黑臉貼近畫面 |
 
 | `fire-cabinet-backplate-v1.jpg` | 專案協作者以 GPT 生成：`output/imagegen/fire-hose-cabinet-inner-backplate-fire-damaged.png`，裁切為背板比例（右側對齊、保留全高）並轉存 JPG | 專案自製 | 消防箱內側背板；滅火器輪廓中心對齊 3D 空支架 |
 

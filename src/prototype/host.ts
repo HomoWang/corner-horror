@@ -52,16 +52,18 @@ import {
   type GameSettings,
 } from './game-settings';
 import {
-  chapterOneProgressPercent,
   clearSaveSlot,
   createEmptySaveArchive,
+  gameSaveTitle,
   normalizeSaveArchive,
   SAVE_SLOT_COUNT,
   writeSaveSlot,
   type ChapterOneSaveState,
+  type ChapterOneSaveRecord,
   type GameSaveArchive,
   type GameSaveRecord,
 } from './save-system';
+import { createChapterTwoStartState } from '../chapter-two';
 
 type ItemId = ProtoItemId;
 type StoryPhotoId = 'familyPhoto' | 'firefighterPhoto' | 'girlfriendPhoto';
@@ -871,7 +873,7 @@ function captureChapterOneState(): ChapterOneSaveState {
   };
 }
 
-function createCurrentSaveRecord(playtimeMs = currentPlaytimeMs()): GameSaveRecord {
+function createCurrentSaveRecord(playtimeMs = currentPlaytimeMs()): ChapterOneSaveRecord {
   return {
     version: 1,
     chapter: 'chapter-1',
@@ -950,7 +952,7 @@ function resetTransientGameState(): void {
   clearNotice();
 }
 
-function applyChapterOneState(record: GameSaveRecord): void {
+function applyChapterOneState(record: ChapterOneSaveRecord): void {
   resetTransientGameState();
   const state = record.state;
   room.restorePersistenceState(state.room);
@@ -1027,7 +1029,7 @@ function renderSaveSlots(): void {
     const title = document.createElement('strong');
     const detail = document.createElement('span');
     if (record) {
-      title.textContent = `第一章｜開端 ${chapterOneProgressPercent(record.state)}%`;
+      title.textContent = gameSaveTitle(record);
       detail.textContent = savePanelMode === 'save'
         ? `遊玩 ${formatPlaytime(record.playtimeMs)}｜點擊此欄覆蓋`
         : `遊玩 ${formatPlaytime(record.playtimeMs)}`;
@@ -1166,8 +1168,19 @@ async function saveToSlot(index: number): Promise<void> {
 }
 
 function requestReloadWithRecord(source: `slot:${number}` | 'checkpoint'): void {
+  const record = source === 'checkpoint'
+    ? saveArchive.checkpoint
+    : saveArchive.slots[Number(source.slice(5))] ?? null;
   sessionStorage.setItem(PENDING_LOAD_KEY, source);
   sessionStorage.setItem('corner-horror-prototype-room', roomCode);
+  if (record?.chapter === 'chapter-2') {
+    const corridorUrl = new URL('corridor-3d-preview.html', location.href);
+    corridorUrl.searchParams.set('room', roomCode);
+    corridorUrl.searchParams.set('chapter', '2');
+    corridorUrl.searchParams.set('resume', 'pending');
+    location.replace(corridorUrl.toString());
+    return;
+  }
   const restartUrl = new URL(location.href);
   restartUrl.searchParams.set('room', roomCode);
   restartUrl.searchParams.set('restart', source === 'checkpoint' ? 'death' : 'load');
@@ -1206,6 +1219,10 @@ function beginGame(skipQr: boolean): void {
 async function loadSlot(index: number): Promise<void> {
   const record = saveArchive.slots[index];
   if (!record) return;
+  if (record.chapter === 'chapter-2') {
+    requestReloadWithRecord(`slot:${index}`);
+    return;
+  }
   if (gameStarted) {
     requestReloadWithRecord(`slot:${index}`);
     return;
@@ -1320,6 +1337,15 @@ async function initializeGameShell(): Promise<void> {
     if (!saveArchive.checkpoint) {
       saveArchive = { ...saveArchive, checkpoint: createCurrentSaveRecord(0) };
       await persistSaveArchive();
+    }
+    if (pendingRecord.chapter === 'chapter-2') {
+      sessionStorage.setItem(PENDING_LOAD_KEY, pending ?? 'checkpoint');
+      const corridorUrl = new URL('corridor-3d-preview.html', location.href);
+      corridorUrl.searchParams.set('room', roomCode);
+      corridorUrl.searchParams.set('chapter', '2');
+      corridorUrl.searchParams.set('resume', 'pending');
+      location.replace(corridorUrl.toString());
+      return;
     }
     applyChapterOneState(pendingRecord);
     beginGame(true);
@@ -2085,9 +2111,23 @@ async function finishChapterOne(): Promise<void> {
   void playHostSound('doorImpact', { volume: 0.22, playbackRate: 0.48 });
   await wait(900);
   document.body.classList.add('chapter-ending');
+  const chapterTwoRecord: GameSaveRecord = {
+    version: 1,
+    chapter: 'chapter-2',
+    checkpoint: 'chapter-2-start',
+    savedAt: new Date().toISOString(),
+    playtimeMs: currentPlaytimeMs(),
+    state: createChapterTwoStartState(),
+  };
+  saveArchive = { ...saveArchive, checkpoint: chapterTwoRecord };
+  await persistSaveArchive();
+  sessionStorage.setItem('corner-horror-corridor-room', roomCode);
+  const corridorUrl = new URL('corridor-3d-preview.html', location.href);
+  corridorUrl.searchParams.set('room', roomCode);
+  corridorUrl.searchParams.set('chapter', '2');
+  corridorUrl.searchParams.set('resume', 'checkpoint');
   await wait(950);
-  chapterCompleteEl.classList.add('show');
-  syncControllerState();
+  location.replace(corridorUrl.toString());
 }
 
 function startCorridorSmokeDeath(): void {

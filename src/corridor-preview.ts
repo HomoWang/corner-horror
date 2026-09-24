@@ -6,6 +6,26 @@ import { parseMessage, type ProtoControllerStateMsg } from './shared/protocol';
 import { buildWebSocketUrl, createRoomCode, normalizeRoomCode } from './shared/session';
 import { advanceCorridorPose, normalizeAngle, resolveCorridorObstacles, type CorridorPose } from './corridor-motion';
 import { addFireHoseStation } from './corridor-fire-hose';
+import { loadSave, writeSave } from './shared/persistence';
+import {
+  completeChapterTwoTrigger,
+  corridorHighLookLimit,
+  createChapterTwoStartState,
+  hasChapterTwoTrigger,
+  shouldTriggerHypoxiaDeath,
+  type ChapterTwoSaveState,
+  type ChapterTwoTriggerId,
+} from './chapter-two';
+import {
+  clearSaveSlot,
+  createEmptySaveArchive,
+  gameSaveTitle,
+  normalizeSaveArchive,
+  writeSaveSlot,
+  type ChapterTwoSaveRecord,
+  type GameSaveArchive,
+  type GameSaveRecord,
+} from './prototype/save-system';
 import './corridor-preview.css';
 
 const host = document.querySelector<HTMLElement>('#corridor-preview');
@@ -15,8 +35,30 @@ const objectiveLabel = objective?.querySelector<HTMLElement>('.objective-label')
 const qrCanvas = document.querySelector<HTMLCanvasElement>('#qr-code');
 const pairingStatus = document.querySelector<HTMLElement>('#pairing-status');
 const desktopEquip = document.querySelector<HTMLButtonElement>('#desktop-equip');
+const notice = document.querySelector<HTMLElement>('#corridor-notice');
+const subtitle = document.querySelector<HTMLElement>('#corridor-subtitle');
+const interactionPrompt = document.querySelector<HTMLElement>('#interaction-prompt');
+const crosshair = document.querySelector<HTMLElement>('#crosshair');
+const keypadPanel = document.querySelector<HTMLElement>('#keypad-panel');
+const keypadReadout = document.querySelector<HTMLElement>('#keypad-readout');
+const pausePanel = document.querySelector<HTMLElement>('#corridor-pause');
+const savePanel = document.querySelector<HTMLElement>('#corridor-save-panel');
+const savePanelTitle = document.querySelector<HTMLElement>('#corridor-save-title');
+const savePanelHelp = document.querySelector<HTMLElement>('#corridor-save-help');
+const saveSlots = document.querySelector<HTMLElement>('#corridor-save-slots');
+const deathPanel = document.querySelector<HTMLElement>('#corridor-death');
+const ambienceAudio = document.querySelector<HTMLAudioElement>('#corridor-ambience');
+const footstepsAudio = document.querySelector<HTMLAudioElement>('#corridor-footsteps');
+const pendantAudio = document.querySelector<HTMLAudioElement>('#corridor-pendant');
+const jumpscareAudio = document.querySelector<HTMLAudioElement>('#corridor-jumpscare-audio');
 
-if (!host || !objective || !objectiveBox || !objectiveLabel || !qrCanvas || !pairingStatus) {
+if (
+  !host || !objective || !objectiveBox || !objectiveLabel || !qrCanvas || !pairingStatus ||
+  !notice || !subtitle || !interactionPrompt || !crosshair || !keypadPanel ||
+  !keypadReadout || !pausePanel || !savePanel || !savePanelTitle || !savePanelHelp ||
+  !saveSlots || !deathPanel || !ambienceAudio || !footstepsAudio || !pendantAudio ||
+  !jumpscareAudio
+) {
   throw new Error('Corridor preview UI is incomplete.');
 }
 const previewHost = host;
@@ -25,6 +67,21 @@ const objectiveBoxEl = objectiveBox;
 const objectiveLabelEl = objectiveLabel;
 const qrCanvasEl = qrCanvas;
 const pairingStatusEl = pairingStatus;
+const noticeEl = notice;
+const subtitleEl = subtitle;
+const interactionPromptEl = interactionPrompt;
+const crosshairEl = crosshair;
+const keypadPanelEl = keypadPanel;
+const keypadReadoutEl = keypadReadout;
+const pausePanelEl = pausePanel;
+const savePanelEl = savePanel;
+const savePanelTitleEl = savePanelTitle;
+const savePanelHelpEl = savePanelHelp;
+const saveSlotsEl = saveSlots;
+const ambienceAudioEl = ambienceAudio;
+const footstepsAudioEl = footstepsAudio;
+const pendantAudioEl = pendantAudio;
+const jumpscareAudioEl = jumpscareAudio;
 
 const query = new URLSearchParams(location.search);
 const skipPairing = query.get('pair') !== '1' || query.get('nopair') === '1';
@@ -409,8 +466,8 @@ addDoor(-1, 0.35, '307');
 addDoor(1, -1.85, '308');
 addDoor(-1, -5.1, '305', true, false);
 addDoor(1, -7.85, '306', true);
-addDoor(-1, -11.1, '303', true);
-addDoor(1, -14.05, '304', true);
+addDoor(1, -13.35, '304', true);
+addDoor(-1, -15.75, '303', true);
 
 const fallenPlaqueMaterial = new THREE.MeshStandardMaterial({
   map: makePlaqueTexture('305'),
@@ -424,6 +481,102 @@ addMesh(
   new THREE.Vector3(-1.25, 0.016, -5.32),
   new THREE.Euler(0.04, 0.34, -0.08),
 );
+
+const cluePaperMaterial = new THREE.MeshStandardMaterial({
+  color: 0x5c4c3f,
+  roughness: 0.97,
+  side: THREE.DoubleSide,
+});
+const halfPhoto = addMesh(
+  new THREE.PlaneGeometry(0.22, 0.15),
+  cluePaperMaterial,
+  new THREE.Vector3(-1.05, 0.018, -7.28),
+  new THREE.Euler(-Math.PI / 2, 0.08, -0.34),
+);
+halfPhoto.scale.x = 0.62;
+const bentKey = addMesh(
+  new THREE.TorusGeometry(0.045, 0.009, 9, 22, Math.PI * 1.75),
+  dullMetalMaterial,
+  new THREE.Vector3(-0.78, 0.035, -7.46),
+  new THREE.Euler(Math.PI / 2, 0.2, 0.25),
+);
+bentKey.scale.set(1, 0.72, 1);
+
+const midFireDoorPivot = new THREE.Group();
+midFireDoorPivot.position.set(-CORRIDOR.halfWidth + 0.08, 0, -10.18);
+const midFireDoorPanel = new THREE.Mesh(
+  new RoundedBoxGeometry(CORRIDOR.halfWidth * 2 - 0.16, 2.48, 0.09, 5, 0.012),
+  fireDoorMaterial,
+);
+midFireDoorPanel.position.set(CORRIDOR.halfWidth - 0.08, 1.24, 0);
+midFireDoorPanel.castShadow = true;
+midFireDoorPanel.receiveShadow = true;
+midFireDoorPivot.add(midFireDoorPanel);
+scene.add(midFireDoorPivot);
+geometryCount += 1;
+for (const x of [-1.42, 1.42]) {
+  addMesh(
+    new RoundedBoxGeometry(0.12, 2.58, 0.16, 4, 0.01),
+    fireDoorFrameMaterial,
+    new THREE.Vector3(x, 1.29, -10.18),
+  );
+}
+addMesh(
+  new RoundedBoxGeometry(3, 0.12, 0.16, 4, 0.01),
+  fireDoorFrameMaterial,
+  new THREE.Vector3(0, 2.54, -10.18),
+);
+const midDoorMechanism = addMesh(
+  new RoundedBoxGeometry(0.28, 0.42, 0.12, 4, 0.012),
+  fireDoorHardwareMaterial,
+  new THREE.Vector3(1.18, 1.12, -10.09),
+);
+const midDoorHandleSocket = addMesh(
+  new THREE.CylinderGeometry(0.045, 0.045, 0.11, 18),
+  dullMetalMaterial,
+  new THREE.Vector3(1.18, 1.12, -10.01),
+  new THREE.Euler(Math.PI / 2, 0, 0),
+);
+midDoorMechanism.castShadow = midDoorHandleSocket.castShadow = false;
+
+const fireHandleGroup = new THREE.Group();
+const fireHandleGrip = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.025, 0.028, 0.36, 18),
+  dullMetalMaterial,
+);
+fireHandleGrip.rotation.z = Math.PI / 2;
+const fireHandleHub = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.052, 0.052, 0.035, 18),
+  dullMetalMaterial,
+);
+fireHandleHub.rotation.x = Math.PI / 2;
+fireHandleGroup.add(fireHandleGrip, fireHandleHub);
+fireHandleGroup.position.set(0.78, 0.075, -9.48);
+fireHandleGroup.rotation.y = -0.24;
+scene.add(fireHandleGroup);
+geometryCount += 2;
+
+const keyCabinet = addMesh(
+  new RoundedBoxGeometry(0.08, 0.72, 0.54, 4, 0.012),
+  fireDoorFrameMaterial,
+  new THREE.Vector3(CORRIDOR.halfWidth - 0.035, 1.35, -18.05),
+);
+const keyCabinetPanel = addMesh(
+  new RoundedBoxGeometry(0.035, 0.26, 0.18, 4, 0.008),
+  fireDoorHardwareMaterial,
+  new THREE.Vector3(CORRIDOR.halfWidth - 0.095, 1.38, -18.05),
+);
+keyCabinet.castShadow = keyCabinetPanel.castShadow = false;
+
+const silhouetteMaterial = new THREE.MeshBasicMaterial({ color: 0x020101 });
+const charredSilhouette = new THREE.Group();
+const silhouetteHead = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 14), silhouetteMaterial);
+silhouetteHead.position.y = 1.56;
+const silhouetteTorso = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.82, 8, 16), silhouetteMaterial);
+silhouetteTorso.position.y = 0.91;
+charredSilhouette.add(silhouetteHead, silhouetteTorso);
+charredSilhouette.visible = false;
+scene.add(charredSilhouette);
 
 const sootHandprintsMaterial = new THREE.MeshBasicMaterial({
   map: sootHandprintsMap,
@@ -863,10 +1016,36 @@ let phoneLook = { x: 0, y: 0 };
 let mouseLook = { x: 0, y: 0 };
 let navigationPulse = 0;
 let navigationPulseUntil = 0;
-let gearEquipped = false;
+const officialChapter = query.get('chapter') === '2';
+let gearEquipped = officialChapter;
 let objectiveCompleted = false;
 let highLookDuration = 0;
 let lastWarningVibration = 0;
+let chapterState = createChapterTwoStartState();
+let saveArchive: GameSaveArchive = createEmptySaveArchive();
+let playtimeBaseMs = 0;
+let playtimeStartedAt = performance.now();
+let interactionHeld = false;
+let interactionHoldStartedAt = 0;
+let interactionTarget: CorridorInteraction | null = null;
+let paused = false;
+let dead = false;
+let scripted = false;
+let keypadCode = '';
+let keypadSelection = 0;
+let keypadOpen = false;
+let saveMode: 'save' | 'load' = 'save';
+let saveReturn: 'pause' | 'death' = 'pause';
+let noticeTimer: number | null = null;
+let subtitleTimer: number | null = null;
+let fireDoorOpenAmount = 0;
+let room307LookDuration = 0;
+let room305AwaitingRetreat = false;
+let lastDoorResistanceVibration = 0;
+let room305CompletedAt = 0;
+let awaitingTraumaTurn = false;
+let traumaLookYaw = 0;
+let audioUnlocked = false;
 let controllerConnected = false;
 let ws: WebSocket | null = null;
 let reconnectTimer: number | null = null;
@@ -877,10 +1056,286 @@ const roomCode = normalizeRoomCode(query.get('room'))
   ?? createRoomCode();
 sessionStorage.setItem('corner-horror-corridor-room', roomCode);
 
+type CorridorInteraction =
+  | 'room307'
+  | 'room305'
+  | 'fireCabinet'
+  | 'fireHandle'
+  | 'midFireDoor'
+  | 'room303'
+  | 'keyCabinet'
+  | 'stairDoor';
+
+const interactionPoints: Record<CorridorInteraction, { x: number; z: number; radius: number; label: string }> = {
+  room307: { x: -1.5, z: 0.35, radius: 1.25, label: '查看 307 房門' },
+  room305: { x: -1.48, z: -5.1, radius: 1.3, label: '查看掉落門牌與門把' },
+  fireCabinet: { x: 1.48, z: -9.25, radius: 1.35, label: '查看破裂消防箱' },
+  fireHandle: { x: 0.78, z: -9.48, radius: 1.05, label: '拾起焦黑消防把手' },
+  midFireDoor: { x: 0.9, z: -10.02, radius: 1.3, label: '持續操作門栓' },
+  room303: { x: -1.48, z: -15.75, radius: 1.35, label: '使用 303 房門鑰匙' },
+  keyCabinet: { x: 1.48, z: -18.05, radius: 1.25, label: '輸入房號' },
+  stairDoor: { x: 0, z: -21.05, radius: 1.4, label: '將手掌貼上防火門' },
+};
+
 function setObjective(label: string, complete = false) {
   objectiveEl.classList.toggle('complete', complete);
   objectiveBoxEl.textContent = complete ? '■' : '□';
   objectiveLabelEl.textContent = complete ? `${label}(完成)` : label;
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function currentPlaytimeMs(): number {
+  return Math.max(0, Math.round(playtimeBaseMs + (paused ? 0 : performance.now() - playtimeStartedAt)));
+}
+
+function showNotice(message: string, duration = 2600) {
+  if (noticeTimer !== null) window.clearTimeout(noticeTimer);
+  noticeEl.textContent = message;
+  noticeEl.classList.add('show');
+  noticeTimer = window.setTimeout(() => {
+    noticeEl.classList.remove('show');
+    noticeTimer = null;
+  }, duration);
+}
+
+function showSubtitle(message: string, duration = 2600) {
+  if (subtitleTimer !== null) window.clearTimeout(subtitleTimer);
+  subtitleEl.textContent = message;
+  subtitleEl.classList.add('show');
+  subtitleTimer = window.setTimeout(() => {
+    subtitleEl.classList.remove('show');
+    subtitleTimer = null;
+  }, duration);
+}
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  ambienceAudioEl.volume = 0.18;
+  footstepsAudioEl.volume = 0.22;
+  pendantAudioEl.volume = 0.34;
+  jumpscareAudioEl.volume = 0.58;
+  if (!paused && !dead) void ambienceAudioEl.play().catch(() => undefined);
+}
+
+function synthImpact(frequency = 110, duration = 0.13, gain = 0.08) {
+  if (!audioUnlocked) return;
+  const AudioContextClass = window.AudioContext;
+  const context = new AudioContextClass();
+  const oscillator = context.createOscillator();
+  const volume = context.createGain();
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(Math.max(28, frequency * 0.35), context.currentTime + duration);
+  volume.gain.setValueAtTime(gain, context.currentTime);
+  volume.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
+  oscillator.connect(volume).connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + duration);
+  oscillator.addEventListener('ended', () => void context.close());
+}
+
+function completeTrigger(trigger: ChapterTwoTriggerId) {
+  chapterState = completeChapterTwoTrigger(chapterState, trigger);
+  document.body.dataset.chapterTrigger = trigger;
+}
+
+function makeChapterTwoRecord(): ChapterTwoSaveRecord {
+  return {
+    version: 1,
+    chapter: 'chapter-2',
+    checkpoint: 'chapter-2-start',
+    savedAt: new Date().toISOString(),
+    playtimeMs: currentPlaytimeMs(),
+    state: {
+      ...chapterState,
+      pose: { ...pose },
+      completedTriggers: [...chapterState.completedTriggers],
+    },
+  };
+}
+
+async function persistArchive() {
+  await writeSave(saveArchive);
+}
+
+function applyChapterState(record: ChapterTwoSaveRecord) {
+  chapterState = {
+    ...record.state,
+    pose: { ...record.state.pose },
+    completedTriggers: [...record.state.completedTriggers],
+  };
+  pose = { ...record.state.pose };
+  playtimeBaseMs = record.playtimeMs;
+  playtimeStartedAt = performance.now();
+  gearEquipped = true;
+  document.body.classList.add('gear-equipped');
+  fireHandleGroup.visible = !chapterState.fireHandleCollected;
+  fireDoorOpenAmount = chapterState.fireDoorOpened ? 1 : 0;
+  midFireDoorPivot.rotation.y = -Math.PI * 0.49 * fireDoorOpenAmount;
+  objectiveCompleted = hasChapterTwoTrigger(chapterState, 'T14');
+  setObjective('抵達樓梯間', objectiveCompleted);
+}
+
+async function ensureChapterCheckpoint() {
+  const stored = await loadSave<GameSaveArchive>();
+  saveArchive = normalizeSaveArchive(stored?.data);
+  const pending = sessionStorage.getItem('room307-pending-load');
+  const resume = query.get('resume');
+  let record: GameSaveRecord | null = null;
+  if (resume === 'pending' && pending === 'checkpoint') record = saveArchive.checkpoint;
+  else if (resume === 'pending' && pending?.startsWith('slot:')) {
+    const index = Number(pending.slice(5));
+    record = Number.isInteger(index) ? saveArchive.slots[index] ?? null : null;
+  } else if (resume === 'checkpoint') record = saveArchive.checkpoint;
+  sessionStorage.removeItem('room307-pending-load');
+
+  if (record?.chapter === 'chapter-1') {
+    const roomUrl = new URL('prototype.html', location.href);
+    roomUrl.searchParams.set('room', roomCode);
+    roomUrl.searchParams.set('restart', 'load');
+    location.replace(roomUrl.toString());
+    return;
+  }
+  if (record?.chapter === 'chapter-2') applyChapterState(record);
+  else {
+    chapterState = createChapterTwoStartState();
+    gearEquipped = officialChapter || autoEquip;
+    if (gearEquipped) document.body.classList.add('gear-equipped');
+  }
+
+  if (!saveArchive.checkpoint || saveArchive.checkpoint.chapter !== 'chapter-2') {
+    const startRecord: ChapterTwoSaveRecord = {
+      version: 1,
+      chapter: 'chapter-2',
+      checkpoint: 'chapter-2-start',
+      savedAt: new Date().toISOString(),
+      playtimeMs: currentPlaytimeMs(),
+      state: createChapterTwoStartState(),
+    };
+    saveArchive = { ...saveArchive, checkpoint: startRecord };
+    await persistArchive();
+  }
+}
+
+function formatPlaytime(milliseconds: number): string {
+  const minutes = Math.max(0, Math.floor(milliseconds / 60000));
+  return minutes >= 60 ? `${Math.floor(minutes / 60)} 小時 ${minutes % 60} 分` : `${minutes} 分鐘`;
+}
+
+function renderSaveSlots() {
+  saveSlotsEl.replaceChildren();
+  saveArchive.slots.forEach((record, index) => {
+    const row = document.createElement('div');
+    row.className = 'save-slot-row';
+    const slot = document.createElement('button');
+    slot.type = 'button';
+    slot.dataset.slot = String(index);
+    slot.textContent = record
+      ? `${String(index + 1).padStart(2, '0')}　${gameSaveTitle(record)}　${formatPlaytime(record.playtimeMs)}`
+      : `${String(index + 1).padStart(2, '0')}　空白存檔`;
+    slot.disabled = saveMode === 'load' && !record;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.dataset.deleteSlot = String(index);
+    remove.textContent = '刪除';
+    remove.disabled = !record;
+    row.append(slot, remove);
+    saveSlotsEl.append(row);
+  });
+}
+
+function openSavePanel(mode: 'save' | 'load', from: 'pause' | 'death') {
+  saveMode = mode;
+  saveReturn = from;
+  pausePanelEl.classList.remove('open');
+  document.body.classList.remove('corridor-dead');
+  savePanelTitleEl.textContent = mode === 'save' ? '儲存遊戲' : '讀取存檔';
+  savePanelHelpEl.textContent = mode === 'save' ? '點擊舊檔可直接覆蓋。' : '選擇要讀取的進度。';
+  renderSaveSlots();
+  savePanelEl.classList.add('open');
+}
+
+function closeSavePanel() {
+  savePanelEl.classList.remove('open');
+  if (saveReturn === 'death') document.body.classList.add('corridor-dead');
+  else pausePanelEl.classList.add('open');
+}
+
+async function saveToSlot(index: number) {
+  const record = makeChapterTwoRecord();
+  saveArchive = writeSaveSlot(saveArchive, index, record);
+  await persistArchive();
+  renderSaveSlots();
+  savePanelHelpEl.textContent = `已儲存至存檔 ${index + 1}。`;
+}
+
+function navigateToRecord(record: GameSaveRecord, source: string) {
+  sessionStorage.setItem('room307-pending-load', source);
+  if (record.chapter === 'chapter-1') {
+    const roomUrl = new URL('prototype.html', location.href);
+    roomUrl.searchParams.set('room', roomCode);
+    roomUrl.searchParams.set('restart', 'load');
+    location.replace(roomUrl.toString());
+    return;
+  }
+  const corridorUrl = new URL('corridor-3d-preview.html', location.href);
+  corridorUrl.searchParams.set('room', roomCode);
+  corridorUrl.searchParams.set('chapter', '2');
+  corridorUrl.searchParams.set('resume', 'pending');
+  location.replace(corridorUrl.toString());
+}
+
+function loadSlot(index: number) {
+  const record = saveArchive.slots[index];
+  if (!record) return;
+  navigateToRecord(record, `slot:${index}`);
+}
+
+async function deleteSlot(index: number) {
+  if (!saveArchive.slots[index]) return;
+  saveArchive = clearSaveSlot(saveArchive, index);
+  await persistArchive();
+  renderSaveSlots();
+}
+
+function restartChapter() {
+  const record = saveArchive.checkpoint;
+  if (record?.chapter === 'chapter-2') navigateToRecord(record, 'checkpoint');
+}
+
+async function closeGame() {
+  reconnectEnabled = false;
+  if (window.room307Desktop) {
+    await window.room307Desktop.closeGame().catch(() => false);
+    return;
+  }
+  window.close();
+}
+
+function setPaused(next: boolean) {
+  if (dead || scripted || keypadOpen) return;
+  if (paused === next) return;
+  if (next) {
+    playtimeBaseMs = currentPlaytimeMs();
+    paused = true;
+    movement = { forward: 0, turn: 0 };
+    footstepsAudioEl.pause();
+    ambienceAudioEl.pause();
+    pausePanelEl.classList.add('open');
+    document.body.classList.add('corridor-paused');
+  } else {
+    pausePanelEl.classList.remove('open');
+    savePanelEl.classList.remove('open');
+    paused = false;
+    playtimeStartedAt = performance.now();
+    document.body.classList.remove('corridor-paused');
+    if (audioUnlocked) void ambienceAudioEl.play().catch(() => undefined);
+  }
+  syncControllerState();
 }
 
 function send(message: object) {
@@ -892,7 +1347,7 @@ function syncControllerState() {
     type: 'proto-controller-state',
     slots: ['completeFirefighterGear', null, null, null, null, null, null, null, null, null, null, null],
     inventoryOpen: false,
-    paused: false,
+    paused: paused || dead || scripted || keypadOpen,
   };
   send(message);
 }
@@ -916,6 +1371,267 @@ function completeCorridorObjective() {
   objectiveCompleted = true;
   setObjective('抵達樓梯間', true);
   vibrate(90);
+}
+
+function interactionAvailable(id: CorridorInteraction): boolean {
+  if (id === 'room307') return !hasChapterTwoTrigger(chapterState, 'T02');
+  if (id === 'room305') return !hasChapterTwoTrigger(chapterState, 'T03') && !room305AwaitingRetreat;
+  if (id === 'fireCabinet') return !hasChapterTwoTrigger(chapterState, 'T05');
+  if (id === 'fireHandle') return hasChapterTwoTrigger(chapterState, 'T05') && !chapterState.fireHandleCollected;
+  if (id === 'midFireDoor') return chapterState.fireHandleCollected && !chapterState.fireDoorOpened;
+  if (id === 'keyCabinet') return hasChapterTwoTrigger(chapterState, 'T10') && !hasChapterTwoTrigger(chapterState, 'T11');
+  if (id === 'room303') return hasChapterTwoTrigger(chapterState, 'T12') && chapterState.room303KeyCollected && !hasChapterTwoTrigger(chapterState, 'T13');
+  if (id === 'stairDoor') return hasChapterTwoTrigger(chapterState, 'T13') && !hasChapterTwoTrigger(chapterState, 'T14');
+  return false;
+}
+
+function findInteractionTarget(): CorridorInteraction | null {
+  if (paused || dead || scripted || keypadOpen) return null;
+  const forwardX = -Math.sin(pose.yaw);
+  const forwardZ = -Math.cos(pose.yaw);
+  let best: { id: CorridorInteraction; distance: number } | null = null;
+  for (const [id, point] of Object.entries(interactionPoints) as Array<[
+    CorridorInteraction,
+    (typeof interactionPoints)[CorridorInteraction],
+  ]>) {
+    if (!interactionAvailable(id)) continue;
+    const dx = point.x - pose.x;
+    const dz = point.z - pose.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance > point.radius) continue;
+    const facing = distance < 0.001 ? 1 : (dx * forwardX + dz * forwardZ) / distance;
+    if (facing < 0.48) continue;
+    if (!best || distance < best.distance) best = { id, distance };
+  }
+  return best?.id ?? null;
+}
+
+function updateInteractionPrompt() {
+  interactionTarget = findInteractionTarget();
+  const point = interactionTarget ? interactionPoints[interactionTarget] : null;
+  interactionPromptEl.textContent = point?.label ?? '';
+  interactionPromptEl.classList.toggle('show', Boolean(point));
+  crosshairEl.classList.toggle('active', Boolean(point));
+}
+
+async function playRoom307Memory() {
+  scripted = true;
+  movement = { forward: 0, turn: 0 };
+  showNotice('門外傳來熟悉的沉重靴聲。', 2100);
+  synthImpact(74, 0.2, 0.1);
+  await wait(850);
+  synthImpact(62, 0.22, 0.12);
+  await wait(540);
+  synthImpact(58, 0.24, 0.13);
+  showSubtitle('祈望：商禾！', 1500);
+  vibrate([60, 75, 110]);
+  await wait(1350);
+  completeTrigger('T02');
+  showNotice('門開啟的瞬間，記憶又斷了。', 1900);
+  scripted = false;
+}
+
+async function inspectRoom305() {
+  scripted = true;
+  synthImpact(190, 0.08, 0.035);
+  showNotice('305。門牌掉在地上，門框因高溫變形，已經卡死。', 3100);
+  vibrate(24);
+  await wait(1500);
+  synthImpact(150, 0.11, 0.04);
+  await wait(650);
+  room305AwaitingRetreat = true;
+  showNotice('門完全卡死。', 1500);
+  scripted = false;
+}
+
+function revealEscapeClues() {
+  completeTrigger('T04');
+  showNotice('煙灰手印一路延伸。燒焦鞋旁的半張照片只剩：「三樓……」「……等我回來」', 4400);
+}
+
+function inspectFireCabinet() {
+  completeTrigger('T05');
+  showNotice('玻璃已破，滅火器不見了。被拉出的水帶有數處燒穿。', 3600);
+  vibrate(26);
+}
+
+function collectFireHandle() {
+  chapterState = { ...chapterState, fireHandleCollected: true };
+  fireHandleGroup.visible = false;
+  showNotice('取得焦黑的金屬消防把手。', 2200);
+  vibrate([30, 35, 55]);
+}
+
+async function openMidFireDoor() {
+  if (chapterState.fireDoorOpened || scripted) return;
+  scripted = true;
+  synthImpact(54, 0.75, 0.12);
+  showNotice('門栓正在緩慢解除。', 2500);
+  await wait(1550);
+  chapterState = { ...chapterState, fireDoorOpened: true };
+  completeTrigger('T06');
+  vibrate([80, 45, 160]);
+  showNotice('防火隔門打開了。聲音傳進走廊深處，沒有任何回應。', 3400);
+  await wait(1700);
+  scripted = false;
+}
+
+function openKeypad() {
+  keypadOpen = true;
+  keypadCode = '';
+  keypadSelection = 0;
+  keypadReadoutEl.textContent = '---';
+  document.body.classList.add('keypad-open');
+  updateKeypadSelection();
+  syncControllerState();
+}
+
+function closeKeypad() {
+  keypadOpen = false;
+  keypadCode = '';
+  document.body.classList.remove('keypad-open');
+  syncControllerState();
+}
+
+function updateKeypadSelection() {
+  const buttons = [...keypadPanelEl.querySelectorAll<HTMLButtonElement>('[data-keypad]')];
+  buttons.forEach((button, index) => button.classList.toggle('selected', index === keypadSelection));
+}
+
+function pressKeypad(value: string) {
+  if (value === 'back') {
+    closeKeypad();
+    return;
+  }
+  if (value === 'clear') keypadCode = '';
+  else if (/^\d$/.test(value) && keypadCode.length < 3) keypadCode += value;
+  keypadReadoutEl.textContent = keypadCode.padEnd(3, '-');
+  synthImpact(420, 0.045, 0.025);
+  if (keypadCode.length !== 3) return;
+  if (keypadCode !== '304') {
+    keypadCode = '';
+    keypadReadoutEl.textContent = '錯誤';
+    vibrate([90, 80, 90]);
+    window.setTimeout(() => { keypadReadoutEl.textContent = '---'; }, 650);
+    return;
+  }
+  chapterState = { ...chapterState, room303KeyCollected: true };
+  completeTrigger('T11');
+  keypadReadoutEl.textContent = '開啟';
+  vibrate(70);
+  window.setTimeout(() => {
+    closeKeypad();
+    showNotice('壁櫃打開了。裡面是一把標有 303 的燒黑房門鑰匙。', 3600);
+  }, 520);
+}
+
+async function playReturningFigure() {
+  if (scripted || hasChapterTwoTrigger(chapterState, 'T12')) return;
+  scripted = true;
+  movement = { forward: 0, turn: 0 };
+  const positions = [-8.2, -11.35, -14.35];
+  for (const [index, z] of positions.entries()) {
+    document.body.classList.add('figure-blackout');
+    await wait(index === 0 ? 950 : 620);
+    charredSilhouette.position.set(0, 0, z);
+    charredSilhouette.visible = true;
+    emergencyLight.intensity = 13;
+    document.body.classList.remove('figure-blackout');
+    vibrate(18);
+    await wait(520);
+    charredSilhouette.visible = false;
+    emergencyLight.intensity = 0;
+  }
+  completeTrigger('T12');
+  scripted = false;
+}
+
+async function playRoom303Knocks() {
+  if (scripted || hasChapterTwoTrigger(chapterState, 'T10')) return;
+  scripted = true;
+  movement = { forward: 0, turn: 0 };
+  for (let index = 0; index < 3; index += 1) {
+    synthImpact(68, 0.18, 0.11);
+    vibrate(34);
+    await wait(520);
+  }
+  showNotice('門鎖住了。地上的燒焦紙條只剩：「門打不開。」', 3600);
+  await wait(1500);
+  completeTrigger('T10');
+  scripted = false;
+}
+
+async function openRoom303Trauma() {
+  scripted = true;
+  synthImpact(82, 0.22, 0.08);
+  document.body.classList.add('trauma-room');
+  showNotice('門內只有燒毀牆面與密集抓痕。', 2400);
+  await wait(2700);
+  showSubtitle('身後傳來一次很近的呼吸。', 2400);
+  document.body.classList.remove('trauma-room');
+  traumaLookYaw = pose.yaw;
+  awaitingTraumaTurn = true;
+  scripted = false;
+}
+
+async function triggerTraumaJumpscare() {
+  awaitingTraumaTurn = false;
+  scripted = true;
+  document.body.classList.add('trauma-jump');
+  vibrate(360);
+  if (audioUnlocked) {
+    jumpscareAudioEl.currentTime = 0;
+    void jumpscareAudioEl.play().catch(() => undefined);
+  }
+  await wait(760);
+  document.body.classList.remove('trauma-jump');
+  completeTrigger('T13');
+  chapterState = { ...chapterState, room303KeyCollected: false };
+  showNotice('回過神時，303 仍是關閉卡死的狀態。鑰匙也不見了。', 3600);
+  scripted = false;
+}
+
+async function finishChapterTwo() {
+  scripted = true;
+  completeTrigger('T14');
+  completeCorridorObjective();
+  showNotice('門不燙。樓梯間的冷空氣從縫隙滲了進來。', 2600);
+  saveArchive = { ...saveArchive, checkpoint: makeChapterTwoRecord() };
+  await persistArchive();
+  await wait(2800);
+  showNotice('第二章完成', 10000);
+}
+
+function handleInteraction() {
+  if (keypadOpen) {
+    const button = [...keypadPanelEl.querySelectorAll<HTMLButtonElement>('[data-keypad]')][keypadSelection];
+    if (button) pressKeypad(button.dataset.keypad ?? '');
+    return;
+  }
+  if (!interactionTarget || paused || dead || scripted) return;
+  unlockAudio();
+  if (interactionTarget === 'room307') void playRoom307Memory();
+  else if (interactionTarget === 'room305') void inspectRoom305();
+  else if (interactionTarget === 'fireCabinet') inspectFireCabinet();
+  else if (interactionTarget === 'fireHandle') collectFireHandle();
+  else if (interactionTarget === 'keyCabinet') openKeypad();
+  else if (interactionTarget === 'room303') void openRoom303Trauma();
+  else if (interactionTarget === 'stairDoor') void finishChapterTwo();
+}
+
+async function startHypoxiaDeath() {
+  if (dead) return;
+  dead = true;
+  scripted = true;
+  movement = { forward: 0, turn: 0 };
+  interactionHeld = false;
+  footstepsAudioEl.pause();
+  ambienceAudioEl.pause();
+  document.documentElement.style.setProperty('--hypoxia', '1');
+  vibrate([100, 80, 160, 70, 260]);
+  await wait(950);
+  document.body.classList.add('corridor-dead');
+  syncControllerState();
 }
 
 async function showQr() {
@@ -958,15 +1674,28 @@ function connectController() {
       controllerConnected = message.controller;
       document.body.classList.toggle('pairing', !skipPairing && !controllerConnected);
       setPairingStatus(controllerConnected ? '手機已連線' : '等待手機連線');
-      if (controllerConnected) syncControllerState();
+      if (controllerConnected) {
+        unlockAudio();
+        syncControllerState();
+      }
     }
     if (message.type === 'ready') {
       controllerConnected = true;
       document.body.classList.remove('pairing');
+      unlockAudio();
       syncControllerState();
     }
     if (message.type === 'proto-move') phoneMove = { x: message.x, y: message.y };
     if (message.type === 'proto-pointer') phoneLook = { x: message.x, y: message.y };
+    if (message.type === 'proto-interact') handleInteraction();
+    if (message.type === 'proto-use') {
+      interactionHeld = message.pressed;
+      if (message.pressed) {
+        interactionHoldStartedAt = performance.now();
+        if (interactionTarget !== 'midFireDoor') handleInteraction();
+      }
+    }
+    if (message.type === 'proto-pause') setPaused(!paused);
     if (message.type === 'proto-navigate') {
       if (message.direction === 'left') pose.yaw = normalizeAngle(pose.yaw + Math.PI / 7);
       if (message.direction === 'right') pose.yaw = normalizeAngle(pose.yaw - Math.PI / 7);
@@ -997,8 +1726,17 @@ const keys = new Set<string>();
 window.addEventListener('keydown', (event) => {
   keys.add(event.code);
   if (event.code === 'KeyE') equipGear();
+  if (event.code === 'Space' || event.code === 'KeyF') {
+    interactionHeld = true;
+    interactionHoldStartedAt = performance.now();
+    if (interactionTarget !== 'midFireDoor') handleInteraction();
+  }
+  if (event.code === 'Escape' || event.code === 'KeyP') setPaused(!paused);
 });
-window.addEventListener('keyup', (event) => keys.delete(event.code));
+window.addEventListener('keyup', (event) => {
+  keys.delete(event.code);
+  if (event.code === 'Space' || event.code === 'KeyF') interactionHeld = false;
+});
 window.addEventListener('blur', () => keys.clear());
 window.addEventListener('pointermove', (event) => {
   mouseLook = {
@@ -1007,8 +1745,13 @@ window.addEventListener('pointermove', (event) => {
   };
 });
 desktopEquip?.addEventListener('click', equipGear);
+window.addEventListener('pointerdown', unlockAudio, { once: true });
 
 function updateInputs(now: number) {
+  if (paused || dead || scripted || keypadOpen) {
+    movement = { forward: 0, turn: 0 };
+    return;
+  }
   const keyboardForward = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0)
     - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
   const keyboardTurn = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0)
@@ -1027,7 +1770,11 @@ function render() {
   elapsed += delta;
   updateInputs(performance.now());
 
-  const allowedBounds = gearEquipped ? fullBounds : { ...fullBounds, minZ: 0.55 };
+  const allowedBounds = !gearEquipped
+    ? { ...fullBounds, minZ: 0.55 }
+    : chapterState.fireDoorOpened
+      ? fullBounds
+      : { ...fullBounds, minZ: -9.76 };
   const previous = pose;
   pose = resolveCorridorObstacles(
     advanceCorridorPose(pose, movement, delta, allowedBounds),
@@ -1046,13 +1793,30 @@ function render() {
   headRig.position.y = 1.61 + walkingBob;
   headRig.rotation.set(headPitch, headYaw, 0);
 
+  if (keypadOpen) {
+    const column = Math.max(0, Math.min(2, Math.floor((phoneLook.x + 1) * 1.5)));
+    const row = Math.max(0, Math.min(3, Math.floor((1 - phoneLook.y) * 2)));
+    const nextSelection = row * 3 + column;
+    if (nextSelection !== keypadSelection) {
+      keypadSelection = nextSelection;
+      updateKeypadSelection();
+    }
+  }
+
+  if (audioUnlocked && !paused && !dead && !scripted && moved > 0.0001) {
+    if (footstepsAudioEl.paused) void footstepsAudioEl.play().catch(() => undefined);
+  } else if (!footstepsAudioEl.paused) {
+    footstepsAudioEl.pause();
+  }
+
   const lookingHigh = gearEquipped && lookSource.y > 0.34;
   highLookDuration = THREE.MathUtils.clamp(
     highLookDuration + delta * (lookingHigh ? 1 : -1.8),
     0,
-    2.2,
+    2.6,
   );
-  const danger = THREE.MathUtils.smoothstep(highLookDuration, 0.35, 1.35);
+  const highLookLimit = corridorHighLookLimit(pose.z);
+  const danger = THREE.MathUtils.smoothstep(highLookDuration, highLookLimit * 0.35, highLookLimit + 0.35);
   document.documentElement.style.setProperty('--condensation', danger.toFixed(3));
   document.documentElement.style.setProperty('--hypoxia', (danger * 0.72).toFixed(3));
   document.body.dataset.condensation = danger.toFixed(3);
@@ -1060,6 +1824,7 @@ function render() {
     lastWarningVibration = performance.now();
     vibrate(Math.round(26 + danger * 70));
   }
+  if (!dead && shouldTriggerHypoxiaDeath(highLookDuration, pose.z)) void startHypoxiaDeath();
 
   for (const cloud of smokeClouds) {
     cloud.sprite.position.x = cloud.baseX + Math.sin(elapsed * cloud.speed + cloud.phase) * 0.18;
@@ -1067,7 +1832,98 @@ function render() {
   }
   updateBloodDrip(elapsed);
 
-  if (gearEquipped && pose.z <= -20.7) completeCorridorObjective();
+  if (chapterState.fireDoorOpened && fireDoorOpenAmount < 1) {
+    fireDoorOpenAmount = Math.min(1, fireDoorOpenAmount + delta * 0.42);
+  }
+  midFireDoorPivot.rotation.y = -Math.PI * 0.49 * fireDoorOpenAmount;
+
+  updateInteractionPrompt();
+  room307LookDuration = interactionTarget === 'room307'
+    ? room307LookDuration + delta
+    : 0;
+  if (room307LookDuration >= 0.65) {
+    room307LookDuration = 0;
+    void playRoom307Memory();
+  }
+  if (
+    interactionHeld &&
+    interactionTarget === 'midFireDoor' &&
+    performance.now() - interactionHoldStartedAt >= 1150
+  ) {
+    interactionHeld = false;
+    void openMidFireDoor();
+  }
+  if (
+    interactionHeld &&
+    interactionTarget === 'midFireDoor' &&
+    performance.now() - lastDoorResistanceVibration >= 240
+  ) {
+    lastDoorResistanceVibration = performance.now();
+    vibrate(30);
+  }
+
+  if (
+    room305AwaitingRetreat &&
+    Math.hypot(pose.x - interactionPoints.room305.x, pose.z - interactionPoints.room305.z) > 2.15
+  ) {
+    room305AwaitingRetreat = false;
+    synthImpact(148, 0.11, 0.045);
+    completeTrigger('T03');
+    room305CompletedAt = performance.now();
+    showNotice('身後的門把自己轉動了一次。門沒有打開。', 2600);
+  }
+
+  if (
+    hasChapterTwoTrigger(chapterState, 'T03') &&
+    !hasChapterTwoTrigger(chapterState, 'T04') &&
+    pose.z < -6.65 &&
+    (room305CompletedAt === 0 || performance.now() - room305CompletedAt > 1800)
+  ) {
+    revealEscapeClues();
+  }
+  if (chapterState.fireDoorOpened && !hasChapterTwoTrigger(chapterState, 'T07') && pose.z < -10.55) {
+    completeTrigger('T07');
+    showNotice('門後的煙更低、更濃。天花板已經坍落，裸線垂在水痕上方。', 3700);
+  }
+  if (
+    hasChapterTwoTrigger(chapterState, 'T07') &&
+    !hasChapterTwoTrigger(chapterState, 'T08') &&
+    pose.z < -12.45 &&
+    lookSource.y > 0.05
+  ) {
+    completeTrigger('T08');
+    if (audioUnlocked) {
+      pendantAudioEl.currentTime = 0;
+      void pendantAudioEl.play().catch(() => undefined);
+    }
+    showSubtitle('商禾：你回不來的話，我就去把你帶回來。', 4200);
+  }
+  if (hasChapterTwoTrigger(chapterState, 'T08') && !hasChapterTwoTrigger(chapterState, 'T09') && pose.z < -13.55) {
+    completeTrigger('T09');
+    document.body.classList.remove('fire-memory');
+    void document.body.offsetWidth;
+    document.body.classList.add('fire-memory');
+    vibrate(42);
+    window.setTimeout(() => document.body.classList.remove('fire-memory'), 480);
+  }
+  if (hasChapterTwoTrigger(chapterState, 'T09') && !hasChapterTwoTrigger(chapterState, 'T10') && pose.z < -15.1) {
+    void playRoom303Knocks();
+  }
+  if (
+    hasChapterTwoTrigger(chapterState, 'T11') &&
+    !hasChapterTwoTrigger(chapterState, 'T12') &&
+    pose.z > -17.15 &&
+    Math.cos(pose.yaw) < -0.2
+  ) {
+    void playReturningFigure();
+  }
+  if (awaitingTraumaTurn && Math.abs(normalizeAngle(pose.yaw - traumaLookYaw)) > 2.05) {
+    void triggerTraumaJumpscare();
+  }
+
+  if (hasChapterTwoTrigger(chapterState, 'T13') && pose.z <= -20.7) {
+    showNotice('樓梯間防火門就在前方。', 1400);
+  }
   document.body.dataset.playerX = pose.x.toFixed(3);
   document.body.dataset.playerZ = pose.z.toFixed(3);
   document.body.dataset.playerYaw = pose.yaw.toFixed(3);
@@ -1082,14 +1938,81 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+keypadPanelEl.addEventListener('click', (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-keypad]');
+  if (button) pressKeypad(button.dataset.keypad ?? '');
+});
+
+pausePanelEl.addEventListener('click', (event) => {
+  const action = (event.target as HTMLElement).closest<HTMLElement>('[data-corridor-menu]')?.dataset.corridorMenu;
+  if (action === 'resume') setPaused(false);
+  else if (action === 'save') openSavePanel('save', 'pause');
+  else if (action === 'load') openSavePanel('load', 'pause');
+  else if (action === 'title') {
+    const titleUrl = new URL('prototype.html', location.href);
+    titleUrl.searchParams.set('room', roomCode);
+    location.replace(titleUrl.toString());
+  } else if (action === 'quit') void closeGame();
+});
+
+savePanelEl.addEventListener('click', (event) => {
+  const element = event.target as HTMLElement;
+  if (element.closest('[data-corridor-save-back]')) {
+    closeSavePanel();
+    return;
+  }
+  const remove = element.closest<HTMLElement>('[data-delete-slot]');
+  if (remove) {
+    void deleteSlot(Number(remove.dataset.deleteSlot));
+    return;
+  }
+  const slot = element.closest<HTMLElement>('[data-slot]');
+  if (!slot) return;
+  const index = Number(slot.dataset.slot);
+  if (saveMode === 'save') void saveToSlot(index);
+  else loadSlot(index);
+});
+
+document.querySelector<HTMLElement>('#corridor-death')?.addEventListener('click', (event) => {
+  const action = (event.target as HTMLElement).closest<HTMLElement>('[data-death]')?.dataset.death;
+  if (action === 'restart') restartChapter();
+  else if (action === 'load') openSavePanel('load', 'death');
+  else if (action === 'quit') void closeGame();
+});
+
 document.body.dataset.modelReady = 'true';
 document.body.dataset.geometryCount = String(geometryCount);
 document.body.dataset.doorCount = String(doorCount);
 document.body.dataset.bloodReady = 'true';
 document.body.classList.toggle('debug-preview', skipPairing);
 document.body.classList.toggle('pairing', !skipPairing);
-if (autoEquip) equipGear();
-void showQr().catch(() => setPairingStatus('QR Code 產生失敗'));
-connectController();
-requestAnimationFrame(() => document.body.classList.add('scene-ready'));
-render();
+
+async function initializeChapterTwo() {
+  await ensureChapterCheckpoint();
+  if (inspectMode && pose.z < -10.1) {
+    chapterState = {
+      ...chapterState,
+      completedTriggers: ['T01', 'T02', 'T03', 'T04', 'T05', 'T06'],
+      fireHandleCollected: true,
+      fireDoorOpened: true,
+    };
+    fireHandleGroup.visible = false;
+    fireDoorOpenAmount = 1;
+    midFireDoorPivot.rotation.y = -Math.PI * 0.49;
+    gearEquipped = true;
+  }
+  if (autoEquip && !gearEquipped) equipGear();
+  if (gearEquipped) {
+    document.body.classList.add('gear-equipped');
+    setObjective('穿上消防裝備', true);
+    window.setTimeout(() => {
+      if (!objectiveCompleted) setObjective('抵達樓梯間');
+    }, 3000);
+  }
+  void showQr().catch(() => setPairingStatus('QR Code 產生失敗'));
+  connectController();
+  window.setTimeout(() => document.body.classList.add('scene-ready'), officialChapter ? 1100 : 80);
+  render();
+}
+
+void initializeChapterTwo();

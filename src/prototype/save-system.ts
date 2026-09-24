@@ -1,4 +1,9 @@
 import type { ProtoItemId } from '../shared/protocol';
+import {
+  chapterTwoProgressPercent,
+  isChapterTwoSaveState,
+  type ChapterTwoSaveState,
+} from '../chapter-two';
 import type { PrototypeRoomState, RoomObjectId, ViewId, WardrobeSection } from './room2d';
 
 export const SAVE_SLOT_COUNT = 5;
@@ -27,7 +32,7 @@ export interface ChapterOneSaveState {
   firefighterGearEquipped?: boolean;
 }
 
-export interface GameSaveRecord {
+export interface ChapterOneSaveRecord {
   version: 1;
   chapter: 'chapter-1';
   checkpoint: 'chapter-1-start';
@@ -35,6 +40,17 @@ export interface GameSaveRecord {
   playtimeMs: number;
   state: ChapterOneSaveState;
 }
+
+export interface ChapterTwoSaveRecord {
+  version: 1;
+  chapter: 'chapter-2';
+  checkpoint: 'chapter-2-start';
+  savedAt: string;
+  playtimeMs: number;
+  state: ChapterTwoSaveState;
+}
+
+export type GameSaveRecord = ChapterOneSaveRecord | ChapterTwoSaveRecord;
 
 export interface GameSaveArchive {
   schemaVersion: 1;
@@ -146,15 +162,19 @@ function isChapterOneState(value: unknown): value is ChapterOneSaveState {
 
 export function isGameSaveRecord(value: unknown): value is GameSaveRecord {
   if (!isRecord(value)) return false;
-  return (
+  const common =
     value.version === GAME_SAVE_VERSION &&
-    value.chapter === 'chapter-1' &&
-    value.checkpoint === 'chapter-1-start' &&
     typeof value.savedAt === 'string' &&
     Number.isFinite(value.playtimeMs) &&
-    (value.playtimeMs as number) >= 0 &&
-    isChapterOneState(value.state)
-  );
+    (value.playtimeMs as number) >= 0;
+  if (!common) return false;
+  if (value.chapter === 'chapter-1') {
+    return value.checkpoint === 'chapter-1-start' && isChapterOneState(value.state);
+  }
+  if (value.chapter === 'chapter-2') {
+    return value.checkpoint === 'chapter-2-start' && isChapterTwoSaveState(value.state);
+  }
+  return false;
 }
 
 export function createEmptySaveArchive(): GameSaveArchive {
@@ -212,4 +232,11 @@ export function chapterOneProgressPercent(state: ChapterOneSaveState): number {
   ];
   const complete = milestones.filter(Boolean).length;
   return Math.round((complete / milestones.length) * 100);
+}
+
+export function gameSaveTitle(record: GameSaveRecord): string {
+  if (record.chapter === 'chapter-2') {
+    return `第二章｜三樓走廊 ${chapterTwoProgressPercent(record.state)}%`;
+  }
+  return `第一章｜開端 ${chapterOneProgressPercent(record.state)}%`;
 }

@@ -5,11 +5,13 @@ import {
   createEmptySaveArchive,
   normalizeSaveArchive,
   SAVE_SLOT_COUNT,
+  gameSaveTitle,
   writeSaveSlot,
-  type GameSaveRecord,
+  type ChapterOneSaveRecord,
 } from '../src/prototype/save-system';
+import { createChapterTwoStartState } from '../src/chapter-two';
 
-function record(): GameSaveRecord {
+function record(): ChapterOneSaveRecord {
   return {
     version: 1,
     chapter: 'chapter-1',
@@ -108,5 +110,23 @@ describe('save archive', () => {
     save.state.collectedItems.push('completeFirefighterGear');
     save.state.firefighterGearEquipped = true;
     expect(chapterOneProgressPercent(save.state)).toBe(100);
+  });
+
+  it('accepts chapter two saves and labels them separately', () => {
+    const chapterTwo = {
+      version: 1 as const,
+      chapter: 'chapter-2' as const,
+      checkpoint: 'chapter-2-start' as const,
+      savedAt: '2026-09-24T08:00:00.000Z',
+      playtimeMs: 640000,
+      state: createChapterTwoStartState(),
+    };
+    const archive = normalizeSaveArchive({
+      schemaVersion: 1,
+      checkpoint: chapterTwo,
+      slots: [chapterTwo],
+    });
+    expect(archive.checkpoint?.chapter).toBe('chapter-2');
+    expect(gameSaveTitle(chapterTwo)).toBe('第二章｜三樓走廊 7%');
   });
 });

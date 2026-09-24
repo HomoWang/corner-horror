@@ -3,20 +3,69 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Room 307 - 三樓走廊模型</title>
+    <title>Room 307 - 第二章 三樓走廊</title>
   </head>
   <body>
-    <main id="corridor-preview" aria-label="Room 307 三樓走廊模型"></main>
+    <main id="corridor-preview" aria-label="Room 307 第二章三樓走廊"></main>
     <div id="scene-fade" aria-hidden="true"></div>
     <div id="mask-overlay" aria-hidden="true">
-      <img class="mask-interior" src="/assets/corridor-preview/firefighter-mask-interior-v7.png" alt="" />
+      <img class="mask-interior" src="./assets/corridor-preview/firefighter-mask-interior-v7.png" alt="" />
       <div class="mask-glass"></div>
       <div class="mask-condensation"></div>
     </div>
     <div id="story-objective" role="status" aria-live="polite">
       <span class="objective-box">□</span><span class="objective-label">穿上消防裝備</span>
     </div>
+    <div id="corridor-notice" role="status" aria-live="polite"></div>
+    <div id="corridor-subtitle" aria-live="polite"></div>
+    <div id="interaction-prompt" aria-hidden="true"></div>
     <div id="crosshair" aria-hidden="true"></div>
+    <div id="fire-memory" aria-hidden="true">
+      <div class="memory-flame flame-a"></div>
+      <div class="memory-flame flame-b"></div>
+      <div class="memory-runner"></div>
+    </div>
+    <div id="trauma-room" aria-hidden="true">
+      <p>為什麼你沒有開門？</p>
+    </div>
+    <div id="trauma-jumpscare" aria-hidden="true">
+      <img src="./assets/corridor-preview/charred-trauma-face-v1.png" alt="" />
+    </div>
+    <section id="keypad-panel" aria-label="房號壁櫃密碼">
+      <div class="keypad-readout" id="keypad-readout">---</div>
+      <div class="keypad-grid">
+        <button type="button" data-keypad="1">1</button><button type="button" data-keypad="2">2</button><button type="button" data-keypad="3">3</button>
+        <button type="button" data-keypad="4">4</button><button type="button" data-keypad="5">5</button><button type="button" data-keypad="6">6</button>
+        <button type="button" data-keypad="7">7</button><button type="button" data-keypad="8">8</button><button type="button" data-keypad="9">9</button>
+        <button type="button" data-keypad="clear">清除</button><button type="button" data-keypad="0">0</button><button type="button" data-keypad="back">返回</button>
+      </div>
+    </section>
+    <section id="corridor-pause" class="corridor-menu" aria-label="暫停選單">
+      <h2>暫停</h2>
+      <button type="button" data-corridor-menu="resume">繼續遊戲</button>
+      <button type="button" data-corridor-menu="save">儲存遊戲</button>
+      <button type="button" data-corridor-menu="load">讀取存檔</button>
+      <button type="button" data-corridor-menu="title">回到主選單</button>
+      <button type="button" data-corridor-menu="quit">關閉遊戲</button>
+    </section>
+    <section id="corridor-save-panel" class="corridor-menu wide" aria-label="存檔">
+      <h2 id="corridor-save-title">儲存遊戲</h2>
+      <p id="corridor-save-help"></p>
+      <div id="corridor-save-slots"></div>
+      <button type="button" data-corridor-save-back>返回</button>
+    </section>
+    <section id="corridor-death" aria-label="死亡">
+      <div class="death-copy"><strong>死亡</strong><span>濃煙灌入面罩，視野逐漸消失。</span></div>
+      <div class="death-actions">
+        <button type="button" data-death="restart">從章節起點重新開始</button>
+        <button type="button" data-death="load">讀取存檔</button>
+        <button type="button" data-death="quit">關閉遊戲</button>
+      </div>
+    </section>
+    <audio id="corridor-ambience" src="./assets/audio/horror-ambience.mp3" preload="auto" loop></audio>
+    <audio id="corridor-footsteps" src="./assets/audio/heavy-footsteps-loop.mp3" preload="auto" loop></audio>
+    <audio id="corridor-pendant" src="./assets/audio/pendant-melody.mp3" preload="auto"></audio>
+    <audio id="corridor-jumpscare-audio" src="./assets/audio/jumpscare-scream.mp3" preload="auto"></audio>
     <section id="pairing-overlay" aria-label="手機控制器連線">
       <div class="pairing-content">
         <h1>掃描手機控制器</h1>
