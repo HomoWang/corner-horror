@@ -48,8 +48,8 @@
         inset: 0;
         overflow: hidden;
         background:
-          radial-gradient(circle at var(--aim-x) var(--aim-y), rgba(255, 222, 174, 0.34), transparent 18rem),
-          linear-gradient(#2b211c, #17110f);
+          radial-gradient(circle at var(--aim-x) var(--aim-y), rgba(136, 151, 157, 0.08), transparent 22rem),
+          linear-gradient(#080a0b, #020303);
       }
 
       #room-scene {
@@ -104,7 +104,7 @@
       #room-background {
         object-fit: cover;
         user-select: none;
-        filter: brightness(1.08) contrast(1.04) saturate(0.88);
+        filter: brightness(0.66) contrast(1.12) saturate(0.7);
       }
 
       #room-state-layer {
@@ -123,7 +123,7 @@
 
       #room-scene.changing-view #room-background {
         opacity: 0.78;
-        filter: brightness(0.82) contrast(1.02) saturate(0.86);
+        filter: brightness(0.5) contrast(1.12) saturate(0.62);
       }
 
       body.tape-playing #room-background,
@@ -762,8 +762,54 @@
         z-index: 8;
         pointer-events: none;
         background:
-          radial-gradient(circle at var(--aim-x) var(--aim-y), transparent 0 13rem, rgba(0, 0, 0, 0.08) 20rem, rgba(0, 0, 0, 0.34) 38rem);
-        mix-blend-mode: multiply;
+          radial-gradient(
+            circle at var(--aim-x) var(--aim-y),
+            transparent 0 10rem,
+            rgba(4, 8, 10, 0.16) 16rem,
+            rgba(2, 5, 7, 0.58) 29rem,
+            rgba(0, 2, 3, 0.88) 48rem,
+            rgba(0, 1, 2, 0.94) 100%
+          );
+        overflow: hidden;
+        opacity: 1;
+        transition: opacity 180ms ease;
+        animation: flashlight-exposure 8.4s ease-in-out infinite;
+      }
+
+      #flashlight::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(
+            ellipse 17rem 15rem at var(--aim-x) var(--aim-y),
+            rgba(255, 239, 207, 0.22) 0,
+            rgba(255, 222, 174, 0.11) 36%,
+            rgba(176, 192, 196, 0.025) 68%,
+            transparent 100%
+          );
+        mix-blend-mode: screen;
+      }
+
+      #flashlight::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 18% 23%, rgba(255, 255, 255, 0.018) 0 1px, transparent 1.8px),
+          radial-gradient(circle at 76% 68%, rgba(0, 0, 0, 0.025) 0 1px, transparent 2px);
+        background-size: 7px 9px, 11px 13px;
+        opacity: 0.34;
+        mix-blend-mode: soft-light;
+        -webkit-mask-image: radial-gradient(circle at var(--aim-x) var(--aim-y), #000 0 13rem, transparent 31rem);
+        mask-image: radial-gradient(circle at var(--aim-x) var(--aim-y), #000 0 13rem, transparent 31rem);
+      }
+
+      @keyframes flashlight-exposure {
+        0%, 18%, 49%, 76%, 100% { opacity: 1; }
+        31% { opacity: 0.985; }
+        63% { opacity: 0.992; }
+        88% { opacity: 0.978; }
       }
 
       #hud {
@@ -2260,7 +2306,8 @@
       body.reduce-motion #bed-inspect-frame.bed-shake-feedback,
       body.reduce-motion #room-scene,
       body.reduce-motion #room-background,
-      body.reduce-motion #room-state-layer {
+      body.reduce-motion #room-state-layer,
+      body.reduce-motion #flashlight {
         animation-duration: 1ms !important;
         transition-duration: 1ms !important;
       }
