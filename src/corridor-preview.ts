@@ -1043,6 +1043,8 @@ let room307LookDuration = 0;
 let room305AwaitingRetreat = false;
 let lastDoorResistanceVibration = 0;
 let room305CompletedAt = 0;
+let pendantLineReady = false;
+let room303KnockActive = false;
 let awaitingTraumaTurn = false;
 let traumaLookYaw = 0;
 let audioUnlocked = false;
@@ -1345,7 +1347,7 @@ function send(message: object) {
 function syncControllerState() {
   const message: ProtoControllerStateMsg = {
     type: 'proto-controller-state',
-    slots: ['completeFirefighterGear', null, null, null, null, null, null, null, null, null, null, null],
+    slots: ['completeFirefighterGear', 'pendant', null, null, null, null, null, null, null, null, null, null],
     inventoryOpen: false,
     paused: paused || dead || scripted || keypadOpen,
   };
@@ -1547,7 +1549,8 @@ async function playReturningFigure() {
 }
 
 async function playRoom303Knocks() {
-  if (scripted || hasChapterTwoTrigger(chapterState, 'T10')) return;
+  if (scripted || room303KnockActive || hasChapterTwoTrigger(chapterState, 'T10')) return;
+  room303KnockActive = true;
   scripted = true;
   movement = { forward: 0, turn: 0 };
   for (let index = 0; index < 3; index += 1) {
@@ -1555,10 +1558,34 @@ async function playRoom303Knocks() {
     vibrate(34);
     await wait(520);
   }
-  showNotice('門鎖住了。地上的燒焦紙條只剩：「門打不開。」', 3600);
-  await wait(1500);
-  completeTrigger('T10');
+  const firstKnockPose = { ...pose };
   scripted = false;
+  await wait(1250);
+  if (!dead && Math.hypot(pose.x - firstKnockPose.x, pose.z - firstKnockPose.z) < 0.12) {
+    scripted = true;
+    for (let index = 0; index < 3; index += 1) {
+      synthImpact(68, 0.18, 0.11);
+      vibrate(34);
+      await wait(520);
+    }
+  }
+  showNotice('門鎖住了。地上的燒焦紙條只剩：「門打不開。」', 3600);
+  await wait(900);
+  completeTrigger('T10');
+  room303KnockActive = false;
+  scripted = false;
+}
+
+function playPendantLine() {
+  if (!pendantLineReady || hasChapterTwoTrigger(chapterState, 'T08')) return;
+  pendantLineReady = false;
+  completeTrigger('T08');
+  if (audioUnlocked) {
+    pendantAudioEl.currentTime = 0;
+    void pendantAudioEl.play().catch(() => undefined);
+  }
+  showSubtitle('商禾：你回不來的話，我就去把你帶回來。', 4200);
+  vibrate([38, 80, 38]);
 }
 
 async function openRoom303Trauma() {
@@ -1709,6 +1736,11 @@ function connectController() {
       && message.item === 'completeFirefighterGear'
       && message.action === 'use'
     ) equipGear();
+    if (
+      message.type === 'proto-item-action' &&
+      message.item === 'pendant' &&
+      message.action === 'inspect'
+    ) playPendantLine();
   });
   socket.addEventListener('close', () => {
     if (ws === socket) ws = null;
@@ -1889,14 +1921,15 @@ function render() {
     hasChapterTwoTrigger(chapterState, 'T07') &&
     !hasChapterTwoTrigger(chapterState, 'T08') &&
     pose.z < -12.45 &&
-    lookSource.y > 0.05
+    lookSource.y > 0.05 &&
+    !pendantLineReady
   ) {
-    completeTrigger('T08');
+    pendantLineReady = true;
     if (audioUnlocked) {
       pendantAudioEl.currentTime = 0;
       void pendantAudioEl.play().catch(() => undefined);
     }
-    showSubtitle('商禾：你回不來的話，我就去把你帶回來。', 4200);
+    showNotice('錄音吊飾的旋律在濃煙中斷續響起。', 3000);
   }
   if (hasChapterTwoTrigger(chapterState, 'T08') && !hasChapterTwoTrigger(chapterState, 'T09') && pose.z < -13.55) {
     completeTrigger('T09');
