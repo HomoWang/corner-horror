@@ -44,7 +44,8 @@ describe('item interaction notices', () => {
     expect(hostSource).toContain("completePendantObjective('find')");
     expect(hostSource).toContain("completePendantObjective('install')");
     expect(hostSource).toContain("completePendantObjective('use')");
-    expect(hostSource).toContain("completePendantObjective('equipFirefighterGear')");
+    expect(hostSource).not.toContain("completePendantObjective('equipFirefighterGear')");
+    expect(hostSource).toContain('離開 307、進入走廊後再穿戴。');
     expect(hostSource).not.toContain('舊電池已裝入錄音吊飾。');
     expect(hostSource).not.toContain('吊飾響起一段熟悉的旋律。');
     expect(hostSource).not.toContain('使用中：錄音吊飾');

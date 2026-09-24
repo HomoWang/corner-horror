@@ -139,6 +139,7 @@ let selectedItem: ProtoItemId | null = null;
 let detailItem: ProtoItemId | null = null;
 let interfaceWasOpen = false;
 let controllerPaused = false;
+let equipmentPrompt = false;
 let smoothedPointer = { x: 0, y: 0 };
 const viewPointerResponse = {
   x: { range: 24, deadZone: 0.1, curve: 1.08 },
@@ -247,6 +248,7 @@ function renderPhoneInventory(): void {
       item ? '' : 'empty',
       item && selectedItem === item ? 'selected' : '',
       item && detailItem === item ? 'detail' : '',
+      item === 'completeFirefighterGear' && equipmentPrompt ? 'equipment-target' : '',
     ]
       .filter(Boolean)
       .join(' ');
@@ -332,6 +334,8 @@ function connect(): void {
       const wasPaused = controllerPaused;
       interfaceWasOpen = msg.inventoryOpen;
       controllerPaused = msg.paused === true;
+      equipmentPrompt = msg.equipmentPrompt === true;
+      document.body.classList.toggle('equipment-required', equipmentPrompt);
       controllerSlots = [...msg.slots];
       selectedItem = msg.selectedItem ?? null;
       detailItem = msg.detailItem ?? null;

@@ -13,6 +13,7 @@ describe('chapter two corridor state', () => {
     const state = createChapterTwoStartState();
     expect(state.completedTriggers).toEqual(['T01']);
     expect(state.pose).toEqual({ x: 0, z: 1.2, yaw: 0 });
+    expect(state.firefighterGearEquipped).toBe(false);
     expect(chapterTwoProgressPercent(state)).toBe(7);
   });
 
@@ -33,5 +34,11 @@ describe('chapter two corridor state', () => {
     const state = createChapterTwoStartState();
     expect(isChapterTwoSaveState(state)).toBe(true);
     expect(isChapterTwoSaveState({ ...state, fireDoorOpened: 'yes' })).toBe(false);
+  });
+
+  it('keeps older chapter two saves valid when the equipment flag is absent', () => {
+    const state = createChapterTwoStartState();
+    delete state.firefighterGearEquipped;
+    expect(isChapterTwoSaveState(state)).toBe(true);
   });
 });

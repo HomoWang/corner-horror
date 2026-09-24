@@ -23,6 +23,7 @@ export interface ChapterTwoSaveState {
   fireHandleCollected: boolean;
   fireDoorOpened: boolean;
   room303KeyCollected: boolean;
+  firefighterGearEquipped?: boolean;
 }
 
 export const CHAPTER_TWO_START_POSE = { x: 0, z: 1.2, yaw: 0 } as const;
@@ -34,6 +35,7 @@ export function createChapterTwoStartState(): ChapterTwoSaveState {
     fireHandleCollected: false,
     fireDoorOpened: false,
     room303KeyCollected: false,
+    firefighterGearEquipped: false,
   };
 }
 
@@ -80,6 +82,8 @@ export function isChapterTwoSaveState(value: unknown): value is ChapterTwoSaveSt
     ) &&
     typeof candidate.fireHandleCollected === 'boolean' &&
     typeof candidate.fireDoorOpened === 'boolean' &&
-    typeof candidate.room303KeyCollected === 'boolean'
+    typeof candidate.room303KeyCollected === 'boolean' &&
+    (candidate.firefighterGearEquipped === undefined ||
+      typeof candidate.firefighterGearEquipped === 'boolean')
   );
 }

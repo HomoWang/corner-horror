@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { advanceCorridorPose, normalizeAngle, resolveCorridorObstacles } from '../src/corridor-motion';
+import {
+  advanceCorridorPose,
+  corridorHeadRotation,
+  normalizeAngle,
+  resolveCorridorObstacles,
+} from '../src/corridor-motion';
 
 const bounds = { minX: -1.34, maxX: 1.34, minZ: -21.35, maxZ: 1.55 };
 
@@ -24,6 +29,12 @@ describe('corridor movement', () => {
     );
     expect(next.yaw).toBeGreaterThan(0);
     expect(next.x).toBeLessThan(0);
+  });
+
+  it('keeps the phone look direction consistent with chapter one', () => {
+    expect(corridorHeadRotation({ x: 1, y: 0 }).yaw).toBeLessThan(0);
+    expect(corridorHeadRotation({ x: -1, y: 0 }).yaw).toBeGreaterThan(0);
+    expect(corridorHeadRotation({ x: 0, y: 1 }).pitch).toBeGreaterThan(0);
   });
 
   it('never allows the camera through the corridor walls or end caps', () => {

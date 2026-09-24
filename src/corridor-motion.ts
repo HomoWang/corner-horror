@@ -9,6 +9,11 @@ export interface CorridorMotionInput {
   turn: number;
 }
 
+export interface CorridorLookInput {
+  x: number;
+  y: number;
+}
+
 export interface CorridorBounds {
   minX: number;
   maxX: number;
@@ -28,6 +33,15 @@ export function normalizeAngle(angle: number): number {
   while (normalized > Math.PI) normalized -= Math.PI * 2;
   while (normalized < -Math.PI) normalized += Math.PI * 2;
   return normalized;
+}
+
+export function corridorHeadRotation(input: CorridorLookInput): { yaw: number; pitch: number } {
+  return {
+    // Three.js positive Y rotation looks left from the default -Z heading, so
+    // the phone's positive/right pointer direction must use a negative yaw.
+    yaw: clamp(-input.x * 0.23, -0.23, 0.23),
+    pitch: clamp(input.y * 0.34 - 0.035, -0.24, 0.31),
+  };
 }
 
 /** A thin vertical obstacle (cabinet face, open door leaf) seen from above as an XZ segment. */

@@ -88,6 +88,7 @@ export interface ProtoControllerStateMsg {
   detailItem?: ProtoItemId;
   inventoryOpen: boolean;
   paused?: boolean;
+  equipmentPrompt?: boolean;
 }
 
 export interface ProtoVibrateMsg {
@@ -221,6 +222,7 @@ export function parseMessage(raw: unknown): Msg | null {
     case 'proto-controller-state':
       return typeof message.inventoryOpen === 'boolean' &&
         (message.paused === undefined || typeof message.paused === 'boolean') &&
+        (message.equipmentPrompt === undefined || typeof message.equipmentPrompt === 'boolean') &&
         Array.isArray(message.slots) &&
         message.slots.length === 12 &&
         message.slots.every(
@@ -238,6 +240,9 @@ export function parseMessage(raw: unknown): Msg | null {
             type: 'proto-controller-state',
             inventoryOpen: message.inventoryOpen,
             ...(typeof message.paused === 'boolean' ? { paused: message.paused } : {}),
+            ...(typeof message.equipmentPrompt === 'boolean'
+              ? { equipmentPrompt: message.equipmentPrompt }
+              : {}),
             slots: message.slots,
             ...(typeof message.selectedItem === 'string'
               ? { selectedItem: message.selectedItem as ProtoItemId }

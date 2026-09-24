@@ -154,6 +154,13 @@ body.scene-ready:not(.pairing) #story-objective {
   filter: blur(0);
 }
 
+body.corridor-dead #story-objective,
+body.corridor-paused #story-objective {
+  opacity: 0;
+  transform: translateX(-12px);
+  filter: blur(4px);
+}
+
 #story-objective.complete {
   color: rgb(117 207 127 / 98%);
 }

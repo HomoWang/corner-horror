@@ -6,6 +6,10 @@ import {
 } from '../shared/protocol';
 import { publicUrl } from '../shared/public-url';
 import { loadSave, writeSave } from '../shared/persistence';
+import {
+  createChapterMusicHandoff,
+  writeChapterMusicHandoff,
+} from '../shared/music-handoff';
 import { buildWebSocketUrl, createRoomCode, normalizeRoomCode } from '../shared/session';
 import {
   SAFE_CODE,
@@ -28,11 +32,10 @@ import { PrototypeRoom2D, type RoomObjectId } from './room2d';
 import { pendantDescription } from './item-copy';
 import {
   STORY_OBJECTIVE_LABELS,
-  nextStoryObjective,
+  nextPendantObjective,
   type StoryObjectiveId,
 } from './pendant-objective';
 import {
-  corridorEntryOutcome,
   UNPROTECTED_CORRIDOR_DEATH_MS,
 } from './firefighter-equipment';
 import {
@@ -480,18 +483,12 @@ function showNotice(text: string, duration = 2400): void {
 }
 
 function currentPendantObjective(): StoryObjectiveId | null {
-  return nextStoryObjective(
-    {
-      hasPendant: collectedItems.has('pendant'),
-      powered: pendantPowered,
-      doorScareCompleted,
-      activated: pendantActivated,
-    },
-    {
-      hasCompleteGear: collectedItems.has('completeFirefighterGear'),
-      equipped: firefighterGearEquipped,
-    },
-  );
+  return nextPendantObjective({
+    hasPendant: collectedItems.has('pendant'),
+    powered: pendantPowered,
+    doorScareCompleted,
+    activated: pendantActivated,
+  });
 }
 
 function clearPendantObjectiveTransition(): void {
@@ -2100,10 +2097,6 @@ function cancelPendantHold(): void {
 
 async function finishChapterOne(): Promise<void> {
   if (chapterCompleted) return;
-  if (corridorEntryOutcome(firefighterGearEquipped) === 'smoke-death') {
-    startCorridorSmokeDeath();
-    return;
-  }
   chapterCompleted = true;
   move = { x: 0, y: 0 };
   stopFootsteps();
@@ -2126,7 +2119,17 @@ async function finishChapterOne(): Promise<void> {
   corridorUrl.searchParams.set('room', roomCode);
   corridorUrl.searchParams.set('chapter', '2');
   corridorUrl.searchParams.set('resume', 'checkpoint');
+  corridorUrl.searchParams.set('from', 'chapter-1');
   await wait(950);
+  writeChapterMusicHandoff(
+    sessionStorage,
+    createChapterMusicHandoff(
+      ambienceAudio.currentTime,
+      ambienceAudio.duration,
+      Date.now(),
+      !hostAudioMuted && !ambienceAudio.paused,
+    ),
+  );
   location.replace(corridorUrl.toString());
 }
 
@@ -2257,6 +2260,7 @@ function syncControllerState(): void {
     type: 'proto-controller-state',
     inventoryOpen: inventoryOpen || safeInspectOpen || photoInspectOpen || deskDrawerInspectOpen || cardboardBoxInspectOpen || bedInspectOpen || radioInspectOpen || drawerPuzzleOpen || smokeDeathActive,
     paused: gamePaused,
+    equipmentPrompt: false,
     slots: [...inventorySlots],
     ...(selectedItem ? { selectedItem } : {}),
     ...(detailItem ? { detailItem } : {}),
@@ -3461,16 +3465,8 @@ function handleItemAction(item: ItemId, action: ProtoItemAction): void {
     return;
   }
   if (item === 'completeFirefighterGear') {
-    if (firefighterGearEquipped) return;
-    firefighterGearEquipped = true;
-    selectedItem = item;
-    detailItem = null;
-    clearNotice();
-    if (inventoryOpen) setInventoryOpen(false);
-    else syncControllerState();
-    completePendantObjective('equipFirefighterGear');
-    vibrate([70, 50, 90, 50, 140]);
-    checkChapterExit();
+    showNotice('離開 307、進入走廊後再穿戴。');
+    vibrate(45);
     return;
   }
   const combination = combineFirefighterEquipment(inventorySlots, selectedItem, item);

@@ -232,7 +232,40 @@
       #inventory-area {
         display: grid;
         width: min(100%, 32rem);
+        gap: 0.45rem;
         justify-self: center;
+      }
+
+      #equipment-guide {
+        display: none;
+        padding: 0.5rem 0.65rem;
+        border-left: 3px solid #b75543;
+        background: rgba(45, 13, 10, 0.92);
+        color: #e8d7ce;
+        font-size: 0.78rem;
+        line-height: 1.45;
+        text-align: left;
+      }
+
+      body.equipment-required #equipment-guide {
+        display: block;
+        animation: equipment-guide-in 360ms ease-out both;
+      }
+
+      body.equipment-required .inventory-slot.equipment-target {
+        border-color: #d77057;
+        box-shadow: 0 0 0 2px rgba(215, 112, 87, 0.28), 0 0 1.1rem rgba(184, 54, 36, 0.42);
+        animation: equipment-target-pulse 1.15s ease-in-out infinite;
+      }
+
+      @keyframes equipment-guide-in {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes equipment-target-pulse {
+        0%, 100% { filter: brightness(0.88); }
+        50% { filter: brightness(1.18); }
       }
 
       #phone-inventory {
@@ -395,6 +428,7 @@
       </header>
       <button id="calibrate" class="control-button" type="button">重新校正</button>
       <div id="inventory-area">
+        <div id="equipment-guide" role="status">點一下下方閃動的完整消防裝備進行穿戴</div>
         <div id="phone-inventory" aria-label="物品欄"></div>
       </div>
       <button id="start" type="button">同步 307</button>

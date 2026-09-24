@@ -4,9 +4,21 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import QRCode from 'qrcode';
 import { parseMessage, type ProtoControllerStateMsg } from './shared/protocol';
 import { buildWebSocketUrl, createRoomCode, normalizeRoomCode } from './shared/session';
-import { advanceCorridorPose, normalizeAngle, resolveCorridorObstacles, type CorridorPose } from './corridor-motion';
+import {
+  advanceCorridorPose,
+  corridorHeadRotation,
+  normalizeAngle,
+  resolveCorridorObstacles,
+  type CorridorPose,
+} from './corridor-motion';
 import { addFireHoseStation } from './corridor-fire-hose';
 import { loadSave, writeSave } from './shared/persistence';
+import {
+  clearChapterMusicHandoff,
+  musicHandoffPosition,
+  readChapterMusicHandoff,
+} from './shared/music-handoff';
+import { loadGameSettings } from './prototype/game-settings';
 import {
   completeChapterTwoTrigger,
   corridorHighLookLimit,
@@ -86,6 +98,8 @@ const jumpscareAudioEl = jumpscareAudio;
 const query = new URLSearchParams(location.search);
 const skipPairing = query.get('pair') !== '1' || query.get('nopair') === '1';
 const autoEquip = query.get('autoequip') === '1';
+const continuingFromChapterOne = query.get('from') === 'chapter-1';
+const gameSettings = loadGameSettings(localStorage);
 const REMOTE_CONTROLLER_BASE = 'https://homowang.github.io/corner-horror/';
 const REMOTE_RELAY = 'wss://corner-horror-relay-homowang.onrender.com/ws';
 const CORRIDOR = {
@@ -212,6 +226,11 @@ const entryWallMaterial = new THREE.MeshStandardMaterial({
   bumpScale: 0.025,
   envMapIntensity: 0.1,
 });
+const entranceEndWallMaterial = entryWallMaterial.clone();
+entranceEndWallMaterial.color.set(0x4e4740);
+entranceEndWallMaterial.roughness = 0.96;
+entranceEndWallMaterial.bumpScale = 0.035;
+entranceEndWallMaterial.envMapIntensity = 0.04;
 const severeWallMaterial = wallMaterial.clone();
 severeWallMaterial.color.set(0x635c54);
 severeWallMaterial.roughness = 0.96;
@@ -330,6 +349,19 @@ for (const side of [-1, 1]) {
     );
   }
 }
+
+// Close the entrance end so turning back never exposes the WebGL background as
+// a flat black void outside the corridor model.
+addMesh(
+  new THREE.BoxGeometry(CORRIDOR.halfWidth * 2, CORRIDOR.height, 0.16),
+  entranceEndWallMaterial,
+  new THREE.Vector3(0, CORRIDOR.height * 0.5, CORRIDOR.modelStartZ + 0.08),
+);
+addMesh(
+  new THREE.BoxGeometry(CORRIDOR.halfWidth * 2, 0.22, 0.12),
+  trimMaterial,
+  new THREE.Vector3(0, 0.11, CORRIDOR.modelStartZ - 0.005),
+);
 
 for (const side of [-1, 1]) {
   addMesh(
@@ -991,7 +1023,9 @@ for (let i = 0; i < 38; i += 1) {
 }
 
 const inspectMode = query.get('inspect');
-let pose: CorridorPose = inspectMode === 'fire-door'
+let pose: CorridorPose = inspectMode === 'entrance'
+  ? { x: 0, z: 1.2, yaw: Math.PI }
+  : inspectMode === 'fire-door'
   ? { x: 0, z: -19.25, yaw: 0 }
   : inspectMode === 'story-mid'
     ? { x: 0, z: -6.35, yaw: 0 }
@@ -1017,7 +1051,7 @@ let mouseLook = { x: 0, y: 0 };
 let navigationPulse = 0;
 let navigationPulseUntil = 0;
 const officialChapter = query.get('chapter') === '2';
-let gearEquipped = officialChapter;
+let gearEquipped = false;
 let objectiveCompleted = false;
 let highLookDuration = 0;
 let lastWarningVibration = 0;
@@ -1052,6 +1086,11 @@ let controllerConnected = false;
 let ws: WebSocket | null = null;
 let reconnectTimer: number | null = null;
 let reconnectEnabled = true;
+let unprotectedForwardDuration = 0;
+let pendingMusicHandoff = continuingFromChapterOne
+  ? readChapterMusicHandoff(sessionStorage)
+  : null;
+if (!continuingFromChapterOne) clearChapterMusicHandoff(sessionStorage);
 
 const roomCode = normalizeRoomCode(query.get('room'))
   ?? normalizeRoomCode(sessionStorage.getItem('corner-horror-corridor-room'))
@@ -1114,13 +1153,29 @@ function showSubtitle(message: string, duration = 2600) {
 }
 
 function unlockAudio() {
-  if (audioUnlocked) return;
+  if (audioUnlocked) {
+    if (!paused && !dead && ambienceAudioEl.paused) {
+      void ambienceAudioEl.play().catch(() => undefined);
+    }
+    return;
+  }
   audioUnlocked = true;
-  ambienceAudioEl.volume = 0.18;
-  footstepsAudioEl.volume = 0.22;
-  pendantAudioEl.volume = 0.34;
-  jumpscareAudioEl.volume = 0.58;
-  if (!paused && !dead) void ambienceAudioEl.play().catch(() => undefined);
+  ambienceAudioEl.volume = 0.26 * gameSettings.masterVolume * gameSettings.musicVolume;
+  footstepsAudioEl.volume = 0.22 * gameSettings.masterVolume * gameSettings.effectsVolume;
+  pendantAudioEl.volume = 0.34 * gameSettings.masterVolume * gameSettings.effectsVolume;
+  jumpscareAudioEl.volume = 0.58 * gameSettings.masterVolume * gameSettings.effectsVolume;
+  const startMusic = () => {
+    if (pendingMusicHandoff) {
+      ambienceAudioEl.currentTime = musicHandoffPosition(pendingMusicHandoff, Date.now());
+      const shouldResume = pendingMusicHandoff.shouldResume;
+      pendingMusicHandoff = null;
+      clearChapterMusicHandoff(sessionStorage);
+      if (!shouldResume) return;
+    }
+    if (!paused && !dead) void ambienceAudioEl.play().catch(() => undefined);
+  };
+  if (ambienceAudioEl.readyState >= HTMLMediaElement.HAVE_METADATA) startMusic();
+  else ambienceAudioEl.addEventListener('loadedmetadata', startMusic, { once: true });
 }
 
 function synthImpact(frequency = 110, duration = 0.13, gain = 0.08) {
@@ -1156,6 +1211,7 @@ function makeChapterTwoRecord(): ChapterTwoSaveRecord {
       ...chapterState,
       pose: { ...pose },
       completedTriggers: [...chapterState.completedTriggers],
+      firefighterGearEquipped: gearEquipped,
     },
   };
 }
@@ -1173,13 +1229,16 @@ function applyChapterState(record: ChapterTwoSaveRecord) {
   pose = { ...record.state.pose };
   playtimeBaseMs = record.playtimeMs;
   playtimeStartedAt = performance.now();
-  gearEquipped = true;
-  document.body.classList.add('gear-equipped');
+  gearEquipped = record.state.firefighterGearEquipped ?? true;
+  document.body.classList.toggle('gear-equipped', gearEquipped);
   fireHandleGroup.visible = !chapterState.fireHandleCollected;
   fireDoorOpenAmount = chapterState.fireDoorOpened ? 1 : 0;
   midFireDoorPivot.rotation.y = -Math.PI * 0.49 * fireDoorOpenAmount;
   objectiveCompleted = hasChapterTwoTrigger(chapterState, 'T14');
-  setObjective('抵達樓梯間', objectiveCompleted);
+  setObjective(
+    gearEquipped ? '抵達樓梯間' : '在手機物品欄點選完整消防裝備',
+    objectiveCompleted,
+  );
 }
 
 async function ensureChapterCheckpoint() {
@@ -1205,8 +1264,9 @@ async function ensureChapterCheckpoint() {
   if (record?.chapter === 'chapter-2') applyChapterState(record);
   else {
     chapterState = createChapterTwoStartState();
-    gearEquipped = officialChapter || autoEquip;
-    if (gearEquipped) document.body.classList.add('gear-equipped');
+    gearEquipped = autoEquip;
+    chapterState = { ...chapterState, firefighterGearEquipped: gearEquipped };
+    document.body.classList.toggle('gear-equipped', gearEquipped);
   }
 
   if (!saveArchive.checkpoint || saveArchive.checkpoint.chapter !== 'chapter-2') {
@@ -1350,6 +1410,7 @@ function syncControllerState() {
     slots: ['completeFirefighterGear', 'pendant', null, null, null, null, null, null, null, null, null, null],
     inventoryOpen: false,
     paused: paused || dead || scripted || keypadOpen,
+    equipmentPrompt: !gearEquipped && !dead,
   };
   send(message);
 }
@@ -1361,6 +1422,7 @@ function vibrate(pattern: number | number[]) {
 function equipGear() {
   if (gearEquipped) return;
   gearEquipped = true;
+  chapterState = { ...chapterState, firefighterGearEquipped: true };
   document.body.classList.add('gear-equipped');
   setObjective('穿上消防裝備', true);
   vibrate([45, 35, 90]);
@@ -1815,9 +1877,15 @@ function render() {
     allowedBounds,
   );
   const moved = Math.hypot(pose.x - previous.x, pose.z - previous.z);
+  const pressingIntoSmoke = !gearEquipped && movement.forward > 0.25 && pose.z <= 0.58;
+  unprotectedForwardDuration = THREE.MathUtils.clamp(
+    unprotectedForwardDuration + delta * (pressingIntoSmoke ? 1 : -2),
+    0,
+    2.2,
+  );
+  if (!dead && unprotectedForwardDuration >= 0.9) void startHypoxiaDeath();
   const lookSource = controllerConnected ? phoneLook : mouseLook;
-  const headYaw = THREE.MathUtils.clamp(lookSource.x * 0.23, -0.23, 0.23);
-  const headPitch = THREE.MathUtils.clamp(lookSource.y * 0.34 - 0.035, -0.24, 0.31);
+  const { yaw: headYaw, pitch: headPitch } = corridorHeadRotation(lookSource);
   const walkingBob = moved > 0.0001 ? Math.sin(elapsed * 8.4) * 0.012 : 0;
 
   bodyRig.position.set(pose.x, 0, pose.z);
@@ -2041,9 +2109,12 @@ async function initializeChapterTwo() {
     window.setTimeout(() => {
       if (!objectiveCompleted) setObjective('抵達樓梯間');
     }, 3000);
+  } else {
+    setObjective('在手機物品欄點選完整消防裝備');
   }
   void showQr().catch(() => setPairingStatus('QR Code 產生失敗'));
   connectController();
+  if (continuingFromChapterOne && pendingMusicHandoff?.shouldResume) unlockAudio();
   window.setTimeout(() => document.body.classList.add('scene-ready'), officialChapter ? 1100 : 80);
   render();
 }
