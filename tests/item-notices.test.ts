@@ -21,6 +21,24 @@ describe('item interaction notices', () => {
     expect(hostSource).not.toContain('衣櫃右門(聲音)');
   });
 
+  it('keeps the jammed middle wardrobe door silent', () => {
+    const middleDoorCase = hostSource.match(
+      /case 'wardrobeMiddle':[\s\S]*?case 'wardrobeRight':/,
+    )?.[0];
+    expect(middleDoorCase).toContain('衣櫃中門卡死了，無法打開。');
+    expect(middleDoorCase).not.toContain("playHostSound('wardrobeCreak'");
+    expect(middleDoorCase).not.toContain("room.openWardrobe('middle')");
+  });
+
+  it('matches the wardrobe state overlay to the room grade and feathers its edges', () => {
+    const wardrobeOverlayCss = prototypeSource.match(/\.wardrobe-state-overlay\s*\{[^}]*\}/)?.[0];
+    expect(wardrobeOverlayCss).toContain(
+      'filter: brightness(0.66) contrast(1.12) saturate(0.7);',
+    );
+    expect(wardrobeOverlayCss).toContain('ellipse 18% 34% at 39% 41%');
+    expect(wardrobeOverlayCss).not.toContain('clip-path:');
+  });
+
   it('uses the left-side objective UI instead of pendant and battery notices', () => {
     expect(prototypeSource).toContain('id="story-objective"');
     expect(hostSource).toContain("completePendantObjective('find')");

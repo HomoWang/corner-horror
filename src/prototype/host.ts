@@ -2605,13 +2605,8 @@ function handleInteract(): void {
         }
         return;
       case 'wardrobeMiddle':
-        if (room.openWardrobe('middle')) {
-          clearNotice();
-          void playHostSound('wardrobeCreak', { volume: 0.48, playbackRate: 1 });
-          vibrate([45, 55, 75]);
-        } else {
-          showNotice('衣櫃中門已經打開了。');
-        }
+        showNotice('衣櫃中門卡死了，無法打開。');
+        vibrate([35]);
         return;
       case 'wardrobeRight':
         if (room.openWardrobe('right')) {
@@ -2623,7 +2618,7 @@ function handleInteract(): void {
         }
         return;
       case 'wardrobe':
-        showNotice('三扇門可以分別打開。');
+        showNotice('左右兩扇櫃門可以打開，中間的門卡死了。');
         return;
       case 'receipt':
         if (addItem('receipt')) room.collectObject('receipt');
@@ -3706,8 +3701,6 @@ if (import.meta.env.DEV) {
     updateDrawerCodeDisplay();
   } else if (inspection === 'receipt') {
     room.openWardrobe('left');
-  } else if (inspection === 'receipt-middle') {
-    room.openWardrobe('middle');
   } else if (inspection === 'receipt-picked') {
     room.openWardrobe('left');
     room.collectObject('receipt');

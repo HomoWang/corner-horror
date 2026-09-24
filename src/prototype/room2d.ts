@@ -171,6 +171,7 @@ export class PrototypeRoom2D {
   }
 
   openWardrobe(section: WardrobeSection = 'left'): boolean {
+    if (section === 'middle') return false;
     if (this.wardrobeOpen.has(section)) return false;
     this.wardrobeOpen.add(section);
     this.view = 'wardrobe';
@@ -221,7 +222,7 @@ export class PrototypeRoom2D {
 
   restorePersistenceState(state: PrototypeRoomState): void {
     this.view = state.view;
-    this.wardrobeOpen = new Set(state.wardrobeOpen);
+    this.wardrobeOpen = new Set(state.wardrobeOpen.filter((section) => section !== 'middle'));
     this.safeOpen = state.safeOpen;
     this.tapeInserted = state.tapeInserted;
     this.couplePhotoMounted = state.couplePhotoMounted;
@@ -306,7 +307,7 @@ export class PrototypeRoom2D {
   }
 
   private currentWardrobeOverlay(): string | null {
-    const leftOpen = this.wardrobeOpen.has('left') || this.wardrobeOpen.has('middle');
+    const leftOpen = this.wardrobeOpen.has('left');
     const rightOpen = this.wardrobeOpen.has('right');
     if (leftOpen && rightOpen) return WARDROBE_IMAGES.bothOpen;
     if (rightOpen) return WARDROBE_IMAGES.rightOpen;
@@ -391,7 +392,7 @@ export class PrototypeRoom2D {
 
     if (
       this.view === 'wardrobe' &&
-      (this.wardrobeOpen.has('left') || this.wardrobeOpen.has('middle')) &&
+      this.wardrobeOpen.has('left') &&
       !this.collected.has('receipt')
     ) {
       props.push({
@@ -426,8 +427,7 @@ export class PrototypeRoom2D {
         {
           id: 'receipt', x: 0.291, y: 0.283, width: 0.027, height: 0.138,
           visible: () =>
-            (this.wardrobeOpen.has('left') || this.wardrobeOpen.has('middle')) &&
-            !this.collected.has('receipt'),
+            this.wardrobeOpen.has('left') && !this.collected.has('receipt'),
         },
         { id: 'cardboardBox', x: 0.48, y: 0.535, width: 0.075, height: 0.105 },
         {
